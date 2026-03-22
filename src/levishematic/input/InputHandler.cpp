@@ -45,9 +45,16 @@ void InputHandler::executeAction(Action action) {
         // Phase 4+: 需要获取玩家准心位置
         break;
     case Action::SET_CORNER1:
+        // Phase 4: 通过 SelectionManager 设置角点1（需要外部传入坐标）
+        // 实际的鼠标 Hook 在 render_wireframe_test.cpp 中实现
+        break;
     case Action::SET_CORNER2:
+        // Phase 4: 通过 SelectionManager 设置角点2（需要外部传入坐标）
+        // 实际的鼠标 Hook 在 render_wireframe_test.cpp 中实现
+        break;
     case Action::GRAB_ELEMENT:
-        // Phase 4: 选区操作
+        // Phase 4+: 拖拽模式
+        mGrabMode = !mGrabMode;
         break;
     case Action::OPEN_MAIN_MENU:
     case Action::OPEN_LOAD_MENU:

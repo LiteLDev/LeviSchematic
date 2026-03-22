@@ -25,6 +25,19 @@ SchematicPlacement::SchematicPlacement(
     initSubRegions();
 }
 
+SchematicPlacement::SchematicPlacement(
+    std::vector<LocalBlockEntry> localBlocks,
+    BlockPos                    size,
+    BlockPos                    origin,
+    const std::string&          name
+)
+    : mId(sNextId++)
+    , mName(name)
+    , mLocalBlocks(std::move(localBlocks))
+    , mLocalSize(size)
+    , mOrigin(origin)
+{}
+
 // ================================================================
 // 从 Schematic 的 Region 列表初始化子区域放置参数
 // ================================================================
@@ -158,6 +171,34 @@ SchematicPlacement::generateProjEntries(mce::Color color, bool skipAir) const {
     std::vector<render::ProjEntry> result;
 
     if (!hasSchematic() || !mEnabled || !mRenderEnabled) {
+        if (!hasLocalBlocks() || !mEnabled || !mRenderEnabled || !mLocalSize.has_value()) {
+            return result;
+        }
+
+        result.reserve(mLocalBlocks.size());
+        for (const auto& entry : mLocalBlocks) {
+            if (!entry.block) continue;
+            if (skipAir && entry.block->isAir()) continue;
+
+            auto local = transform::transformLocalPos(
+                entry.localPos,
+                mLocalSize->x,
+                mLocalSize->z,
+                mMirror,
+                mRotation
+            );
+
+            result.push_back(render::ProjEntry{
+                BlockPos{
+                    mOrigin.x + local.x,
+                    mOrigin.y + local.y,
+                    mOrigin.z + local.z,
+                },
+                entry.block,
+                color
+            });
+        }
+
         return result;
     }
 
@@ -199,7 +240,7 @@ SchematicPlacement::generateProjEntries(mce::Color color, bool skipAir) const {
 // 包围盒计算
 // ================================================================
 std::pair<BlockPos, BlockPos> SchematicPlacement::getEnclosingBox() const {
-    if (!hasSchematic()) {
+    if (!hasSchematic() && !hasLocalBlocks()) {
         return {mOrigin, mOrigin};
     }
 
@@ -241,6 +282,7 @@ std::string SchematicPlacement::describeTransform() const {
 // 统计
 // ================================================================
 int SchematicPlacement::getTotalNonAirBlocks() const {
+    if (hasLocalBlocks()) return static_cast<int>(mLocalBlocks.size());
     if (!hasSchematic()) return 0;
     return mSchematic->getTotalNonAirBlocks();
 }

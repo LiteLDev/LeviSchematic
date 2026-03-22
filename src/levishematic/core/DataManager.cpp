@@ -25,7 +25,7 @@ void DataManager::rebuildAndRefresh(std::shared_ptr<RenderChunkCoordinator> coor
 
 void DataManager::init() {
     // 初始化 Schematic 文件搜索目录
-    // 默认在可执行文件所在目录的 "schematics" 子目录
+    // 默认在工作目录下的 "schematics" 子目录，加载和保存共用
     namespace fs = std::filesystem;
     fs::path schemDir = fs::current_path() / "schematics";
     if (!fs::exists(schemDir)) {

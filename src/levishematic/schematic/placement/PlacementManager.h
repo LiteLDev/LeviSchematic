@@ -20,6 +20,7 @@
 
 #include <filesystem>
 #include <functional>
+#include <optional>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -141,6 +142,12 @@ public:
     std::vector<std::string> listAvailableFiles() const;
 
 private:
+    std::optional<SchematicPlacement> loadMcstructurePlacement(
+        const std::filesystem::path& path,
+        BlockPos                      origin,
+        const std::string&            name
+    ) const;
+
     void notifyChange();
 
     std::vector<SchematicPlacement> mPlacements;

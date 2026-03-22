@@ -4,6 +4,7 @@
 #include "levishematic/render/ProjectionRenderer.h"
 #include "levishematic/schematic/placement/PlacementManager.h"
 #include "levishematic/schematic/placement/SchematicPlacement.h"
+#include "levishematic/selection/SelectionManager.h"
 #include "levishematic/LeviShematic.h"
 
 #include "ll/api/command/CommandHandle.h"
@@ -124,15 +125,16 @@ void registerCommands(bool isClient) {
                      CommandOutput&       output,
                      RenderTestParam const& param,
                      Command const&       cmd) {
-            auto& proj = dm.getProjectionState();
-            auto  coord = getCoordinator(origin);
+             auto& proj = dm.getProjectionState();
+             auto  previousSnapshot = proj.getSnapshot();
+             auto  coord = getCoordinator(origin);
 
-            if (param.mode_ == RenderTestParam::mode::single) {
-                proj.setSingle(
-                    origin.getExecutePosition(cmd.mVersion, param.pos),
+             if (param.mode_ == RenderTestParam::mode::single) {
+                proj.replaceEntries({render::ProjEntry{
+                    BlockPos(origin.getExecutePosition(cmd.mVersion, param.pos)),
                     param.blockName.resolveBlock(param.title_date).mBlock,
                     mce::Color(0.75f, 0.85f, 1.0f, 0.85f)
-                );
+                }});
                 sTestEntries.clear();
             } else {
                 sTestEntries.push_back(
@@ -140,19 +142,20 @@ void registerCommands(bool isClient) {
                      param.blockName.resolveBlock(param.title_date).mBlock,
                      mce::Color(0.75f, 0.85f, 1.0f, 0.85f)}
                 );
-                proj.setEntries(sTestEntries);
+                proj.replaceEntries(sTestEntries);
             }
 
-            dm.triggerRebuild(coord);
+            render::triggerRebuildForProjection(coord, std::move(previousSnapshot));
             output.success("Projection updated");
         });
 
     // /rendert（无参数 = 清空）
     renderCmd.overload()
         .execute([&](CommandOrigin const& origin, CommandOutput& output) {
+            auto previousSnapshot = dm.getProjectionState().getSnapshot();
             dm.getProjectionState().clear();
             sTestEntries.clear();
-            dm.triggerRebuild(getCoordinator(origin));
+            render::triggerRebuildForProjection(getCoordinator(origin), std::move(previousSnapshot));
             output.success("Projection cleared");
         });
 
@@ -530,7 +533,7 @@ void registerCommands(bool isClient) {
             auto files = pm.listAvailableFiles();
             if (files.empty()) {
                 output.success(
-                    "No .litematic files found in: {}\nPlace .litematic files there and try again.",
+                    "No schematic files found in: {}\nPlace .litematic or .mcstructure files there and try again.",
                     pm.getSchematicDirectory().string()
                 );
                 return;
@@ -570,12 +573,164 @@ void registerCommands(bool isClient) {
         .text("clear")
         .execute([&](CommandOrigin const& origin, CommandOutput& output) {
             size_t count = pm.getPlacementCount();
+            auto previousSnapshot = dm.getProjectionState().getSnapshot();
             pm.removeAllPlacements();
             dm.getProjectionState().clear();
             sTestEntries.clear();
-            dm.triggerRebuild(getCoordinator(origin));
+            render::triggerRebuildForProjection(getCoordinator(origin), std::move(previousSnapshot));
 
             output.success("Cleared {} placement(s).", count);
+        });
+
+    // ================================================================
+    // Phase 4: 选区命令
+    // ================================================================
+
+    // /schem pos1 [x y z] — 设置选区角点1
+    schemCmd.overload<SchemOriginParam>()
+        .text("pos1")
+        .required("pos")
+        .execute([&](CommandOrigin const& origin,
+                     CommandOutput&       output,
+                     SchemOriginParam const& param,
+                     Command const&       cmd) {
+            auto& selMgr = dm.getSelectionManager();
+            BlockPos pos(origin.getExecutePosition(cmd.mVersion, param.pos));
+            selMgr.setCorner1(pos);
+            output.success("Selection corner 1 set to ({})", pos.toString());
+        });
+
+    // /schem pos1（无坐标 = 玩家位置）
+    schemCmd.overload()
+        .text("pos1")
+        .execute([&](CommandOrigin const& origin, CommandOutput& output) {
+            auto& selMgr = dm.getSelectionManager();
+            BlockPos pos(origin.getWorldPosition());
+            selMgr.setCorner1(pos);
+            output.success("Selection corner 1 set to player position ({})", pos.toString());
+        });
+
+    // /schem pos2 [x y z] — 设置选区角点2
+    schemCmd.overload<SchemOriginParam>()
+        .text("pos2")
+        .required("pos")
+        .execute([&](CommandOrigin const& origin,
+                     CommandOutput&       output,
+                     SchemOriginParam const& param,
+                     Command const&       cmd) {
+            auto& selMgr = dm.getSelectionManager();
+            BlockPos pos(origin.getExecutePosition(cmd.mVersion, param.pos));
+            selMgr.setCorner2(pos);
+            output.success("Selection corner 2 set to ({})", pos.toString());
+        });
+
+    // /schem pos2（无坐标 = 玩家位置）
+    schemCmd.overload()
+        .text("pos2")
+        .execute([&](CommandOrigin const& origin, CommandOutput& output) {
+            auto& selMgr = dm.getSelectionManager();
+            BlockPos pos(origin.getWorldPosition());
+            selMgr.setCorner2(pos);
+            output.success("Selection corner 2 set to player position ({})", pos.toString());
+        });
+
+    // /schem save <name> — 将选区保存为 .mcstructure 文件
+    schemCmd.overload<SchemLoadSimpleParam>()
+        .text("save")
+        .required("filename")
+        .execute([&](CommandOrigin const& origin,
+                     CommandOutput&       output,
+                     SchemLoadSimpleParam const& param) {
+            auto& selMgr = dm.getSelectionManager();
+            if (!selMgr.hasCompleteSelection()) {
+                output.error("Selection is incomplete. Set both corners first (pos1/pos2).");
+                return;
+            }
+
+            auto* dim = origin.getDimension();
+            if (!dim) {
+                output.error("Cannot determine current dimension.");
+                return;
+            }
+
+            bool success = selMgr.saveToMcstructure(param.filename, *dim);
+            if (success) {
+                auto size = selMgr.getSize();
+                output.success(
+                    "Saved selection as '{}' ({}x{}x{})",
+                    param.filename,
+                    size.x,
+                    size.y,
+                    size.z
+                );
+            } else {
+                output.error("Failed to save selection as '{}'", param.filename);
+            }
+        });
+
+    // /schem selection clear — 清除选区
+    schemCmd.overload()
+        .text("selection")
+        .text("clear")
+        .execute([&](CommandOrigin const&, CommandOutput& output) {
+            dm.getSelectionManager().clearSelection();
+            output.success("Selection cleared.");
+        });
+
+    // /schem selection mode — 开关选区模式
+    schemCmd.overload()
+        .text("selection")
+        .text("mode")
+        .execute([&](CommandOrigin const&, CommandOutput& output) {
+            auto& selMgr = dm.getSelectionManager();
+            selMgr.toggleSelectionMode();
+            output.success(
+                "Selection mode: {}§r",
+                selMgr.isSelectionMode() ? "§aON" : "§cOFF"
+            );
+        });
+
+    // /schem selection info — 显示选区信息
+    schemCmd.overload()
+        .text("selection")
+        .text("info")
+        .execute([&](CommandOrigin const&, CommandOutput& output) {
+            auto& selMgr = dm.getSelectionManager();
+            std::string msg = "§eSelection Info:§r\n";
+            msg += "  Mode: " + std::string(selMgr.isSelectionMode() ? "§aON§r" : "§cOFF§r") + "\n";
+
+            if (selMgr.hasCorner1()) {
+                auto c1 = selMgr.getCorner1();
+                msg += "  Corner 1: (" + std::to_string(c1.x) + ", "
+                     + std::to_string(c1.y) + ", "
+                     + std::to_string(c1.z) + ")\n";
+            } else {
+                msg += "  Corner 1: §7(not set)§r\n";
+            }
+
+            if (selMgr.hasCorner2()) {
+                auto c2 = selMgr.getCorner2();
+                msg += "  Corner 2: (" + std::to_string(c2.x) + ", "
+                     + std::to_string(c2.y) + ", "
+                     + std::to_string(c2.z) + ")\n";
+            } else {
+                msg += "  Corner 2: §7(not set)§r\n";
+            }
+
+            if (selMgr.hasCompleteSelection()) {
+                auto size = selMgr.getSize();
+                auto minC = selMgr.getMinCorner();
+                msg += "  Size: " + std::to_string(size.x) + "x"
+                     + std::to_string(size.y) + "x"
+                     + std::to_string(size.z) + "\n";
+                msg += "  Min corner: (" + std::to_string(minC.x) + ", "
+                     + std::to_string(minC.y) + ", "
+                     + std::to_string(minC.z) + ")\n";
+                msg += "  Total blocks: " + std::to_string(
+                    static_cast<int64_t>(size.x) * size.y * size.z) + "\n";
+            }
+
+            output.success(msg);
         });
 
     // ================================================================
@@ -597,10 +752,16 @@ void registerCommands(bool isClient) {
             help += "  §a/schem files§r - List available files\n";
             help += "  §a/schem reset§r - Reset transform\n";
             help += "  §a/schem clear§r - Clear all\n";
+            help += "  §a/schem pos1 [x y z]§r - Set selection corner 1\n";
+            help += "  §a/schem pos2 [x y z]§r - Set selection corner 2\n";
+            help += "  §a/schem save <name>§r - Save selection as .mcstructure\n";
+            help += "  §a/schem selection clear§r - Clear selection\n";
+            help += "  §a/schem selection mode§r - Toggle selection mode\n";
+            help += "  §a/schem selection info§r - Show selection info\n";
             output.success(help);
         });
 
-    getLogger().info("LeviSchematic commands registered (Phase 3)");
+    getLogger().info("LeviSchematic commands registered (Phase 4)");
 }
 
 } // namespace levishematic::command

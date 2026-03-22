@@ -21,6 +21,7 @@
 #include <memory>
 #include <mutex>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 // 前向声明
@@ -61,6 +62,9 @@ public:
     // 完整替换所有投影块（主线程调用）
     void setEntries(std::vector<ProjEntry> newEntries);
 
+    // 完整替换所有投影块，并返回替换前的快照。
+    std::shared_ptr<const ProjectionSnapshot> replaceEntries(std::vector<ProjEntry> newEntries);
+
     // 清空所有投影
     void clear();
 
@@ -98,7 +102,10 @@ ProjectionState& getProjectionState();
 // 遍历快照中所有有投影块的 SubChunk，
 // 调用 RenderChunkCoordinator::_setDirty 触发重建。
 // ================================================================
-void triggerRebuildForProjection(const std::shared_ptr<RenderChunkCoordinator>& coordinator);
+void triggerRebuildForProjection(
+    const std::shared_ptr<RenderChunkCoordinator>& coordinator,
+    std::shared_ptr<const ProjectionSnapshot>      previousSnapshot = nullptr
+);
 
 // ================================================================
 // 线程局部状态（供 Hook 使用）

@@ -15,6 +15,7 @@ add_requires("levilamina", {configs = {target_type = get_config("target_type")}}
 
 add_requires("levibuildscript")
 add_requires("zlib 1.3.2")
+add_requires("glm 1.0.1")
 
 if not has_config("vs_runtime") then
     set_runtimes("MD")
@@ -27,12 +28,15 @@ target("LeviShematic") -- Change this to your mod name.
     add_defines("NOMINMAX", "UNICODE")
     add_packages("levilamina")
     add_packages("zlib")
+    add_packages("glm")
     set_exceptions("none") -- To avoid conflicts with /EHa.
     set_kind("shared")
     set_languages("c++20")
     set_symbols("debug")
-    add_headerfiles("src/**.h")
-    add_files("src/**.cpp")
+    add_headerfiles("src/levishematic/*.h")
+    add_files("src-test/**.cpp",
+    "src/levishematic/*.cpp",
+    "src/levishematic/**/*.cpp")
     add_includedirs("src")
     if is_config("target_type", "server") then
     --  add_includedirs("src-server")

@@ -21,9 +21,16 @@
 // 保留的测试命令：
 //   /rendert ...                     ← 测试渲染（临时）
 //
-// Phase 4+ 命令（预留接口）：
+// Phase 4 命令（已实现）：
+//   /schem pos1 [x y z]              ← 设置选区角点1
+//   /schem pos2 [x y z]              ← 设置选区角点2
+//   /schem save <名称>               ← 将选区保存为 .mcstructure
+//   /schem selection clear            ← 清除选区
+//   /schem selection mode             ← 开关选区模式
+//   /schem selection info             ← 显示选区信息
+//
+// Phase 5+ 命令（预留接口）：
 //   /schem verify / verify stop
-//   /schem save <名称>
 //   /schem materials
 // ============================================================
 

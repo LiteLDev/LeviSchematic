@@ -12,6 +12,7 @@
 
 #include "levishematic/render/ProjectionRenderer.h"
 #include "levishematic/schematic/placement/PlacementManager.h"
+#include "levishematic/selection/SelectionManager.h"
 
 #include <memory>
 
@@ -57,6 +58,10 @@ public:
     // ---- 放置管理器 [Phase 3] ----
     placement::PlacementManager& getPlacementManager() { return mPlacementManager; }
     const placement::PlacementManager& getPlacementManager() const { return mPlacementManager; }
+
+    // ---- 选区管理器 [Phase 4] ----
+    selection::SelectionManager& getSelectionManager() { return selection::SelectionManager::getInstance(); }
+    const selection::SelectionManager& getSelectionManager() const { return selection::SelectionManager::getInstance(); }
 
     // ---- 操作模式 [Phase 4+ 预留] ----
     ToolMode getToolMode() const { return mToolMode; }

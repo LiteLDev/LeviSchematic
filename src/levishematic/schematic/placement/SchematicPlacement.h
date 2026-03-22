@@ -22,6 +22,7 @@
 #include "mc/world/level/BlockPos.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -44,6 +45,11 @@ struct SubRegionPlacement {
 // ================================================================
 class SchematicPlacement {
 public:
+    struct LocalBlockEntry {
+        BlockPos     localPos;
+        const Block* block;
+    };
+
     // 唯一 ID（自增）
     using Id = uint32_t;
 
@@ -54,6 +60,13 @@ public:
         std::shared_ptr<schematic::LitematicSchematic> schematic,
         BlockPos                                        origin,
         const std::string&                              name = ""
+    );
+
+    SchematicPlacement(
+        std::vector<LocalBlockEntry> localBlocks,
+        BlockPos                    size,
+        BlockPos                    origin,
+        const std::string&          name = ""
     );
 
     // ---- 基本信息 ----
@@ -96,6 +109,7 @@ public:
     // ---- Schematic 访问 ----
     std::shared_ptr<schematic::LitematicSchematic> getSchematic() const { return mSchematic; }
     bool hasSchematic() const { return mSchematic != nullptr && mSchematic->isLoaded(); }
+    bool hasLocalBlocks() const { return !mLocalBlocks.empty(); }
 
     // ---- 投影块生成 ----
     // 生成 ProjEntry 列表（世界绝对坐标），skipAir = true 跳过空气块
@@ -131,9 +145,11 @@ private:
     std::string mFilePath;
 
     std::shared_ptr<schematic::LitematicSchematic> mSchematic;
-    BlockPos            mOrigin   = {0, 0, 0};
-    transform::Rotation mRotation = transform::Rotation::NONE;
-    transform::Mirror   mMirror   = transform::Mirror::NONE;
+    std::vector<LocalBlockEntry>                mLocalBlocks;
+    std::optional<BlockPos>                     mLocalSize;
+    BlockPos                                    mOrigin   = {0, 0, 0};
+    transform::Rotation                         mRotation = transform::Rotation::NONE;
+    transform::Mirror                           mMirror   = transform::Mirror::NONE;
 
     bool mEnabled       = true;
     bool mRenderEnabled = true;

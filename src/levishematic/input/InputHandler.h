@@ -3,8 +3,10 @@
 // InputHandler.h
 // 输入处理 — 为未来 GUI 和热键系统预留接口
 //
-// Phase 3: 定义接口骨架，暂无实际 Hook
-// Phase 4+: 实现鼠标/键盘 Hook，热键绑定
+// Phase 3: 定义接口骨架
+// Phase 4: 鼠标选区 Hook 已在 render_wireframe_test.cpp 中实现
+//           （手持木棍左键=角点1，右键=角点2）
+// Phase 5+: 实现键盘 Hook，热键绑定
 //
 // 预留功能：
 //   - 热键绑定管理（按键→动作映射）

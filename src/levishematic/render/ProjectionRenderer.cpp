@@ -17,9 +17,15 @@ thread_local bool                                      tl_hasProjection = false;
 // ================================================================
 
 void ProjectionState::setEntries(std::vector<ProjEntry> newEntries) {
+    replaceEntries(std::move(newEntries));
+}
+
+std::shared_ptr<const ProjectionSnapshot> ProjectionState::replaceEntries(std::vector<ProjEntry> newEntries) {
     std::lock_guard<std::mutex> lk(mEntriesMutex);
+    auto previous = mSnapshot.load(std::memory_order_acquire);
     mEntries = std::move(newEntries);
     rebuildSnapshot_locked();
+    return previous;
 }
 
 void ProjectionState::clear() { setEntries({}); }
@@ -65,15 +71,52 @@ ProjectionState& getProjectionState() { return gProjectionState; }
 //   immediate=false → 下一帧重建（推荐，避免卡顿）
 // ================================================================
 
-void triggerRebuildForProjection(const std::shared_ptr<RenderChunkCoordinator>& coordinator) {
+void triggerRebuildForProjection(
+    const std::shared_ptr<RenderChunkCoordinator>& coordinator,
+    std::shared_ptr<const ProjectionSnapshot>      previousSnapshot
+) {
     if (!coordinator) return;
 
-    auto snap = gProjectionState.getSnapshot();
-    if (!snap || snap->empty()) return;
+    auto currentSnapshot = gProjectionState.getSnapshot();
+    std::unordered_set<uint64_t> dirtyKeys;
 
-    for (const auto& [scKey, vec] : snap->bySubChunk) {
-        if (vec.empty()) continue;
-        const BlockPos& p = vec[0].pos;
+    auto markSnapshot = [&](const std::shared_ptr<const ProjectionSnapshot>& snapshot) {
+        if (!snapshot) return;
+        for (const auto& [scKey, vec] : snapshot->bySubChunk) {
+            if (!vec.empty()) {
+                dirtyKeys.insert(scKey);
+            }
+        }
+    };
+
+    markSnapshot(previousSnapshot);
+    markSnapshot(currentSnapshot);
+
+    if (dirtyKeys.empty()) return;
+
+    auto setDirtyForSnapshot = [&](const std::shared_ptr<const ProjectionSnapshot>& snapshot) {
+        if (!snapshot) return;
+        for (const auto& [scKey, vec] : snapshot->bySubChunk) {
+            if (dirtyKeys.erase(scKey) == 0 || vec.empty()) continue;
+            const BlockPos& p = vec[0].pos;
+            coordinator->_setDirty(p, p, false, false, false);
+        }
+    };
+
+    setDirtyForSnapshot(previousSnapshot);
+    setDirtyForSnapshot(currentSnapshot);
+
+    // 极少数情况下兜底，避免因为快照异常导致旧区块没被重建。
+    for (const auto& scKey : dirtyKeys) {
+        int sx = static_cast<int>(scKey >> 42);
+        int sz = static_cast<int>((scKey >> 21) & 0x1FFFFFu);
+        int sy = static_cast<int>(scKey & 0x1FFFFFu);
+
+        if (sx & (1 << 21)) sx |= ~0x1FFFFF;
+        if (sz & (1 << 20)) sz |= ~0x1FFFFF;
+        if (sy & (1 << 20)) sy |= ~0x1FFFFF;
+
+        BlockPos p{sx << 4, sy << 4, sz << 4};
         coordinator->_setDirty(p, p, false, false, false);
     }
 }
