@@ -27,19 +27,34 @@ void InputHandler::executeAction(Action action) {
 
     switch (action) {
     case Action::TOGGLE_RENDER:
-        if (sel) sel->toggleRender();
+        if (sel) {
+            sel->toggleRender();
+            dm.requestPlacementRefresh();
+        }
         break;
     case Action::ROTATE_CW90:
-        if (sel) sel->rotateCW90();
+        if (sel) {
+            sel->rotateCW90();
+            dm.requestPlacementRefresh();
+        }
         break;
     case Action::ROTATE_CCW90:
-        if (sel) sel->rotateCCW90();
+        if (sel) {
+            sel->rotateCCW90();
+            dm.requestPlacementRefresh();
+        }
         break;
     case Action::MIRROR_X:
-        if (sel) sel->toggleMirrorX();
+        if (sel) {
+            sel->toggleMirrorX();
+            dm.requestPlacementRefresh();
+        }
         break;
     case Action::MIRROR_Z:
-        if (sel) sel->toggleMirrorZ();
+        if (sel) {
+            sel->toggleMirrorZ();
+            dm.requestPlacementRefresh();
+        }
         break;
     case Action::MOVE_TO_CROSSHAIR:
         // Phase 4+: 需要获取玩家准心位置

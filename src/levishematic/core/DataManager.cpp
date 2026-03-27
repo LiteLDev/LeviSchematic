@@ -18,11 +18,29 @@ render::ProjectionState& DataManager::getProjectionState() {
 }
 
 void DataManager::triggerRebuild(std::shared_ptr<RenderChunkCoordinator> coordinator) {
-    render::triggerRebuildForProjection(std::move(coordinator));
+    getProjectionState().triggerRebuild(std::move(coordinator));
 }
 
 void DataManager::rebuildAndRefresh(std::shared_ptr<RenderChunkCoordinator> coordinator) {
     mPlacementManager.rebuildAndRefresh(std::move(coordinator));
+    mPlacementRefreshPending = false;
+}
+
+void DataManager::requestPlacementRefresh() {
+    mPlacementRefreshPending = true;
+}
+
+bool DataManager::flushPlacementRefresh(std::shared_ptr<RenderChunkCoordinator> coordinator) {
+    if (!coordinator) {
+        return false;
+    }
+    if (!(mPlacementRefreshPending || mPlacementManager.needsProjectionRefresh())) {
+        return false;
+    }
+
+    mPlacementManager.rebuildAndRefresh(std::move(coordinator));
+    mPlacementRefreshPending = false;
+    return true;
 }
 
 const std::filesystem::path& DataManager::getSchematicDirectory() const {
@@ -35,17 +53,12 @@ std::filesystem::path DataManager::ensureSchematicDirectory() {
     return mSchematicDirectory;
 }
 
+schematic::SchematicPathResolver DataManager::createSchematicPathResolver() const {
+    return schematic::SchematicPathResolver(mSchematicDirectory);
+}
+
 std::filesystem::path DataManager::makeSchematicFilePath(const std::filesystem::path& path) const {
-    auto result = path;
-    if (!result.is_absolute()) {
-        result = mSchematicDirectory / result;
-    }
-
-    if (result.extension() != ".mcstructure") {
-        result += ".mcstructure";
-    }
-
-    return result;
+    return createSchematicPathResolver().makeFilePath(path);
 }
 
 void DataManager::init() {
@@ -56,13 +69,13 @@ void DataManager::init() {
 
     mSchematicDirectory = structurePath;
     mPlacementManager.setSchematicDirectory(ensureSchematicDirectory());
+    mPlacementManager.setOnChangeCallback([this]() { requestPlacementRefresh(); });
 }
 
 void DataManager::shutdown() {
-    // 清空 PlacementManager（含 ProjectionState 清理）
     mPlacementManager.clear();
-    // 额外确保 ProjectionState 已清空
     render::getProjectionState().clear();
+    mPlacementRefreshPending = false;
 }
 
 } // namespace levishematic::core

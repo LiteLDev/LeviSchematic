@@ -59,14 +59,30 @@ struct ProjectionSnapshot {
 // ================================================================
 class ProjectionState {
 public:
+    // 单写多读模型：
+    //   - 仅主线程/业务线程写入 entries 并替换快照
+    //   - 渲染工作线程只通过 getSnapshot() 读取不可变快照
+
     // 完整替换所有投影块（主线程调用）
     void setEntries(std::vector<ProjEntry> newEntries);
 
     // 完整替换所有投影块，并返回替换前的快照。
     std::shared_ptr<const ProjectionSnapshot> replaceEntries(std::vector<ProjEntry> newEntries);
 
+    // 原子业务接口：替换 entries 并立刻触发受影响区块重建。
+    void replaceEntriesAndTriggerRebuild(
+        std::vector<ProjEntry>                      newEntries,
+        const std::shared_ptr<RenderChunkCoordinator>& coordinator
+    );
+
+    // 业务接口：基于当前快照触发重建，不要求调用方接触快照对象。
+    void triggerRebuild(const std::shared_ptr<RenderChunkCoordinator>& coordinator) const;
+
     // 清空所有投影
     void clear();
+
+    // 原子业务接口：清空投影并立刻触发受影响区块重建。
+    void clearAndTriggerRebuild(const std::shared_ptr<RenderChunkCoordinator>& coordinator);
 
     // 单个方块便利函数
     void setSingle(BlockPos pos, const Block* block, mce::Color color);

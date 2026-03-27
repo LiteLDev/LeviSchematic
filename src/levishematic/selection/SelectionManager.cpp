@@ -7,6 +7,7 @@
 
 #include "levishematic/LeviShematic.h"
 #include "levishematic/core/DataManager.h"
+#include "levishematic/schematic/SchematicPathResolver.h"
 
 #include "ll/api/io/FileUtils.h"
 #include "ll/api/service/Bedrock.h"
@@ -124,8 +125,9 @@ bool SelectionManager::saveToMcstructure(const std::string& name, Dimension& dim
         // 序列化为 CompoundTag
         auto nbtTag = structureTemplate->save();
 
-        auto structurePath = core::DataManager::getInstance().makeSchematicFilePath(std::filesystem::path{name});
-        core::DataManager::getInstance().ensureSchematicDirectory();
+        auto& dm            = core::DataManager::getInstance();
+        auto  structurePath = dm.createSchematicPathResolver().makeFilePath(std::filesystem::path{name});
+        dm.ensureSchematicDirectory();
 
         ll::utils::file_utils::writeFile(structurePath, nbtTag->toBinaryNbt(), true);
 

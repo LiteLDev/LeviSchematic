@@ -28,7 +28,23 @@ std::shared_ptr<const ProjectionSnapshot> ProjectionState::replaceEntries(std::v
     return previous;
 }
 
+void ProjectionState::replaceEntriesAndTriggerRebuild(
+    std::vector<ProjEntry>                      newEntries,
+    const std::shared_ptr<RenderChunkCoordinator>& coordinator
+) {
+    auto previousSnapshot = replaceEntries(std::move(newEntries));
+    triggerRebuildForProjection(coordinator, std::move(previousSnapshot));
+}
+
+void ProjectionState::triggerRebuild(const std::shared_ptr<RenderChunkCoordinator>& coordinator) const {
+    triggerRebuildForProjection(coordinator);
+}
+
 void ProjectionState::clear() { setEntries({}); }
+
+void ProjectionState::clearAndTriggerRebuild(const std::shared_ptr<RenderChunkCoordinator>& coordinator) {
+    replaceEntriesAndTriggerRebuild({}, coordinator);
+}
 
 void ProjectionState::setSingle(BlockPos pos, const Block* block, mce::Color color) {
     setEntries({ProjEntry{pos, block, color}});
