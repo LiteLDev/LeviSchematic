@@ -75,8 +75,6 @@ struct KeyBinding {
 // ================================================================
 class InputHandler {
 public:
-    static InputHandler& getInstance();
-
     // ---- 动作执行 ----
     // 执行指定动作（命令系统和未来的热键均可调用）
     void executeAction(Action action);
@@ -107,8 +105,6 @@ public:
     void shutdown();
 
 private:
-    InputHandler() = default;
-
     // 默认热键表
     void setupDefaultBindings();
 

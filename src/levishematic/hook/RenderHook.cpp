@@ -1,5 +1,6 @@
 #include "RenderHook.h"
 
+#include "levishematic/app/AppKernel.h"
 #include "levishematic/render/ProjectionRenderer.h"
 #include "levishematic/util/PositionUtils.h"
 
@@ -9,18 +10,14 @@
 #include "mc/client/renderer/chunks/RenderChunkBuilder.h"
 #include "mc/world/level/block/Block.h"
 
-// ================================================================
-// 引擎内部结构（从 IDA 反编译获得）
-// ================================================================
-
 struct BlockQueueEntry {
-    BlockPos     pos;       // offset 0x00, 12 bytes
-    const Block* blockInfo; // offset 0x10, 8 bytes
+    BlockPos     pos;
+    const Block* blockInfo;
 };
 
 struct RenderChunkGeometry {
     char     unk[0x34];
-    BlockPos mPosition; // SubChunk 原点
+    BlockPos mPosition;
     BlockPos mCenter;
     char     unk2[0x1fc];
 };
@@ -30,22 +27,15 @@ namespace levishematic::hook {
 using namespace levishematic::render;
 using namespace levishematic::util;
 
-// ================================================================
-// Hook 1：RenderChunkBuilder::_sortBlocks
-//
-// 真实签名（IDA 0x14201a600，RVA = 0x201a600）：
-//   char _sortBlocks(BlockSource& region,
-//                    RenderChunkGeometry& renderChunkGeometry,
-//                    bool airAndSimpleBlocks,
-//                    AirAndSimpleBlockBits& airBits)
-//
-// 职责：
-//   1. 原子 load 快照到 tl_currentSnapshot（无锁）
-//   2. 用 renderChunkGeometry.mPosition 查 bySubChunk HashMap（O(1)）
-//   3. push_back 投影块进 mQueues[BLEND]
-//   4. 设置 tl_hasProjection 标志
-// ================================================================
-LL_AUTO_TYPE_INSTANCE_HOOK(
+namespace {
+
+bool gRenderHooksRegistered = false;
+
+} // namespace
+
+
+// 0x201a600：
+LL_TYPE_INSTANCE_HOOK(
     ProjectionSortBlocksHook,
     ll::memory::HookPriority::Normal,
     RenderChunkBuilder,
@@ -57,58 +47,41 @@ LL_AUTO_TYPE_INSTANCE_HOOK(
     AirAndSimpleBlockBits&                                       airAndSimpleBlocks,
     RenderChunkPerformanceTrackingData::RenderChunkBuildDetails& renderChunkBuildDetails
 ) {
-    // Step 1: 执行原始 _sortBlocks
     bool result = origin(region, renderChunkGeometry, transparentLeaves, airAndSimpleBlocks, renderChunkBuildDetails);
 
-    // load 快照（atomic，无锁，工作线程安全）
-    tl_currentSnapshot = getProjectionState().getSnapshot();
-    tl_hasProjection   = false;
+    tl_hasProjection = false;
+    tl_currentScene.reset();
 
-    if (!tl_currentSnapshot || tl_currentSnapshot->empty()) {
+    if (!app::hasAppKernel()) {
         return result;
     }
 
-    // renderChunkGeometry.mPosition 是 SubChunk 原点（偏移 0x34）
-    uint64_t scKey = encodeSubChunkKey(renderChunkGeometry.mPosition);
+    auto& controller = app::getAppKernel().controller();
+    controller.flushProjectionRefresh(nullptr);
 
-    auto it = tl_currentSnapshot->bySubChunk.find(scKey);
-    if (it == tl_currentSnapshot->bySubChunk.end() || it->second.empty()) {
+    tl_currentScene = controller.projectionScene();
+    if (!tl_currentScene || tl_currentScene->empty()) {
         return result;
     }
 
-    // 有投影块：设置标志，push 进 BLEND 队列
+    auto subChunkKey = encodeSubChunkKey(renderChunkGeometry.mPosition);
+    auto it          = tl_currentScene->bySubChunk.find(subChunkKey);
+    if (it == tl_currentScene->bySubChunk.end() || it->second.empty()) {
+        return result;
+    }
+
     tl_hasProjection = true;
-
-    for (const auto& e : it->second) {
-        BlockQueueEntry entry;
-        entry.pos       = e.pos;
-        entry.blockInfo = e.block;
-        this->mQueues[RENDERLAYER_BLEND].push_back(entry);
+    for (auto const& entry : it->second) {
+        BlockQueueEntry queueEntry;
+        queueEntry.pos       = entry.pos;
+        queueEntry.blockInfo = entry.block;
+        this->mQueues[RENDERLAYER_BLEND].push_back(queueEntry);
     }
 
     return result;
 }
 
-// ================================================================
-// Hook 2：BlockTessellator::tessellateInWorld（精确颜色控制）
-//
-// 签名（IDA 0x141f250e0）：
-//   bool tessellateInWorld(Tessellator& tessellator,
-//                          const Block& block,
-//                          const BlockPos& pos,
-//                          bool useCalcWithCache)
-//
-// 性能分层：
-//   无投影 SubChunk → 读 1 次 bool，直接 origin（几乎零开销）
-//   有投影 SubChunk → 1 次 unordered_map 查找（O(1)）
-//     命中（投影块）→ 设置 mColorOverride + origin + 清除
-//     未命中（真实方块）→ 直接 origin
-//
-// 草方块变色根治：
-//   每次只对命中 pos 的那次调用设置 mColorOverride，origin 返回后立刻清除。
-//   其他方块走正常生物群系色采样路径。
-// ================================================================
-LL_AUTO_TYPE_INSTANCE_HOOK(
+LL_TYPE_INSTANCE_HOOK(
     ProjectionTessellateHook,
     ll::memory::HookPriority::Normal,
     BlockTessellator,
@@ -119,26 +92,38 @@ LL_AUTO_TYPE_INSTANCE_HOOK(
     BlockPos const& pos,
     bool            useCalcWithCache
 ) {
-    // 快速路径：当前 SubChunk 无投影块（绝大多数 SubChunk）
     if (!tl_hasProjection) {
         return origin(tessellator, block, pos, useCalcWithCache);
     }
 
-    // O(1) 查 pos 是否是投影块
-    auto it = tl_currentSnapshot->posColorMap.find(encodePosKey(pos));
-    if (it == tl_currentSnapshot->posColorMap.end()) {
-        // 真实方块，完全不碰 mColorOverride
+    auto it = tl_currentScene->posColorMap.find(encodePosKey(pos));
+    if (it == tl_currentScene->posColorMap.end()) {
         return origin(tessellator, block, pos, useCalcWithCache);
     }
 
-    // 投影块：精确夹住 mColorOverride
     this->mColorOverride = it->second;
-
-    bool result = origin(tessellator, block, pos, useCalcWithCache);
-
-    // 立刻清除，不影响下一个方块
+    bool result          = origin(tessellator, block, pos, useCalcWithCache);
     this->mColorOverride->reset();
     return result;
+}
+using RenderHook = ll::memory::HookRegistrar<
+    ProjectionSortBlocksHook,
+    ProjectionTessellateHook>;
+
+void registerRenderHooks() {
+    if (gRenderHooksRegistered) {
+        return;
+    }
+    RenderHook::hook();
+    gRenderHooksRegistered = true;
+}
+
+void unregisterRenderHooks() {
+    if (!gRenderHooksRegistered) {
+        return;
+    }
+    RenderHook::unhook();
+    gRenderHooksRegistered = false;
 }
 
 } // namespace levishematic::hook

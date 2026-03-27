@@ -1,6 +1,6 @@
 #pragma once
 
-#include "levishematic/schematic/placement/SchematicPlacement.h"
+#include "levishematic/schematic/placement/PlacementModel.h"
 
 #include <filesystem>
 #include <optional>
@@ -22,47 +22,46 @@ struct LoadPlacementError {
     Code        code{};
     std::string detail;
 
-    std::string describe(std::string_view target) const;
+    [[nodiscard]] std::string describe(std::string_view target) const;
 };
 
 template <typename T, typename E>
-class Result {
+class Expected {
 public:
-    static Result success(T value) {
-        Result result;
+    static Expected success(T value) {
+        Expected result;
         result.mValue.emplace(std::move(value));
         return result;
     }
 
-    static Result failure(E error) {
-        Result result;
+    static Expected failure(E error) {
+        Expected result;
         result.mError.emplace(std::move(error));
         return result;
     }
 
-    bool hasValue() const { return mValue.has_value(); }
+    [[nodiscard]] bool hasValue() const { return mValue.has_value(); }
     explicit operator bool() const { return hasValue(); }
 
-    T& value() & { return *mValue; }
-    const T& value() const& { return *mValue; }
-    T&& value() && { return std::move(*mValue); }
+    T&       value() & { return *mValue; }
+    T const& value() const& { return *mValue; }
+    T&&      value() && { return std::move(*mValue); }
 
-    const E& error() const { return *mError; }
+    E const& error() const { return *mError; }
 
 private:
     std::optional<T> mValue;
     std::optional<E> mError;
 };
 
-using LoadPlacementDataResult = Result<SchematicPlacement, LoadPlacementError>;
+using LoadAssetResult = Expected<std::shared_ptr<const SchematicAsset>, LoadPlacementError>;
 
 struct LoadPlacementResult {
-    SchematicPlacement::Id            id = 0;
+    std::optional<PlacementId>        id;
     std::filesystem::path             resolvedPath;
     std::optional<LoadPlacementError> error;
 
-    explicit operator bool() const { return id != 0; }
+    explicit operator bool() const { return id.has_value(); }
 };
 
 } // namespace levishematic::placement
-

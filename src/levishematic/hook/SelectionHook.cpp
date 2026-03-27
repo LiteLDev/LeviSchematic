@@ -1,15 +1,8 @@
-// ============================================================
-// SelectionHook.cpp
-// 选区相关 Hook 实现（Phase 4）
-//
-// 参考 src-test/render_wireframe_test.cpp 中的最小实现，
-// 将选区线框渲染、鼠标左右键选区 Hook 整合到正式模块中。
-// ============================================================
-
 #include "SelectionHook.h"
 
 #include "levishematic/LeviShematic.h"
-#include "levishematic/selection/SelectionManager.h"
+#include "levishematic/app/AppKernel.h"
+#include "levishematic/selection/SelectionState.h"
 
 #include "ll/api/memory/Hook.h"
 
@@ -30,21 +23,18 @@
 #include "mc/world/item/Item.h"
 #include "mc/world/item/VanillaItemNames.h"
 #include "mc/world/level/BlockPos.h"
-#include "mc/world/level/dimension/Dimension.h"
+
+#include <array>
+#include <variant>
 
 namespace levishematic::hook {
+namespace {
 
-// ─────────────────────────────────────────────────────────────────
-// Logger
-// ─────────────────────────────────────────────────────────────────
+bool gSelectionHooksRegistered = false;
 
-static auto& getLogger() {
+auto& getLogger() {
     return levishematic::LeviShematic::getInstance().getSelf().getLogger();
 }
-
-// ─────────────────────────────────────────────────────────────────
-// § 1  线框基础类型
-// ─────────────────────────────────────────────────────────────────
 
 struct WireframeQuad {
     std::array<Vec3, 4> quad;
@@ -52,24 +42,21 @@ struct WireframeQuad {
 };
 
 struct Wireframe {
-    BlockPos                      origin; // 线框左下后角，世界坐标
-    BlockPos                      size;   // 尺寸，单位：方块（各轴 ≥ 1）
+    BlockPos                      origin;
+    BlockPos                      size;
     std::array<WireframeQuad, 24> quadList;
 };
 
-// ─────────────────────────────────────────────────────────────────
-// § 2  计算选区包围盒线框顶点
-// ─────────────────────────────────────────────────────────────────
-//
-// 每条棱有两个细长矩形以L形式组成，12棱 × 2 = 24矩形
-// 原点处 3 条棱带坐标轴颜色（红=X, 绿=Y, 蓝=Z），其余白色
+std::array<WireframeQuad, 24> GenerateStructureBlockWireframe(const BlockPos& size) {
+    const float E = 0.005f;
+    const float C = 0.015f;
 
-static std::array<WireframeQuad, 24> GenerateStructureBlockWireframe(const BlockPos& size) {
-    const float E = 0.005f, C = 0.015f;
-
-    const float x0 = -E, x1 = size.x + E;
-    const float y0 = -E, y1 = size.y + E;
-    const float z0 = -E, z1 = size.z + E;
+    const float x0 = -E;
+    const float x1 = size.x + E;
+    const float y0 = -E;
+    const float y1 = size.y + E;
+    const float z0 = -E;
+    const float z1 = size.z + E;
 
     const float xn = size.x - C;
     const float yn = size.y - C;
@@ -83,35 +70,30 @@ static std::array<WireframeQuad, 24> GenerateStructureBlockWireframe(const Block
         quadList[i++] = {{{V3{x, y0, z}, V3{x, y1, z}, V3{wx, yn, z}, V3{wx, C, z}}}, col};
         quadList[i++] = {{{V3{x, y0, z}, V3{x, y1, z}, V3{x, yn, wz}, V3{x, C, wz}}}, col};
     };
-
     auto makeX = [&](float y, float z, float wy, float wz, int col) {
         quadList[i++] = {{{V3{x0, y, z}, V3{x1, y, z}, V3{xn, wy, z}, V3{C, wy, z}}}, col};
         quadList[i++] = {{{V3{x0, y, z}, V3{x1, y, z}, V3{xn, y, wz}, V3{C, y, wz}}}, col};
     };
-
     auto makeZ = [&](float x, float y, float wx, float wy, int col) {
         quadList[i++] = {{{V3{x, y, z0}, V3{x, y, z1}, V3{wx, y, zn}, V3{wx, y, C}}}, col};
         quadList[i++] = {{{V3{x, y, z0}, V3{x, y, z1}, V3{x, wy, zn}, V3{x, wy, C}}}, col};
     };
 
-    const uint32_t colR = 0xFFFF0000; // X轴红色
-    const uint32_t colG = 0xFF00FF00; // Y轴绿色
-    const uint32_t colB = 0xFF0000FF; // Z轴蓝色
-    const uint32_t colW = 0xFFFFFFFF; // 纯白
+    const uint32_t colR = 0xFFFF0000;
+    const uint32_t colG = 0xFF00FF00;
+    const uint32_t colB = 0xFF0000FF;
+    const uint32_t colW = 0xFFFFFFFF;
 
-    // 沿 Y 轴的 4 条棱
     makeY(-E, -E, C, C, colG);
     makeY(x1, -E, xn, C, colW);
     makeY(x1, z1, xn, zn, colW);
     makeY(-E, z1, C, zn, colW);
 
-    // 沿 X 轴的 4 条棱
     makeX(-E, -E, C, C, colR);
     makeX(y1, -E, yn, C, colW);
     makeX(y1, z1, yn, zn, colW);
     makeX(-E, z1, C, zn, colW);
 
-    // 沿 Z 轴的 4 条棱
     makeZ(-E, -E, C, C, colB);
     makeZ(x1, -E, xn, C, colW);
     makeZ(x1, y1, xn, yn, colW);
@@ -120,12 +102,7 @@ static std::array<WireframeQuad, 24> GenerateStructureBlockWireframe(const Block
     return quadList;
 }
 
-// ─────────────────────────────────────────────────────────────────
-// § 3  渲染提交函数
-// ─────────────────────────────────────────────────────────────────
-
-// 提交选区包围盒线框渲染
-static void DrawAxisLines(
+void DrawAxisLines(
     ScreenContext&          screenCtx,
     Tessellator&            tess,
     const mce::MaterialPtr& material,
@@ -135,15 +112,12 @@ static void DrawAxisLines(
     auto currentMat            = screenCtx.camera.worldMatrixStack->push(false);
     currentMat.stack->_isDirty = true;
 
-    glm::vec3 negTarget = -cameraPos;
-    auto*     mat       = currentMat.mat;
-
-    mat->_m                    = glm::translate(mat->_m.get(), negTarget);
+    auto* mat = currentMat.mat;
+    mat->_m   = glm::translate(mat->_m.get(), -cameraPos);
     currentMat.stack->_isDirty = true;
-    mat->_m = glm::translate(mat->_m.get(), {wf.origin.x, wf.origin.y, wf.origin.z});
+    mat->_m   = glm::translate(mat->_m.get(), {wf.origin.x, wf.origin.y, wf.origin.z});
 
     tess.begin({}, mce::PrimitiveMode::QuadList, 96, false);
-
     for (auto& quad : wf.quadList) {
         tess.color(mce::Color(quad.color));
         tess.vertex(quad.quad[0].x, quad.quad[0].y, quad.quad[0].z);
@@ -151,27 +125,27 @@ static void DrawAxisLines(
         tess.vertex(quad.quad[2].x, quad.quad[2].y, quad.quad[2].z);
         tess.vertex(quad.quad[3].x, quad.quad[3].y, quad.quad[3].z);
     }
-    {
-        std::variant<
-            std::monostate,
-            UIActorOffscreenCaptureDescription,
-            UIThumbnailMeshOffscreenCaptureDescription,
-            UIMeshOffscreenCaptureDescription,
-            UIStructureVolumeOffscreenCaptureDescription>
-            od;
-        MeshHelpers::renderMeshImmediately(screenCtx, tess, material, od);
-    }
+
+    std::variant<
+        std::monostate,
+        UIActorOffscreenCaptureDescription,
+        UIThumbnailMeshOffscreenCaptureDescription,
+        UIMeshOffscreenCaptureDescription,
+        UIStructureVolumeOffscreenCaptureDescription>
+        captureDesc;
+    MeshHelpers::renderMeshImmediately(screenCtx, tess, material, captureDesc);
+
     currentMat.stack->_isDirty = true;
     if (currentMat.stack->sortOrigin->has_value()
-        && (currentMat.stack->stack->size() - 1) <= currentMat.stack->sortOrigin->value())
+        && (currentMat.stack->stack->size() - 1) <= currentMat.stack->sortOrigin->value()) {
         currentMat.stack->sortOrigin->reset();
+    }
     currentMat.stack->stack->pop_back();
     currentMat.mat   = nullptr;
     currentMat.stack = nullptr;
 }
 
-// 提交单个方块位置的线框渲染（黄色）
-static void DrawPosLine(
+void DrawPosLine(
     ScreenContext&          screenCtx,
     Tessellator&            tess,
     const mce::MaterialPtr& material,
@@ -183,9 +157,7 @@ static void DrawPosLine(
     tess.mPostTransformOffset->x = -cameraPos.x;
     tess.mPostTransformOffset->y = -cameraPos.y;
     tess.mPostTransformOffset->z = -cameraPos.z;
-
     tessellateWireBox(tess, box);
-
     tess.mPostTransformOffset = Vec3::ZERO();
 
     screenCtx.currentShaderColor.color = mce::Color::YELLOW();
@@ -202,18 +174,9 @@ static void DrawPosLine(
     MeshHelpers::renderMeshImmediately(screenCtx, tess, material, captureDesc);
 }
 
-// ─────────────────────────────────────────────────────────────────
-// § 5  渲染 Hook
-// ─────────────────────────────────────────────────────────────────
-//
-// Hook 目标：LevelRendererCamera::renderStructureWireframes
-//
-// 选择理由：
-//   ① 每帧必经，保证线框同帧渲染，无闪烁
-//   ② 已持有 ScreenContext / Tessellator / material
-//   ③ 先调原函数（保留游戏线框）→ 再追加自定义线框
+} // namespace
 
-LL_AUTO_TYPE_INSTANCE_HOOK(
+LL_TYPE_INSTANCE_HOOK(
     SelectionRenderWireframeHook,
     ll::memory::HookPriority::Normal,
     LevelRendererCamera,
@@ -225,62 +188,49 @@ LL_AUTO_TYPE_INSTANCE_HOOK(
 ) {
     origin(renderContext, clientInstance, renderObj);
 
-    auto& selMgr = selection::SelectionManager::getInstance();
+    if (!app::hasAppKernel()) {
+        return;
+    }
 
-    // 当选区模式开启时，渲染角点方块线框
-    if (selMgr.isSelectionMode()) {
-        // 渲染角点1
-        if (selMgr.hasCorner1()) {
-            BlockPos c1 = selMgr.getCorner1();
+    auto overlay = app::getAppKernel().controller().selectionOverlay();
+    if (overlay.selectionMode) {
+        if (overlay.corner1) {
             DrawPosLine(
                 renderContext.mScreenContext,
                 renderContext.mScreenContext.tessellator,
                 this->wireframeMaterial,
-                c1,
+                *overlay.corner1,
                 this->mCameraTargetPos
             );
         }
-        // 渲染角点2
-        if (selMgr.hasCorner2()) {
-            BlockPos c2 = selMgr.getCorner2();
+        if (overlay.corner2) {
             DrawPosLine(
                 renderContext.mScreenContext,
                 renderContext.mScreenContext.tessellator,
                 this->wireframeMaterial,
-                c2,
+                *overlay.corner2,
                 this->mCameraTargetPos
             );
         }
     }
 
-    // 渲染选区包围盒线框（状态由 SelectionManager 统一管理）
-    if (auto wireframeState = selMgr.getSelectionWireframeState(); wireframeState.has_value()) {
-        Wireframe wf{
-            wireframeState->origin,
-            wireframeState->size,
-            GenerateStructureBlockWireframe(wireframeState->size)
+    if (overlay.origin && overlay.size) {
+        Wireframe wireframe{
+            *overlay.origin,
+            *overlay.size,
+            GenerateStructureBlockWireframe(*overlay.size)
         };
         DrawAxisLines(
             renderContext.mScreenContext,
             renderContext.mScreenContext.tessellator,
             this->wireframeMaterial,
-            wf,
+            wireframe,
             renderObj.mViewData->mCameraTargetPos
         );
     }
 }
 
-// ─────────────────────────────────────────────────────────────────
-// § 6  鼠标选区 Hook
-// ─────────────────────────────────────────────────────────────────
-//
-// 手持木棍时：
-//   左键 → 设置角点1（取消方块破坏）
-//   右键 → 设置角点2
-// 两个角点都设置后自动生成选区线框
-
-// 右键 Hook → 设置角点2
-LL_AUTO_TYPE_INSTANCE_HOOK(
+LL_TYPE_INSTANCE_HOOK(
     SelectionClickPos2Hook,
     HookPriority::Normal,
     GameMode,
@@ -292,18 +242,22 @@ LL_AUTO_TYPE_INSTANCE_HOOK(
     ::Vec3 const&     hit,
     bool              isFirstEvent
 ) {
-    auto& selMgr = selection::SelectionManager::getInstance();
+    if (!app::hasAppKernel()) {
+        return origin(item, at, face, hit, isFirstEvent);
+    }
 
-    if (isFirstEvent && selMgr.isSelectionMode() && item.isInstance(VanillaItemNames::Stick(), false)) {
-        selMgr.setCorner2(at);
+    auto& controller = app::getAppKernel().controller();
+    if (isFirstEvent
+        && controller.state().selection.selectionMode
+        && item.isInstance(VanillaItemNames::Stick(), false)) {
+        controller.setSelectionCorner2(at);
         getLogger().debug("Selection pos2: {}", at.toString());
         return InteractionResult{InteractionResult::Result::Success};
     }
     return origin(item, at, face, hit, isFirstEvent);
 }
 
-// 左键 Hook → 设置角点1
-LL_AUTO_TYPE_INSTANCE_HOOK(
+LL_TYPE_INSTANCE_HOOK(
     SelectionClickPos1Hook,
     HookPriority::Normal,
     GameMode,
@@ -314,17 +268,41 @@ LL_AUTO_TYPE_INSTANCE_HOOK(
     uchar           hitFace,
     bool&           hasDestroyedBlock
 ) {
-    auto& selMgr = selection::SelectionManager::getInstance();
+    if (!app::hasAppKernel()) {
+        return origin(hitPos, vec3, hitFace, hasDestroyedBlock);
+    }
+
+    auto& controller = app::getAppKernel().controller();
     auto& item =
         this->mPlayer.mInventory->mInventory->getItem(this->mPlayer.mInventory->mSelected);
 
-    if (selMgr.isSelectionMode() && item.isInstance(VanillaItemNames::Stick(), false)) {
-        selMgr.setCorner1(hitPos);
+    if (controller.state().selection.selectionMode && item.isInstance(VanillaItemNames::Stick(), false)) {
+        controller.setSelectionCorner1(hitPos);
         getLogger().debug("Selection pos1: {}", hitPos.toString());
-        // 取消方块破坏操作
         return false;
     }
     return origin(hitPos, vec3, hitFace, hasDestroyedBlock);
+}
+
+using selectionHook = ll::memory::HookRegistrar<
+    SelectionRenderWireframeHook,
+    SelectionClickPos2Hook,
+    SelectionClickPos1Hook>;
+
+void registerSelectionHooks() {
+    if (gSelectionHooksRegistered) {
+        return;
+    }
+    selectionHook::hook();
+    gSelectionHooksRegistered = true;
+}
+
+void unregisterSelectionHooks() {
+    if (!gSelectionHooksRegistered) {
+        return;
+    }
+    selectionHook::unhook();
+    gSelectionHooksRegistered = false;
 }
 
 } // namespace levishematic::hook

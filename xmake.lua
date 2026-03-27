@@ -31,10 +31,8 @@ target("LeviShematic") -- Change this to your mod name.
     set_kind("shared")
     set_languages("c++20")
     set_symbols("debug")
-    add_headerfiles("src/levishematic/*.h")
-    add_files("src-test/**.cpp",
-    "src/levishematic/*.cpp",
-    "src/levishematic/**/*.cpp")
+    add_headerfiles("src/**.h")
+    add_files("src/**.cpp")
     add_includedirs("src")
     if is_config("target_type", "server") then
     --  add_includedirs("src-server")

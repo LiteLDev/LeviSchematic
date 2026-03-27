@@ -2,7 +2,7 @@
 
 namespace levishematic::hook {
 
-void registerRenderHooks();
-void unregisterRenderHooks();
+void registerRuntimeHooks();
+void unregisterRuntimeHooks();
 
 } // namespace levishematic::hook

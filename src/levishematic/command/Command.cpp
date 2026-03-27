@@ -13,8 +13,6 @@ auto& getLogger() {
 } // namespace
 
 void registerCommands(bool isClient) {
-    registerRenderTestCommands(isClient);
-
     auto& schemCmd = getOrCreateSchemCommand(isClient);
     registerSchemLoadCommands(schemCmd);
     registerSchemTransformCommands(schemCmd);

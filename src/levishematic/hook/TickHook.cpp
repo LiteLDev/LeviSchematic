@@ -1,7 +1,6 @@
 #include "TickHook.h"
 
-#include "levishematic/command/Command.h"
-#include "levishematic/core/DataManager.h"
+#include "levishematic/app/AppKernel.h"
 
 #include "ll/api/memory/Hook.h"
 
@@ -10,12 +9,6 @@
 
 namespace levishematic::hook {
 
-// ================================================================
-// Hook: ServerScriptManager::onServerThreadStarted
-//
-// 在服务端脚本管理器启动时注册命令。
-// 这是命令注册的正确时机——CommandRegistrar 已初始化。
-// ================================================================
 LL_AUTO_TYPE_INSTANCE_HOOK(
     ServerStartCommandRegistration,
     HookPriority::Highest,
@@ -26,11 +19,9 @@ LL_AUTO_TYPE_INSTANCE_HOOK(
 ) {
     auto res = origin(ins);
 
-    // 初始化 DataManager
-    core::DataManager::getInstance().init();
-
-    // 注册命令
-    command::registerCommands(false);
+    if (app::hasAppKernel()) {
+        app::getAppKernel().onServerThreadStarted();
+    }
 
     return res;
 }

@@ -1,5 +1,7 @@
 #include "levishematic/LeviShematic.h"
 
+#include "levishematic/app/AppKernel.h"
+
 #include "ll/api/mod/RegisterHelper.h"
 
 namespace levishematic {
@@ -11,19 +13,18 @@ LeviShematic& LeviShematic::getInstance() {
 
 bool LeviShematic::load() {
     getSelf().getLogger().debug("Loading...");
-    // Code for loading the mod goes here.
     return true;
 }
 
 bool LeviShematic::enable() {
     getSelf().getLogger().debug("Enabling...");
-    // Code for enabling the mod goes here.
+    app::start();
     return true;
 }
 
 bool LeviShematic::disable() {
     getSelf().getLogger().debug("Disabling...");
-    // Code for disabling the mod goes here.
+    app::stop();
     return true;
 }
 

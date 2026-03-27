@@ -1,6 +1,6 @@
 #include "levishematic/command/CommandShared.h"
 
-#include "levishematic/core/DataManager.h"
+#include "levishematic/selection/SelectionExporter.h"
 
 #include "mc/server/commands/Command.h"
 #include "mc/world/level/BlockPos.h"
@@ -8,9 +8,6 @@
 namespace levishematic::command {
 
 void registerSchemSelectionCommands(ll::command::CommandHandle& schemCmd) {
-    auto& dm     = core::DataManager::getInstance();
-    auto& selMgr = dm.getSelectionManager();
-
     schemCmd.overload<SchemOriginParam>()
         .text("pos1")
         .required("pos")
@@ -18,14 +15,16 @@ void registerSchemSelectionCommands(ll::command::CommandHandle& schemCmd) {
                      CommandOutput&      output,
                      SchemOriginParam const& param,
                      Command const&      cmd) {
-            auto blockPos = BlockPos(origin.getExecutePosition(cmd.mVersion, param.pos));
-            selMgr.setCorner1(blockPos);
+            auto& controller = app::getAppKernel().controller();
+            auto  blockPos   = BlockPos(origin.getExecutePosition(cmd.mVersion, param.pos));
+            controller.setSelectionCorner1(blockPos);
             output.success("Selection corner 1 set to ({})", blockPos.toString());
         });
 
     schemCmd.overload().text("pos1").execute([&](CommandOrigin const& origin, CommandOutput& output) {
-        auto blockPos = BlockPos(origin.getWorldPosition());
-        selMgr.setCorner1(blockPos);
+        auto& controller = app::getAppKernel().controller();
+        auto  blockPos   = BlockPos(origin.getWorldPosition());
+        controller.setSelectionCorner1(blockPos);
         output.success("Selection corner 1 set to player position ({})", blockPos.toString());
     });
 
@@ -36,14 +35,16 @@ void registerSchemSelectionCommands(ll::command::CommandHandle& schemCmd) {
                      CommandOutput&      output,
                      SchemOriginParam const& param,
                      Command const&      cmd) {
-            auto blockPos = BlockPos(origin.getExecutePosition(cmd.mVersion, param.pos));
-            selMgr.setCorner2(blockPos);
+            auto& controller = app::getAppKernel().controller();
+            auto  blockPos   = BlockPos(origin.getExecutePosition(cmd.mVersion, param.pos));
+            controller.setSelectionCorner2(blockPos);
             output.success("Selection corner 2 set to ({})", blockPos.toString());
         });
 
     schemCmd.overload().text("pos2").execute([&](CommandOrigin const& origin, CommandOutput& output) {
-        auto blockPos = BlockPos(origin.getWorldPosition());
-        selMgr.setCorner2(blockPos);
+        auto& controller = app::getAppKernel().controller();
+        auto  blockPos   = BlockPos(origin.getWorldPosition());
+        controller.setSelectionCorner2(blockPos);
         output.success("Selection corner 2 set to player position ({})", blockPos.toString());
     });
 
@@ -53,26 +54,27 @@ void registerSchemSelectionCommands(ll::command::CommandHandle& schemCmd) {
         .execute([&](CommandOrigin const& origin,
                      CommandOutput&      output,
                      SchemNamedParam const& param) {
-            if (!selMgr.hasCompleteSelection()) {
-                logPlacementCommandFailure("command.saveSelection", param.filename, 0, "selection is incomplete");
+            auto& selectionState = app::getAppKernel().controller().state().selection;
+            if (!selection::hasCompleteSelection(selectionState)) {
+                logPlacementCommandFailure("command.saveSelection", param.filename, std::nullopt, "selection is incomplete");
                 output.error("Selection is incomplete. Set both corners first (pos1/pos2).");
                 return;
             }
 
             auto* dimension = origin.getDimension();
             if (!dimension) {
-                logPlacementCommandFailure("command.saveSelection", param.filename, 0, "dimension unavailable");
+                logPlacementCommandFailure("command.saveSelection", param.filename, std::nullopt, "dimension unavailable");
                 output.error("Cannot determine current dimension.");
                 return;
             }
 
-            if (!selMgr.saveToMcstructure(param.filename, *dimension)) {
-                logPlacementCommandFailure("command.saveSelection", param.filename, 0, "saveToMcstructure returned false");
+            if (!app::getAppKernel().controller().saveSelection(param.filename, *dimension)) {
+                logPlacementCommandFailure("command.saveSelection", param.filename, std::nullopt, "saveSelection returned false");
                 output.error("Failed to save selection as '{}'", param.filename);
                 return;
             }
 
-            auto size = selMgr.getSize();
+            auto size = selection::getSize(selectionState);
             output.success(
                 "Saved selection as '{}' ({}x{}x{})",
                 param.filename,
@@ -83,21 +85,23 @@ void registerSchemSelectionCommands(ll::command::CommandHandle& schemCmd) {
         });
 
     schemCmd.overload().text("selection").text("clear").execute([&](CommandOrigin const&, CommandOutput& output) {
-        selMgr.clearSelection();
+        app::getAppKernel().controller().clearSelection();
         output.success("Selection cleared.");
     });
 
     schemCmd.overload().text("selection").text("mode").execute([&](CommandOrigin const&, CommandOutput& output) {
-        selMgr.toggleSelectionMode();
-        output.success("Selection mode: {}", selMgr.isSelectionMode() ? "ON" : "OFF");
+        auto& controller = app::getAppKernel().controller();
+        controller.toggleSelectionMode();
+        output.success("Selection mode: {}", controller.state().selection.selectionMode ? "ON" : "OFF");
     });
 
     schemCmd.overload().text("selection").text("info").execute([&](CommandOrigin const&, CommandOutput& output) {
-        std::string msg = "Selection Info:\n";
-        msg += "  Mode: " + std::string(selMgr.isSelectionMode() ? "ON" : "OFF") + "\n";
+        auto const& selectionState = app::getAppKernel().controller().state().selection;
+        std::string msg            = "Selection Info:\n";
+        msg += "  Mode: " + std::string(selectionState.selectionMode ? "ON" : "OFF") + "\n";
 
-        if (selMgr.hasCorner1()) {
-            auto corner1 = selMgr.getCorner1();
+        if (selectionState.corner1) {
+            auto const& corner1 = *selectionState.corner1;
             msg += "  Corner 1: (" + std::to_string(corner1.x) + ", "
                 + std::to_string(corner1.y) + ", "
                 + std::to_string(corner1.z) + ")\n";
@@ -105,8 +109,8 @@ void registerSchemSelectionCommands(ll::command::CommandHandle& schemCmd) {
             msg += "  Corner 1: (not set)\n";
         }
 
-        if (selMgr.hasCorner2()) {
-            auto corner2 = selMgr.getCorner2();
+        if (selectionState.corner2) {
+            auto const& corner2 = *selectionState.corner2;
             msg += "  Corner 2: (" + std::to_string(corner2.x) + ", "
                 + std::to_string(corner2.y) + ", "
                 + std::to_string(corner2.z) + ")\n";
@@ -114,17 +118,16 @@ void registerSchemSelectionCommands(ll::command::CommandHandle& schemCmd) {
             msg += "  Corner 2: (not set)\n";
         }
 
-        if (selMgr.hasCompleteSelection()) {
-            auto size      = selMgr.getSize();
-            auto minCorner = selMgr.getMinCorner();
+        if (selection::hasCompleteSelection(selectionState)) {
+            auto size      = selection::getSize(selectionState);
+            auto minCorner = selection::getMinCorner(selectionState);
             msg += "  Size: " + std::to_string(size.x) + "x"
                 + std::to_string(size.y) + "x"
                 + std::to_string(size.z) + "\n";
             msg += "  Min corner: (" + std::to_string(minCorner.x) + ", "
                 + std::to_string(minCorner.y) + ", "
                 + std::to_string(minCorner.z) + ")\n";
-            msg += "  Total blocks: "
-                + std::to_string(static_cast<int64_t>(size.x) * size.y * size.z) + "\n";
+            msg += "  Total blocks: " + std::to_string(static_cast<int64_t>(size.x) * size.y * size.z) + "\n";
         }
 
         output.success(msg);

@@ -28,6 +28,18 @@ inline uint64_t encodePosKey(const BlockPos& p) noexcept {
     return encodePosKey(p.x, p.y, p.z);
 }
 
+inline BlockPos decodePosKey(uint64_t key) noexcept {
+    int x = static_cast<int>(key >> 42);
+    int z = static_cast<int>((key >> 21) & 0x1FFFFFu);
+    int y = static_cast<int>(key & 0x1FFFFFu);
+
+    if (x & (1 << 21)) x |= ~0x3FFFFF;
+    if (z & (1 << 20)) z |= ~0x1FFFFF;
+    if (y & (1 << 20)) y |= ~0x1FFFFF;
+
+    return {x, y, z};
+}
+
 // RenderChunkGeometry::mPosition 是 SubChunk 原点（已是16的整数倍）
 // >>4 得 SubChunk 索引，用于 HashMap key
 inline uint64_t encodeSubChunkKey(const BlockPos& origin) noexcept {

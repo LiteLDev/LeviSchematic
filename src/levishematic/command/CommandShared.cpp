@@ -45,26 +45,26 @@ void replyLoadFailure(
 ) {
     if (result.error) {
         auto target = result.resolvedPath.empty() ? requestedName : result.resolvedPath.string();
-        logPlacementCommandFailure("command.loadSchematic", result.resolvedPath, 0, result.error->describe(target));
+        logPlacementCommandFailure("command.loadSchematic", result.resolvedPath, std::nullopt, result.error->describe(target));
         output.error(result.error->describe(target));
         return;
     }
 
-    logPlacementCommandFailure("command.loadSchematic", requestedName, 0, "unknown load failure");
+    logPlacementCommandFailure("command.loadSchematic", requestedName, std::nullopt, "unknown load failure");
     output.error("Failed to load schematic: {}", requestedName);
 }
 
 void logPlacementCommandFailure(
-    std::string_view                 operation,
-    const std::filesystem::path&     file,
-    placement::SchematicPlacement::Id placementId,
-    std::string_view                 detail
+    std::string_view             operation,
+    const std::filesystem::path& file,
+    std::optional<placement::PlacementId> placementId,
+    std::string_view             detail
 ) {
     getLogger().warn(
         "Placement operation failed [operation={}, file={}, placementId={}]: {}",
         operation,
         file.string(),
-        placementId,
+        placementId.value_or(0),
         detail
     );
 }

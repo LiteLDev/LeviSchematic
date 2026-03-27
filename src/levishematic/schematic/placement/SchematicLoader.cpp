@@ -19,31 +19,25 @@ auto& getLogger() {
 
 void logFailure(
     std::string_view             operation,
-    const std::filesystem::path& file,
-    SchematicPlacement::Id       placementId,
-    const LoadPlacementError&    error
+    std::filesystem::path const& file,
+    LoadPlacementError const&    error
 ) {
     getLogger().warn(
-        "Placement operation failed [operation={}, file={}, placementId={}]: {}",
+        "Placement operation failed [operation={}, file={}]: {}",
         operation,
         file.string(),
-        placementId,
         error.describe(file.string())
     );
 }
 
 } // namespace
 
-LoadPlacementDataResult SchematicLoader::loadMcstructurePlacement(
-    const std::filesystem::path& path,
-    BlockPos                      origin,
-    const std::string&            name
-) const {
+LoadAssetResult SchematicLoader::loadMcstructureAsset(std::filesystem::path const& path) const {
     namespace fs = std::filesystem;
 
-    auto fail = [&](LoadPlacementError error) -> LoadPlacementDataResult {
-        logFailure("loader.loadMcstructure", path, 0, error);
-        return LoadPlacementDataResult::failure(std::move(error));
+    auto fail = [&](LoadPlacementError error) -> LoadAssetResult {
+        logFailure("loader.loadMcstructureAsset", path, error);
+        return LoadAssetResult::failure(std::move(error));
     };
 
     try {
@@ -80,58 +74,50 @@ LoadPlacementDataResult SchematicLoader::loadMcstructurePlacement(
             });
         }
 
-        try {
-            auto level = ll::service::getLevel();
-            if (!level) {
-                return fail({
-                    .code   = LoadPlacementError::Code::RegistryError,
-                    .detail = "level service is unavailable",
-                });
-            }
-
-            auto registry = level->getUnknownBlockTypeRegistry();
-            StructureTemplate structureTemplate(path.filename().string(), registry);
-            if (!structureTemplate.load(*tagResult)) {
-                return fail({
-                    .code = LoadPlacementError::Code::TemplateLoadFailed,
-                });
-            }
-
-            const auto& data = structureTemplate.mStructureTemplateData;
-            BlockPos     size = structureTemplate.rawSize();
-            if (size.x <= 0 || size.y <= 0 || size.z <= 0) {
-                return fail({
-                    .code = LoadPlacementError::Code::EmptyStructure,
-                });
-            }
-
-            std::vector<SchematicPlacement::LocalBlockEntry> localBlocks;
-            localBlocks.reserve(static_cast<size_t>(size.x) * size.y * size.z);
-
-            for (int y = 0; y < size.y; ++y) {
-                for (int z = 0; z < size.z; ++z) {
-                    for (int x = 0; x < size.x; ++x) {
-                        BlockPos localPos{x, y, z};
-                        auto*    block = StructureTemplate::tryGetBlockAtPos(localPos, data, registry);
-                        if (!block || block->isAir()) {
-                            continue;
-                        }
-                        localBlocks.push_back({localPos, block});
-                    }
-                }
-            }
-
-            std::string placementName = name.empty() ? path.stem().string() : name;
-            return LoadPlacementDataResult::success(
-                SchematicPlacement(std::move(localBlocks), size, origin, placementName)
-            );
-        } catch (const std::exception& e) {
+        auto level = ll::service::getLevel();
+        if (!level) {
             return fail({
                 .code   = LoadPlacementError::Code::RegistryError,
-                .detail = e.what(),
+                .detail = "level service is unavailable",
             });
         }
-    } catch (const std::exception& e) {
+
+        auto registry = level->getUnknownBlockTypeRegistry();
+        StructureTemplate structureTemplate(path.filename().string(), registry);
+        if (!structureTemplate.load(*tagResult)) {
+            return fail({
+                .code = LoadPlacementError::Code::TemplateLoadFailed,
+            });
+        }
+
+        auto size = structureTemplate.rawSize();
+        if (size.x <= 0 || size.y <= 0 || size.z <= 0) {
+            return fail({
+                .code = LoadPlacementError::Code::EmptyStructure,
+            });
+        }
+
+        auto asset         = std::make_shared<SchematicAsset>();
+        asset->size        = size;
+        asset->defaultName = path.stem().string();
+        asset->localBlocks.reserve(static_cast<size_t>(size.x) * size.y * size.z);
+
+        auto const& data = structureTemplate.mStructureTemplateData;
+        for (int y = 0; y < size.y; ++y) {
+            for (int z = 0; z < size.z; ++z) {
+                for (int x = 0; x < size.x; ++x) {
+                    BlockPos localPos{x, y, z};
+                    auto*    block = StructureTemplate::tryGetBlockAtPos(localPos, data, registry);
+                    if (!block || block->isAir()) {
+                        continue;
+                    }
+                    asset->localBlocks.push_back({localPos, block});
+                }
+            }
+        }
+
+        return LoadAssetResult::success(std::move(asset));
+    } catch (std::exception const& e) {
         return fail({
             .code   = LoadPlacementError::Code::FileReadFailed,
             .detail = e.what(),
@@ -140,4 +126,3 @@ LoadPlacementDataResult SchematicLoader::loadMcstructurePlacement(
 }
 
 } // namespace levishematic::placement
-

@@ -30,4 +30,3 @@ std::string LoadPlacementError::describe(std::string_view target) const {
 }
 
 } // namespace levishematic::placement
-
