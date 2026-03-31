@@ -192,7 +192,7 @@ LL_TYPE_INSTANCE_HOOK(
         return;
     }
 
-    auto overlay = app::getAppKernel().controller().selectionOverlay();
+    auto overlay = app::getAppKernel().selection().overlay();
     if (overlay.selectionMode) {
         if (overlay.corner1) {
             DrawPosLine(
@@ -246,11 +246,11 @@ LL_TYPE_INSTANCE_HOOK(
         return origin(item, at, face, hit, isFirstEvent);
     }
 
-    auto& controller = app::getAppKernel().controller();
+    auto& selectionService = app::getAppKernel().selection();
     if (isFirstEvent
-        && controller.state().selection.selectionMode
+        && selectionService.isSelectionModeEnabled()
         && item.isInstance(VanillaItemNames::Stick(), false)) {
-        controller.setSelectionCorner2(at);
+        selectionService.setSelectionCorner2(at);
         getLogger().debug("Selection pos2: {}", at.toString());
         return InteractionResult{InteractionResult::Result::Success};
     }
@@ -272,12 +272,12 @@ LL_TYPE_INSTANCE_HOOK(
         return origin(hitPos, vec3, hitFace, hasDestroyedBlock);
     }
 
-    auto& controller = app::getAppKernel().controller();
+    auto& selectionService = app::getAppKernel().selection();
     auto& item =
         this->mPlayer.mInventory->mInventory->getItem(this->mPlayer.mInventory->mSelected);
 
-    if (controller.state().selection.selectionMode && item.isInstance(VanillaItemNames::Stick(), false)) {
-        controller.setSelectionCorner1(hitPos);
+    if (selectionService.isSelectionModeEnabled() && item.isInstance(VanillaItemNames::Stick(), false)) {
+        selectionService.setSelectionCorner1(hitPos);
         getLogger().debug("Selection pos1: {}", hitPos.toString());
         return false;
     }

@@ -10,15 +10,12 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
-#include <optional>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 class RenderChunkCoordinator;
 
 namespace levishematic::placement {
-using PlacementId = uint32_t;
 class PlacementProjectionCache;
 struct PlacementState;
 }
@@ -34,7 +31,7 @@ struct ProjEntry {
 };
 
 inline constexpr int        RENDERLAYER_BLEND = 3;
-inline constexpr mce::Color kDefaultProjectionColor{0.75f, 0.85f, 1.0f, 0.85f};
+inline constexpr mce::Color kDefaultProjectionColor(0.75f, 0.85f, 1.0f, 0.85f);
 
 struct ProjectionScene {
     std::unordered_map<uint64_t, std::vector<ProjEntry>> bySubChunk;
@@ -78,8 +75,6 @@ public:
     void clear();
 
 private:
-    class ProjectionIndex;
-
     void rebuildLocked(
         placement::PlacementState const&               state,
         std::shared_ptr<RenderChunkCoordinator> const& coordinator,
@@ -87,10 +82,7 @@ private:
     );
 
     std::atomic<std::shared_ptr<const ProjectionScene>> mScene;
-    std::unique_ptr<ProjectionIndex>                    mIndex;
     std::unique_ptr<placement::PlacementProjectionCache> mPlacementCache;
-    std::unordered_set<PlacementProjectionId>           mKnownPlacementIds;
-    std::unordered_map<PlacementProjectionId, uint64_t> mAppliedRevisions;
     uint64_t                                            mProjectedRevision = 0;
     mutable std::mutex                                  mMutex;
 };

@@ -10,15 +10,15 @@ namespace levishematic::command {
 
 void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
     schemCmd.overload().text("list").execute([&](CommandOrigin const&, CommandOutput& output) {
-        auto& controller = app::getAppKernel().controller();
-        auto  placements = controller.orderedPlacements();
+        auto& placementService = app::getAppKernel().placement();
+        auto  placements       = placementService.orderedPlacements();
         if (placements.empty()) {
             output.success("No placements loaded.");
             return;
         }
 
         std::string msg = "Loaded placements (" + std::to_string(placements.size()) + "):\n";
-        auto selectedId = controller.selectedPlacementId();
+        auto selectedId = placementService.selectedPlacementId();
         for (auto const& placementRef : placements) {
             auto const& placement = placementRef.get();
             auto const& pos       = placement.origin;
@@ -45,29 +45,29 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
         .execute([&](CommandOrigin const& origin,
                      CommandOutput&      output,
                      SchemRemoveParam const& param) {
-            auto& controller = app::getAppKernel().controller();
-            auto const* placement = controller.findPlacement(static_cast<placement::PlacementId>(param.id));
-            if (!placement) {
-                logPlacementCommandFailure("command.removePlacement", {}, static_cast<placement::PlacementId>(param.id), "placement not found");
-                output.error("Placement ID {} not found.", param.id);
+            auto& placementService = app::getAppKernel().placement();
+            auto  result           = placementService.removePlacement(static_cast<placement::PlacementId>(param.id));
+            if (!result) {
+                replyPlacementError(output, "command.removePlacement", result.error());
                 return;
             }
 
-            auto name = placement->name;
-            controller.removePlacement(static_cast<placement::PlacementId>(param.id));
             flushPlacementRefreshAndReply(origin, output, [&](CommandOutput& out) {
-                out.success("Removed placement '{}' [ID: {}]", name, param.id);
+                out.success("Removed placement '{}' [ID: {}]", result.value().name, result.value().id);
             });
         });
 
     schemCmd.overload().text("remove").execute([&](CommandOrigin const& origin, CommandOutput& output) {
-        auto& controller = app::getAppKernel().controller();
-        withSelectedPlacement(controller, output, [&](placement::PlacementInstance const& selected) {
-            auto name = selected.name;
-            auto id   = selected.id;
-            controller.removePlacement(id);
+        auto& placementService = app::getAppKernel().placement();
+        withSelectedPlacement(placementService, output, [&](placement::PlacementInstance const& selected) {
+            auto result = placementService.removePlacement(selected.id);
+            if (!result) {
+                replyPlacementError(output, "command.removePlacement", result.error());
+                return;
+            }
+
             flushPlacementRefreshAndReply(origin, output, [&](CommandOutput& out) {
-                out.success("Removed placement '{}' [ID: {}]", name, id);
+                out.success("Removed placement '{}' [ID: {}]", result.value().name, result.value().id);
             });
         });
     });
@@ -76,29 +76,37 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
         .text("select")
         .required("id")
         .execute([&](CommandOrigin const&, CommandOutput& output, SchemSelectParam const& param) {
-            auto& controller = app::getAppKernel().controller();
-            auto const* placement = controller.findPlacement(static_cast<placement::PlacementId>(param.id));
-            if (!placement) {
-                logPlacementCommandFailure("command.selectPlacement", {}, static_cast<placement::PlacementId>(param.id), "placement not found");
-                output.error("Placement ID {} not found.", param.id);
+            auto& placementService = app::getAppKernel().placement();
+            auto  selected         = placementService.requirePlacement(static_cast<placement::PlacementId>(param.id));
+            if (!selected) {
+                replyPlacementError(output, "command.selectPlacement", selected.error());
                 return;
             }
 
-            controller.selectPlacement(static_cast<placement::PlacementId>(param.id));
-            output.success("Selected placement '{}' [ID: {}]", placement->name, param.id);
+            auto selectResult = placementService.selectPlacement(static_cast<placement::PlacementId>(param.id));
+            if (!selectResult) {
+                replyPlacementError(output, "command.selectPlacement", selectResult.error());
+                return;
+            }
+
+            output.success("Selected placement '{}' [ID: {}]", selected.value()->name, param.id);
         });
 
     schemCmd.overload().text("toggle").text("render").execute(
         [&](CommandOrigin const& origin, CommandOutput& output) {
-            auto& controller = app::getAppKernel().controller();
-            withSelectedPlacement(controller, output, [&](placement::PlacementInstance const& selected) {
-                controller.togglePlacementRender(selected.id);
-                auto const* updated = controller.findPlacement(selected.id);
+            auto& placementService = app::getAppKernel().placement();
+            withSelectedPlacement(placementService, output, [&](placement::PlacementInstance const& selected) {
+                auto updated = placementService.togglePlacementRender(selected.id);
+                if (!updated) {
+                    replyPlacementError(output, "command.togglePlacementRender", updated.error());
+                    return;
+                }
+
                 flushPlacementRefreshAndReply(origin, output, [&](CommandOutput& out) {
                     out.success(
                         "Render for '{}': {}",
                         selected.name,
-                        updated && updated->renderEnabled ? "ON" : "OFF"
+                        updated.value() && updated.value()->renderEnabled ? "ON" : "OFF"
                     );
                 });
             });
@@ -106,15 +114,19 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
     );
 
     schemCmd.overload().text("toggle").execute([&](CommandOrigin const& origin, CommandOutput& output) {
-        auto& controller = app::getAppKernel().controller();
-        withSelectedPlacement(controller, output, [&](placement::PlacementInstance const& selected) {
-            controller.togglePlacementEnabled(selected.id);
-            auto const* updated = controller.findPlacement(selected.id);
+        auto& placementService = app::getAppKernel().placement();
+        withSelectedPlacement(placementService, output, [&](placement::PlacementInstance const& selected) {
+            auto updated = placementService.togglePlacementEnabled(selected.id);
+            if (!updated) {
+                replyPlacementError(output, "command.togglePlacementEnabled", updated.error());
+                return;
+            }
+
             flushPlacementRefreshAndReply(origin, output, [&](CommandOutput& out) {
                 out.success(
                     "Placement '{}': {}",
                     selected.name,
-                    updated && updated->enabled ? "ENABLED" : "DISABLED"
+                    updated.value() && updated.value()->enabled ? "ENABLED" : "DISABLED"
                 );
             });
         });
@@ -128,11 +140,12 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
                      CommandOutput&      output,
                      SchemBlockPosParam const& param,
                      Command const&      cmd) {
-            auto& controller = app::getAppKernel().controller();
-            withSelectedPlacement(controller, output, [&](placement::PlacementInstance const& selected) {
+            auto& placementService = app::getAppKernel().placement();
+            withSelectedPlacement(placementService, output, [&](placement::PlacementInstance const& selected) {
                 auto worldPos = BlockPos(origin.getExecutePosition(cmd.mVersion, param.pos));
-                if (!controller.patchPlacementBlock(selected.id, worldPos, render::PatchOp::remove())) {
-                    output.error("Failed to hide block at ({}) for '{}'.", worldPos.toString(), selected.name);
+                auto updated  = placementService.patchPlacementBlock(selected.id, worldPos, render::PatchOp::remove());
+                if (!updated) {
+                    replyPlacementError(output, "command.patchPlacementBlock", updated.error());
                     return;
                 }
 
@@ -152,8 +165,8 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
                      CommandOutput&      output,
                      SchemBlockSetParam const& param,
                      Command const&      cmd) {
-            auto& controller = app::getAppKernel().controller();
-            withSelectedPlacement(controller, output, [&](placement::PlacementInstance const& selected) {
+            auto& placementService = app::getAppKernel().placement();
+            withSelectedPlacement(placementService, output, [&](placement::PlacementInstance const& selected) {
                 auto worldPos    = BlockPos(origin.getExecutePosition(cmd.mVersion, param.pos));
                 auto blockResult = param.blockName.resolveBlock(param.title_date);
                 if (!blockResult.mBlock) {
@@ -161,12 +174,13 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
                     return;
                 }
 
-                if (!controller.patchPlacementBlock(
-                        selected.id,
-                        worldPos,
-                        render::PatchOp::setBlock(blockResult.mBlock, render::kDefaultProjectionColor)
-                    )) {
-                    output.error("Failed to set block at ({}) for '{}'.", worldPos.toString(), selected.name);
+                auto updated = placementService.patchPlacementBlock(
+                    selected.id,
+                    worldPos,
+                    render::PatchOp::setBlock(blockResult.mBlock, render::kDefaultProjectionColor)
+                );
+                if (!updated) {
+                    replyPlacementError(output, "command.patchPlacementBlock", updated.error());
                     return;
                 }
 
@@ -190,8 +204,8 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
                      CommandOutput&      output,
                      SchemBlockSetSimpleParam const& param,
                      Command const&      cmd) {
-            auto& controller = app::getAppKernel().controller();
-            withSelectedPlacement(controller, output, [&](placement::PlacementInstance const& selected) {
+            auto& placementService = app::getAppKernel().placement();
+            withSelectedPlacement(placementService, output, [&](placement::PlacementInstance const& selected) {
                 auto worldPos    = BlockPos(origin.getExecutePosition(cmd.mVersion, param.pos));
                 auto blockResult = param.blockName.resolveBlock(0);
                 if (!blockResult.mBlock) {
@@ -199,12 +213,13 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
                     return;
                 }
 
-                if (!controller.patchPlacementBlock(
-                        selected.id,
-                        worldPos,
-                        render::PatchOp::setBlock(blockResult.mBlock, render::kDefaultProjectionColor)
-                    )) {
-                    output.error("Failed to set block at ({}) for '{}'.", worldPos.toString(), selected.name);
+                auto updated = placementService.patchPlacementBlock(
+                    selected.id,
+                    worldPos,
+                    render::PatchOp::setBlock(blockResult.mBlock, render::kDefaultProjectionColor)
+                );
+                if (!updated) {
+                    replyPlacementError(output, "command.patchPlacementBlock", updated.error());
                     return;
                 }
 
@@ -227,11 +242,12 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
                      CommandOutput&      output,
                      SchemBlockPosParam const& param,
                      Command const&      cmd) {
-            auto& controller = app::getAppKernel().controller();
-            withSelectedPlacement(controller, output, [&](placement::PlacementInstance const& selected) {
+            auto& placementService = app::getAppKernel().placement();
+            withSelectedPlacement(placementService, output, [&](placement::PlacementInstance const& selected) {
                 auto worldPos = BlockPos(origin.getExecutePosition(cmd.mVersion, param.pos));
-                if (!controller.patchPlacementBlock(selected.id, worldPos, render::PatchOp::clearOverride())) {
-                    output.error("No override found at ({}) for '{}'.", worldPos.toString(), selected.name);
+                auto updated  = placementService.patchPlacementBlock(selected.id, worldPos, render::PatchOp::clearOverride());
+                if (!updated) {
+                    replyPlacementError(output, "command.patchPlacementBlock", updated.error());
                     return;
                 }
 
@@ -242,8 +258,8 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
         });
 
     schemCmd.overload().text("info").execute([&](CommandOrigin const&, CommandOutput& output) {
-        auto& controller = app::getAppKernel().controller();
-        withSelectedPlacement(controller, output, [&](placement::PlacementInstance const& selected) {
+        auto& placementService = app::getAppKernel().placement();
+        withSelectedPlacement(placementService, output, [&](placement::PlacementInstance const& selected) {
             auto pos              = selected.origin;
             auto [minBox, maxBox] = placement::computeEnclosingBox(selected);
 
@@ -269,9 +285,9 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
     });
 
     schemCmd.overload().text("clear").execute([&](CommandOrigin const& origin, CommandOutput& output) {
-        auto& controller = app::getAppKernel().controller();
-        auto  count      = controller.orderedPlacements().size();
-        controller.clearPlacements();
+        auto& placementService = app::getAppKernel().placement();
+        auto  count            = placementService.orderedPlacements().size();
+        placementService.clearPlacements();
         flushPlacementRefreshAndReply(origin, output, [&](CommandOutput& out) {
             out.success("Cleared {} placement(s).", count);
         });

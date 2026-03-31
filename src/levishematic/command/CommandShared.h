@@ -72,32 +72,42 @@ struct SchemBlockSetSimpleParam {
 
 std::shared_ptr<RenderChunkCoordinator> getCoordinator(const CommandOrigin& origin);
 ll::command::CommandHandle&             getOrCreateSchemCommand(bool isClient);
-void                                    replyLoadFailure(
-                                       CommandOutput&                        output,
-                                       const std::string&                    requestedName,
-                                       const placement::LoadPlacementResult& result
-                                   );
 void                                    logPlacementCommandFailure(
-                                       std::string_view             operation,
-                                       const std::filesystem::path& file,
+                                       std::string_view                      operation,
+                                       const std::filesystem::path&          file,
                                        std::optional<placement::PlacementId> placementId,
-                                       std::string_view             detail
+                                       std::string_view                      detail
+                                   );
+void                                    replyPlacementError(
+                                       CommandOutput&             output,
+                                       std::string_view           operation,
+                                       app::PlacementError const& error
+                                   );
+void                                    replySelectionError(
+                                       CommandOutput&             output,
+                                       std::string_view           operation,
+                                       std::string_view           target,
+                                       app::SelectionError const& error
                                    );
 
 template <typename Fn>
 void withSelectedPlacement(
-    editor::EditorController& controller,
-    CommandOutput&            output,
-    Fn&&                      fn,
-    const char*               errorMessage = "No placement selected."
+    app::PlacementService& placementService,
+    CommandOutput&         output,
+    Fn&&                   fn,
+    const char*            fallbackErrorMessage = nullptr
 ) {
-    auto const* selected = controller.selectedPlacement();
+    auto selected = placementService.requireSelectedPlacement();
     if (!selected) {
-        output.error(errorMessage);
+        if (fallbackErrorMessage && selected.error().code == app::PlacementError::Code::NoSelection) {
+            output.error(fallbackErrorMessage);
+            return;
+        }
+        replyPlacementError(output, "command.withSelectedPlacement", selected.error());
         return;
     }
 
-    fn(*selected);
+    fn(*selected.value());
 }
 
 template <typename ReplyFn>
@@ -107,7 +117,7 @@ void flushPlacementRefreshAndReply(
     ReplyFn&&            reply
 ) {
     if (app::hasAppKernel()) {
-        app::getAppKernel().controller().flushProjectionRefresh(getCoordinator(origin));
+        app::getAppKernel().projection().flushRefresh(getCoordinator(origin));
     }
     reply(output);
 }

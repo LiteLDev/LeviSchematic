@@ -16,13 +16,17 @@ void registerSchemTransformCommands(ll::command::CommandHandle& schemCmd) {
         .execute([&](CommandOrigin const& origin,
                      CommandOutput&      output,
                      SchemMoveParam const& param) {
-            auto& controller = app::getAppKernel().controller();
+            auto& placementService = app::getAppKernel().placement();
             withSelectedPlacement(
-                controller,
+                placementService,
                 output,
                 [&](placement::PlacementInstance const& selected) {
-                    controller.movePlacement(selected.id, param.dx, param.dy, param.dz);
-                    auto const* moved = controller.findPlacement(selected.id);
+                    auto moved = placementService.movePlacement(selected.id, param.dx, param.dy, param.dz);
+                    if (!moved) {
+                        replyPlacementError(output, "command.movePlacement", moved.error());
+                        return;
+                    }
+
                     flushPlacementRefreshAndReply(origin, output, [&](CommandOutput& out) {
                         out.success(
                             "Moved '{}' by ({},{},{}) -> ({})",
@@ -30,7 +34,7 @@ void registerSchemTransformCommands(ll::command::CommandHandle& schemCmd) {
                             param.dx,
                             param.dy,
                             param.dz,
-                            moved ? moved->origin.toString() : selected.origin.toString()
+                            moved.value() ? moved.value()->origin.toString() : selected.origin.toString()
                         );
                     });
                 },
@@ -45,10 +49,15 @@ void registerSchemTransformCommands(ll::command::CommandHandle& schemCmd) {
                      CommandOutput&      output,
                      SchemOriginParam const& param,
                      Command const&      cmd) {
-            auto& controller = app::getAppKernel().controller();
-            withSelectedPlacement(controller, output, [&](placement::PlacementInstance const& selected) {
+            auto& placementService = app::getAppKernel().placement();
+            withSelectedPlacement(placementService, output, [&](placement::PlacementInstance const& selected) {
                 auto blockPos = BlockPos(origin.getExecutePosition(cmd.mVersion, param.pos));
-                controller.setPlacementOrigin(selected.id, blockPos);
+                auto updated  = placementService.setPlacementOrigin(selected.id, blockPos);
+                if (!updated) {
+                    replyPlacementError(output, "command.setPlacementOrigin", updated.error());
+                    return;
+                }
+
                 flushPlacementRefreshAndReply(origin, output, [&](CommandOutput& out) {
                     out.success("Set origin of '{}' to ({})", selected.name, blockPos.toString());
                 });
@@ -61,26 +70,31 @@ void registerSchemTransformCommands(ll::command::CommandHandle& schemCmd) {
         .execute([&](CommandOrigin const& origin,
                      CommandOutput&      output,
                      SchemRotateParam const& param) {
-            auto& controller = app::getAppKernel().controller();
-            withSelectedPlacement(controller, output, [&](placement::PlacementInstance const& selected) {
-                switch (param.dir) {
-                case SchemRotateParam::direction::cw90:
-                    controller.rotatePlacement(selected.id, placement::PlacementInstance::Rotation::CW_90);
-                    break;
-                case SchemRotateParam::direction::ccw90:
-                    controller.rotatePlacement(selected.id, placement::PlacementInstance::Rotation::CCW_90);
-                    break;
-                case SchemRotateParam::direction::r180:
-                    controller.rotatePlacement(selected.id, placement::PlacementInstance::Rotation::CW_180);
-                    break;
+            auto& placementService = app::getAppKernel().placement();
+            withSelectedPlacement(placementService, output, [&](placement::PlacementInstance const& selected) {
+                auto updated = [&]() {
+                    switch (param.dir) {
+                    case SchemRotateParam::direction::cw90:
+                        return placementService.rotatePlacement(selected.id, placement::PlacementInstance::Rotation::CW_90);
+                    case SchemRotateParam::direction::ccw90:
+                        return placementService.rotatePlacement(selected.id, placement::PlacementInstance::Rotation::CCW_90);
+                    case SchemRotateParam::direction::r180:
+                        return placementService.rotatePlacement(selected.id, placement::PlacementInstance::Rotation::CW_180);
+                    }
+
+                    return placementService.rotatePlacement(selected.id, placement::PlacementInstance::Rotation::CW_90);
+                }();
+
+                if (!updated) {
+                    replyPlacementError(output, "command.rotatePlacement", updated.error());
+                    return;
                 }
 
-                auto const* updated = controller.findPlacement(selected.id);
                 flushPlacementRefreshAndReply(origin, output, [&](CommandOutput& out) {
                     out.success(
                         "Rotated '{}' -> {}",
                         selected.name,
-                        updated ? updated->describeTransform() : selected.describeTransform()
+                        updated.value() ? updated.value()->describeTransform() : selected.describeTransform()
                     );
                 });
             });
@@ -92,41 +106,50 @@ void registerSchemTransformCommands(ll::command::CommandHandle& schemCmd) {
         .execute([&](CommandOrigin const& origin,
                      CommandOutput&      output,
                      SchemMirrorParam const& param) {
-            auto& controller = app::getAppKernel().controller();
-            withSelectedPlacement(controller, output, [&](placement::PlacementInstance const& selected) {
-                switch (param.axis_) {
-                case SchemMirrorParam::axis::x:
-                    controller.setPlacementMirror(selected.id, placement::PlacementInstance::Mirror::MIRROR_X);
-                    break;
-                case SchemMirrorParam::axis::z:
-                    controller.setPlacementMirror(selected.id, placement::PlacementInstance::Mirror::MIRROR_Z);
-                    break;
-                case SchemMirrorParam::axis::none:
-                    controller.setPlacementMirror(selected.id, placement::PlacementInstance::Mirror::NONE);
-                    break;
+            auto& placementService = app::getAppKernel().placement();
+            withSelectedPlacement(placementService, output, [&](placement::PlacementInstance const& selected) {
+                auto updated = [&]() {
+                    switch (param.axis_) {
+                    case SchemMirrorParam::axis::x:
+                        return placementService.setPlacementMirror(selected.id, placement::PlacementInstance::Mirror::MIRROR_X);
+                    case SchemMirrorParam::axis::z:
+                        return placementService.setPlacementMirror(selected.id, placement::PlacementInstance::Mirror::MIRROR_Z);
+                    case SchemMirrorParam::axis::none:
+                        return placementService.setPlacementMirror(selected.id, placement::PlacementInstance::Mirror::NONE);
+                    }
+
+                    return placementService.setPlacementMirror(selected.id, placement::PlacementInstance::Mirror::NONE);
+                }();
+
+                if (!updated) {
+                    replyPlacementError(output, "command.setPlacementMirror", updated.error());
+                    return;
                 }
 
-                auto const* updated = controller.findPlacement(selected.id);
                 flushPlacementRefreshAndReply(origin, output, [&](CommandOutput& out) {
                     out.success(
                         "Mirror '{}' -> {}",
                         selected.name,
-                        updated ? updated->describeTransform() : selected.describeTransform()
+                        updated.value() ? updated.value()->describeTransform() : selected.describeTransform()
                     );
                 });
             });
         });
 
     schemCmd.overload().text("reset").execute([&](CommandOrigin const& origin, CommandOutput& output) {
-        auto& controller = app::getAppKernel().controller();
-        withSelectedPlacement(controller, output, [&](placement::PlacementInstance const& selected) {
-            controller.resetPlacementTransform(selected.id);
-            auto const* updated = controller.findPlacement(selected.id);
+        auto& placementService = app::getAppKernel().placement();
+        withSelectedPlacement(placementService, output, [&](placement::PlacementInstance const& selected) {
+            auto updated = placementService.resetPlacementTransform(selected.id);
+            if (!updated) {
+                replyPlacementError(output, "command.resetPlacementTransform", updated.error());
+                return;
+            }
+
             flushPlacementRefreshAndReply(origin, output, [&](CommandOutput& out) {
                 out.success(
                     "Reset transform for '{}' -> {}",
                     selected.name,
-                    updated ? updated->describeTransform() : selected.describeTransform()
+                    updated.value() ? updated.value()->describeTransform() : selected.describeTransform()
                 );
             });
         });

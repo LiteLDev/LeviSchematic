@@ -1,6 +1,7 @@
 #include "levishematic/LeviShematic.h"
 
 #include "levishematic/app/AppKernel.h"
+#include "levishematic/hook/RenderHook.h"
 
 #include "ll/api/mod/RegisterHelper.h"
 
@@ -13,6 +14,7 @@ LeviShematic& LeviShematic::getInstance() {
 
 bool LeviShematic::load() {
     getSelf().getLogger().debug("Loading...");
+    levishematic::hook::atest();
     return true;
 }
 

@@ -1,16 +1,11 @@
 #include "PlacementStore.h"
 
 #include "levishematic/render/ProjectionRenderer.h"
-#include "levishematic/schematic/SchematicPathResolver.h"
 #include "levishematic/util/PositionUtils.h"
 
 #include <algorithm>
 
 namespace levishematic::placement {
-
-void PlacementStore::setSchematicDirectory(std::filesystem::path directory) {
-    mState.schematicDirectory = std::move(directory);
-}
 
 PlacementId PlacementStore::createPlacement(
     std::shared_ptr<const SchematicAsset> asset,
@@ -197,31 +192,6 @@ bool PlacementStore::patchBlock(PlacementId id, BlockPos worldPos, render::Patch
 
     touchPlacement(*placement);
     return true;
-}
-
-std::filesystem::path PlacementStore::resolveSchematicPath(std::string const& filename) const {
-    return schematic::SchematicPathResolver(mState.schematicDirectory).resolveExistingPath(filename);
-}
-
-std::vector<std::string> PlacementStore::listAvailableFiles() const {
-    namespace fs = std::filesystem;
-
-    std::vector<std::string> files;
-    if (mState.schematicDirectory.empty() || !fs::is_directory(mState.schematicDirectory)) {
-        return files;
-    }
-
-    for (auto const& entry : fs::directory_iterator(mState.schematicDirectory)) {
-        if (!entry.is_regular_file()) {
-            continue;
-        }
-        if (entry.path().extension() == ".mcstructure") {
-            files.push_back(entry.path().filename().string());
-        }
-    }
-
-    std::sort(files.begin(), files.end());
-    return files;
 }
 
 void PlacementStore::touchState() {

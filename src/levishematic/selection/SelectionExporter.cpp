@@ -25,6 +25,26 @@ auto& getLogger() {
 
 } // namespace
 
+std::string ExportSelectionError::describe(std::string_view target) const {
+    switch (code) {
+    case Code::IncompleteSelection:
+        return "Selection is incomplete. Set both corners first (pos1/pos2).";
+    case Code::RegistryUnavailable:
+        return detail.empty()
+            ? "Block registry is unavailable while exporting the selection."
+            : detail;
+    case Code::WriteFailed:
+        if (!detail.empty()) {
+            return detail;
+        }
+        return target.empty()
+            ? "Failed to save selection."
+            : "Failed to save selection as '" + std::string(target) + "'.";
+    }
+
+    return "Unknown selection export error.";
+}
+
 bool hasCompleteSelection(SelectionState const& state) {
     return state.corner1.has_value() && state.corner2.has_value();
 }
@@ -71,18 +91,16 @@ SelectionOverlayView makeOverlayView(SelectionState const& state) {
     return view;
 }
 
-bool SelectionExporter::saveToMcstructure(
+app::Result<std::filesystem::path, ExportSelectionError> SelectionExporter::saveToMcstructure(
     SelectionState const& state,
+    std::filesystem::path const& schematicDirectory,
     std::string_view      name,
     Dimension&            dimension
 ) const {
     if (!hasCompleteSelection(state)) {
-        getLogger().error("Cannot save selection: selection is incomplete");
-        return false;
-    }
-    if (state.schematicDirectory.empty()) {
-        getLogger().error("Cannot save selection: schematic directory is not configured");
-        return false;
+        return app::Result<std::filesystem::path, ExportSelectionError>::failure({
+            .code = ExportSelectionError::Code::IncompleteSelection,
+        });
     }
 
     try {
@@ -96,9 +114,17 @@ bool SelectionExporter::saveToMcstructure(
         settings.mIgnoreBlocks    = false;
         settings.mAllowNonTickingPlayerAndTickingAreaChunks = false;
 
+        auto level = ll::service::getLevel();
+        if (!level) {
+            return app::Result<std::filesystem::path, ExportSelectionError>::failure({
+                .code   = ExportSelectionError::Code::RegistryUnavailable,
+                .detail = "Level service is unavailable while exporting the selection.",
+            });
+        }
+
         auto structureTemplate = std::make_unique<StructureTemplate>(
             std::string(name),
-            ll::service::getLevel()->getUnknownBlockTypeRegistry()
+            level->getUnknownBlockTypeRegistry()
         );
         structureTemplate->fillFromWorld(
             dimension.getBlockSourceFromMainChunkSource(),
@@ -109,9 +135,16 @@ bool SelectionExporter::saveToMcstructure(
         auto nbtTag = structureTemplate->save();
 
         std::error_code ec;
-        std::filesystem::create_directories(state.schematicDirectory, ec);
+        std::filesystem::create_directories(schematicDirectory, ec);
+        if (ec) {
+            return app::Result<std::filesystem::path, ExportSelectionError>::failure({
+                .code   = ExportSelectionError::Code::WriteFailed,
+                .path   = schematicDirectory,
+                .detail = "Failed to prepare schematic directory: " + ec.message(),
+            });
+        }
 
-        auto structurePath = schematic::SchematicPathResolver(state.schematicDirectory)
+        auto structurePath = schematic::SchematicPathResolver(schematicDirectory)
             .makeFilePath(std::filesystem::path{std::string(name)});
 
         ll::utils::file_utils::writeFile(structurePath, nbtTag->toBinaryNbt(), true);
@@ -123,10 +156,14 @@ bool SelectionExporter::saveToMcstructure(
             size.y,
             size.z
         );
-        return true;
+        return app::Result<std::filesystem::path, ExportSelectionError>::success(std::move(structurePath));
     } catch (std::exception const& e) {
         getLogger().error("Exception while saving selection: {}", e.what());
-        return false;
+        return app::Result<std::filesystem::path, ExportSelectionError>::failure({
+            .code   = ExportSelectionError::Code::WriteFailed,
+            .path   = schematicDirectory,
+            .detail = e.what(),
+        });
     }
 }
 

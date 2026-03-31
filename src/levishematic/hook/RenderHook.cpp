@@ -10,6 +10,8 @@
 #include "mc/client/renderer/chunks/RenderChunkBuilder.h"
 #include "mc/world/level/block/Block.h"
 
+#include <Windows.h>
+
 struct BlockQueueEntry {
     BlockPos     pos;
     const Block* blockInfo;
@@ -30,16 +32,21 @@ using namespace levishematic::util;
 namespace {
 
 bool gRenderHooksRegistered = false;
+unsigned long long _sortBlocks_va;
 
 } // namespace
 
+void atest() {
+    HMODULE hModule = GetModuleHandle(nullptr);
+    _sortBlocks_va = reinterpret_cast<unsigned long long>(hModule) + 0x201a600;
+}
 
 // 0x201a600：
 LL_TYPE_INSTANCE_HOOK(
     ProjectionSortBlocksHook,
     ll::memory::HookPriority::Normal,
     RenderChunkBuilder,
-    &RenderChunkBuilder::_sortBlocks,
+    _sortBlocks_va,
     bool,
     BlockSource&                                                 region,
     RenderChunkGeometry&                                         renderChunkGeometry,
@@ -56,10 +63,10 @@ LL_TYPE_INSTANCE_HOOK(
         return result;
     }
 
-    auto& controller = app::getAppKernel().controller();
-    controller.flushProjectionRefresh(nullptr);
+    auto& projection = app::getAppKernel().projection();
+    projection.flushRefresh(nullptr);
 
-    tl_currentScene = controller.projectionScene();
+    tl_currentScene = projection.scene();
     if (!tl_currentScene || tl_currentScene->empty()) {
         return result;
     }

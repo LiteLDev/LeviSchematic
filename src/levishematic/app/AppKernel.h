@@ -1,6 +1,9 @@
 #pragma once
 
-#include "levishematic/editor/EditorController.h"
+#include "levishematic/app/PlacementService.h"
+#include "levishematic/app/ProjectionService.h"
+#include "levishematic/app/RuntimeContext.h"
+#include "levishematic/app/SelectionService.h"
 #include "levishematic/input/InputHandler.h"
 
 #include <memory>
@@ -29,22 +32,30 @@ public:
     void shutdown();
     void onServerThreadStarted();
 
-    [[nodiscard]] editor::EditorController&       controller() { return *mController; }
-    [[nodiscard]] editor::EditorController const& controller() const { return *mController; }
-    [[nodiscard]] input::InputHandler&            input() { return mInputHandler; }
+    [[nodiscard]] RuntimeContext&          runtime() { return mRuntime; }
+    [[nodiscard]] PlacementService&        placement() { return *mPlacementService; }
+    [[nodiscard]] PlacementService const&  placement() const { return *mPlacementService; }
+    [[nodiscard]] SelectionService&        selection() { return *mSelectionService; }
+    [[nodiscard]] SelectionService const&  selection() const { return *mSelectionService; }
+    [[nodiscard]] ProjectionService&       projection() { return *mProjectionService; }
+    [[nodiscard]] ProjectionService const& projection() const { return *mProjectionService; }
+    [[nodiscard]] input::InputHandler&     input() { return mInputHandler; }
 
 private:
     void configureSchematicDirectory();
 
-    std::unique_ptr<editor::EditorState>           mState;
-    std::unique_ptr<placement::PlacementStore>     mPlacementStore;
-    std::unique_ptr<placement::SchematicLoader>    mSchematicLoader;
-    std::unique_ptr<selection::SelectionExporter>  mSelectionExporter;
-    std::unique_ptr<render::ProjectionProjector>   mProjector;
-    std::unique_ptr<editor::EditorController>      mController;
-    input::InputHandler                            mInputHandler;
-    bool                                           mInitialized        = false;
-    bool                                           mCommandsRegistered = false;
+    RuntimeContext                                mRuntime;
+    std::unique_ptr<editor::EditorState>          mState;
+    std::unique_ptr<placement::PlacementStore>    mPlacementStore;
+    std::unique_ptr<placement::SchematicLoader>   mSchematicLoader;
+    std::unique_ptr<selection::SelectionExporter> mSelectionExporter;
+    std::unique_ptr<render::ProjectionProjector>  mProjector;
+    std::unique_ptr<PlacementService>             mPlacementService;
+    std::unique_ptr<SelectionService>             mSelectionService;
+    std::unique_ptr<ProjectionService>            mProjectionService;
+    input::InputHandler                           mInputHandler;
+    bool                                          mInitialized        = false;
+    bool                                          mCommandsRegistered = false;
 };
 
 [[nodiscard]] bool       hasAppKernel();

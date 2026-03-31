@@ -20,7 +20,6 @@ struct PlacementState {
     std::optional<PlacementId>                         selectedId;
     uint64_t                                           revision = 0;
     PlacementId                                        nextPlacementId = 1;
-    std::filesystem::path                              schematicDirectory;
 };
 
 class PlacementStore {
@@ -29,9 +28,6 @@ public:
 
     PlacementState&       state() { return mState; }
     PlacementState const& state() const { return mState; }
-
-    void setSchematicDirectory(std::filesystem::path directory);
-    std::filesystem::path const& schematicDirectory() const { return mState.schematicDirectory; }
 
     PlacementId createPlacement(
         std::shared_ptr<const SchematicAsset> asset,
@@ -58,9 +54,6 @@ public:
     [[nodiscard]] bool toggleEnabled(PlacementId id);
     [[nodiscard]] bool toggleRender(PlacementId id);
     [[nodiscard]] bool patchBlock(PlacementId id, BlockPos worldPos, render::PatchOp const& op);
-
-    [[nodiscard]] std::filesystem::path    resolveSchematicPath(std::string const& filename) const;
-    [[nodiscard]] std::vector<std::string> listAvailableFiles() const;
 
 private:
     void touchState();

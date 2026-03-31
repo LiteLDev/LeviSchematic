@@ -22,11 +22,19 @@ AppKernel::AppKernel()
     , mSchematicLoader(std::make_unique<placement::SchematicLoader>())
     , mSelectionExporter(std::make_unique<selection::SelectionExporter>())
     , mProjector(std::make_unique<render::ProjectionProjector>())
-    , mController(std::make_unique<editor::EditorController>(
+    , mPlacementService(std::make_unique<PlacementService>(
           *mState,
+          mRuntime,
           *mPlacementStore,
-          *mSchematicLoader,
-          *mSelectionExporter,
+          *mSchematicLoader
+      ))
+    , mSelectionService(std::make_unique<SelectionService>(
+          *mState,
+          mRuntime,
+          *mSelectionExporter
+      ))
+    , mProjectionService(std::make_unique<ProjectionService>(
+          mState->placements,
           *mProjector
       )) {}
 
@@ -39,7 +47,6 @@ void AppKernel::initialize() {
 
     configureSchematicDirectory();
     hook::registerRuntimeHooks();
-    mInputHandler.init();
     mInitialized = true;
 }
 
@@ -50,9 +57,9 @@ void AppKernel::shutdown() {
 
     mInputHandler.shutdown();
     hook::unregisterRuntimeHooks();
-    mController->clearSelection();
-    mController->clearPlacements();
-    mController->clearProjection();
+    mSelectionService->clearSelection();
+    mPlacementService->clearPlacements();
+    mProjectionService->clear();
     mCommandsRegistered = false;
     mInitialized        = false;
 }
@@ -75,8 +82,7 @@ void AppKernel::configureSchematicDirectory() {
     std::error_code ec;
     std::filesystem::create_directories(structurePath, ec);
 
-    mPlacementStore->setSchematicDirectory(structurePath);
-    mState->selection.schematicDirectory = structurePath;
+    mRuntime.setSchematicDirectory(structurePath);
 }
 
 bool hasAppKernel() {

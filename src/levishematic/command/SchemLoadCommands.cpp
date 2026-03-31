@@ -14,21 +14,20 @@ void registerSchemLoadCommands(ll::command::CommandHandle& schemCmd) {
                      CommandOutput&      output,
                      SchemLoadParam const& param,
                      Command const&      cmd) {
-            auto& controller = app::getAppKernel().controller();
-            auto  blockPos   = BlockPos(origin.getExecutePosition(cmd.mVersion, param.pos));
-            auto  result     = controller.loadSchematic(param.filename, blockPos);
+            auto& placementService = app::getAppKernel().placement();
+            auto  blockPos         = BlockPos(origin.getExecutePosition(cmd.mVersion, param.pos));
+            auto  result           = placementService.loadSchematic(param.filename, blockPos);
             if (!result) {
-                replyLoadFailure(output, param.filename, result);
+                replyPlacementError(output, "command.loadSchematic", result.error());
                 return;
             }
 
-            auto const* placement = controller.findPlacement(*result.id);
             flushPlacementRefreshAndReply(origin, output, [&](CommandOutput& out) {
                 out.success(
                     "Loaded '{}' at ({}) [ID: {}]",
-                    placement ? placement->name : param.filename,
+                    result.value().name,
                     blockPos.toString(),
-                    *result.id
+                    result.value().id
                 );
             });
         });
@@ -39,32 +38,31 @@ void registerSchemLoadCommands(ll::command::CommandHandle& schemCmd) {
         .execute([&](CommandOrigin const& origin,
                      CommandOutput&      output,
                      SchemNamedParam const& param) {
-            auto& controller = app::getAppKernel().controller();
-            auto  blockPos   = BlockPos(origin.getWorldPosition());
-            auto  result     = controller.loadSchematic(param.filename, blockPos);
+            auto& placementService = app::getAppKernel().placement();
+            auto  blockPos         = BlockPos(origin.getWorldPosition());
+            auto  result           = placementService.loadSchematic(param.filename, blockPos);
             if (!result) {
-                replyLoadFailure(output, param.filename, result);
+                replyPlacementError(output, "command.loadSchematic", result.error());
                 return;
             }
 
-            auto const* placement = controller.findPlacement(*result.id);
             flushPlacementRefreshAndReply(origin, output, [&](CommandOutput& out) {
                 out.success(
                     "Loaded '{}' at player position ({}) [ID: {}]",
-                    placement ? placement->name : param.filename,
+                    result.value().name,
                     blockPos.toString(),
-                    *result.id
+                    result.value().id
                 );
             });
         });
 
     schemCmd.overload().text("files").execute([&](CommandOrigin const&, CommandOutput& output) {
-        auto const& store = app::getAppKernel().controller().placementStore();
-        auto        files = store.listAvailableFiles();
+        auto const& runtime = app::getAppKernel().runtime();
+        auto        files   = runtime.listAvailableSchematics();
         if (files.empty()) {
             output.success(
                 "No .mcstructure files found in: {}\nPlace .mcstructure files there and try again.",
-                store.schematicDirectory().string()
+                runtime.schematicDirectory().string()
             );
             return;
         }
@@ -73,7 +71,7 @@ void registerSchemLoadCommands(ll::command::CommandHandle& schemCmd) {
         for (auto const& file : files) {
             msg += "  " + file + "\n";
         }
-        msg += "Directory: " + store.schematicDirectory().string();
+        msg += "Directory: " + runtime.schematicDirectory().string();
 
         output.success(msg);
     });

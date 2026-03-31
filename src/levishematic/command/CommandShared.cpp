@@ -38,27 +38,11 @@ ll::command::CommandHandle& getOrCreateSchemCommand(bool isClient) {
         .getOrCreateCommand("schem", "LeviSchematic commands");
 }
 
-void replyLoadFailure(
-    CommandOutput&                        output,
-    const std::string&                    requestedName,
-    const placement::LoadPlacementResult& result
-) {
-    if (result.error) {
-        auto target = result.resolvedPath.empty() ? requestedName : result.resolvedPath.string();
-        logPlacementCommandFailure("command.loadSchematic", result.resolvedPath, std::nullopt, result.error->describe(target));
-        output.error(result.error->describe(target));
-        return;
-    }
-
-    logPlacementCommandFailure("command.loadSchematic", requestedName, std::nullopt, "unknown load failure");
-    output.error("Failed to load schematic: {}", requestedName);
-}
-
 void logPlacementCommandFailure(
-    std::string_view             operation,
-    const std::filesystem::path& file,
+    std::string_view                      operation,
+    const std::filesystem::path&          file,
     std::optional<placement::PlacementId> placementId,
-    std::string_view             detail
+    std::string_view                      detail
 ) {
     getLogger().warn(
         "Placement operation failed [operation={}, file={}, placementId={}]: {}",
@@ -67,6 +51,25 @@ void logPlacementCommandFailure(
         placementId.value_or(0),
         detail
     );
+}
+
+void replyPlacementError(
+    CommandOutput&             output,
+    std::string_view           operation,
+    app::PlacementError const& error
+) {
+    logPlacementCommandFailure(operation, error.path, error.placementId, error.describe());
+    output.error(error.describe());
+}
+
+void replySelectionError(
+    CommandOutput&             output,
+    std::string_view           operation,
+    std::string_view           target,
+    app::SelectionError const& error
+) {
+    logPlacementCommandFailure(operation, error.path, std::nullopt, error.describe(target));
+    output.error(error.describe(target));
 }
 
 } // namespace levishematic::command

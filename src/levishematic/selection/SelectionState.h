@@ -4,7 +4,6 @@
 
 #include "mc/world/level/BlockPos.h"
 
-#include <filesystem>
 #include <optional>
 
 namespace levishematic::selection {
@@ -14,7 +13,6 @@ struct SelectionState {
     std::optional<BlockPos> corner2;
     bool                    selectionMode = true;
     uint64_t                revision      = 0;
-    std::filesystem::path   schematicDirectory;
 };
 
 struct SelectionOverlayView {

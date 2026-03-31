@@ -15,16 +15,16 @@ void registerSchemSelectionCommands(ll::command::CommandHandle& schemCmd) {
                      CommandOutput&      output,
                      SchemOriginParam const& param,
                      Command const&      cmd) {
-            auto& controller = app::getAppKernel().controller();
-            auto  blockPos   = BlockPos(origin.getExecutePosition(cmd.mVersion, param.pos));
-            controller.setSelectionCorner1(blockPos);
+            auto& selectionService = app::getAppKernel().selection();
+            auto  blockPos         = BlockPos(origin.getExecutePosition(cmd.mVersion, param.pos));
+            selectionService.setSelectionCorner1(blockPos);
             output.success("Selection corner 1 set to ({})", blockPos.toString());
         });
 
     schemCmd.overload().text("pos1").execute([&](CommandOrigin const& origin, CommandOutput& output) {
-        auto& controller = app::getAppKernel().controller();
-        auto  blockPos   = BlockPos(origin.getWorldPosition());
-        controller.setSelectionCorner1(blockPos);
+        auto& selectionService = app::getAppKernel().selection();
+        auto  blockPos         = BlockPos(origin.getWorldPosition());
+        selectionService.setSelectionCorner1(blockPos);
         output.success("Selection corner 1 set to player position ({})", blockPos.toString());
     });
 
@@ -35,16 +35,16 @@ void registerSchemSelectionCommands(ll::command::CommandHandle& schemCmd) {
                      CommandOutput&      output,
                      SchemOriginParam const& param,
                      Command const&      cmd) {
-            auto& controller = app::getAppKernel().controller();
-            auto  blockPos   = BlockPos(origin.getExecutePosition(cmd.mVersion, param.pos));
-            controller.setSelectionCorner2(blockPos);
+            auto& selectionService = app::getAppKernel().selection();
+            auto  blockPos         = BlockPos(origin.getExecutePosition(cmd.mVersion, param.pos));
+            selectionService.setSelectionCorner2(blockPos);
             output.success("Selection corner 2 set to ({})", blockPos.toString());
         });
 
     schemCmd.overload().text("pos2").execute([&](CommandOrigin const& origin, CommandOutput& output) {
-        auto& controller = app::getAppKernel().controller();
-        auto  blockPos   = BlockPos(origin.getWorldPosition());
-        controller.setSelectionCorner2(blockPos);
+        auto& selectionService = app::getAppKernel().selection();
+        auto  blockPos         = BlockPos(origin.getWorldPosition());
+        selectionService.setSelectionCorner2(blockPos);
         output.success("Selection corner 2 set to player position ({})", blockPos.toString());
     });
 
@@ -54,49 +54,41 @@ void registerSchemSelectionCommands(ll::command::CommandHandle& schemCmd) {
         .execute([&](CommandOrigin const& origin,
                      CommandOutput&      output,
                      SchemNamedParam const& param) {
-            auto& selectionState = app::getAppKernel().controller().state().selection;
-            if (!selection::hasCompleteSelection(selectionState)) {
-                logPlacementCommandFailure("command.saveSelection", param.filename, std::nullopt, "selection is incomplete");
-                output.error("Selection is incomplete. Set both corners first (pos1/pos2).");
-                return;
-            }
-
-            auto* dimension = origin.getDimension();
+            auto& selectionService = app::getAppKernel().selection();
+            auto* dimension        = origin.getDimension();
             if (!dimension) {
-                logPlacementCommandFailure("command.saveSelection", param.filename, std::nullopt, "dimension unavailable");
                 output.error("Cannot determine current dimension.");
                 return;
             }
 
-            if (!app::getAppKernel().controller().saveSelection(param.filename, *dimension)) {
-                logPlacementCommandFailure("command.saveSelection", param.filename, std::nullopt, "saveSelection returned false");
-                output.error("Failed to save selection as '{}'", param.filename);
+            auto result = selectionService.saveSelection(param.filename, *dimension);
+            if (!result) {
+                replySelectionError(output, "command.saveSelection", param.filename, result.error());
                 return;
             }
 
-            auto size = selection::getSize(selectionState);
             output.success(
                 "Saved selection as '{}' ({}x{}x{})",
                 param.filename,
-                size.x,
-                size.y,
-                size.z
+                result.value().size.x,
+                result.value().size.y,
+                result.value().size.z
             );
         });
 
     schemCmd.overload().text("selection").text("clear").execute([&](CommandOrigin const&, CommandOutput& output) {
-        app::getAppKernel().controller().clearSelection();
+        app::getAppKernel().selection().clearSelection();
         output.success("Selection cleared.");
     });
 
     schemCmd.overload().text("selection").text("mode").execute([&](CommandOrigin const&, CommandOutput& output) {
-        auto& controller = app::getAppKernel().controller();
-        controller.toggleSelectionMode();
-        output.success("Selection mode: {}", controller.state().selection.selectionMode ? "ON" : "OFF");
+        auto& selectionService = app::getAppKernel().selection();
+        selectionService.toggleSelectionMode();
+        output.success("Selection mode: {}", selectionService.isSelectionModeEnabled() ? "ON" : "OFF");
     });
 
     schemCmd.overload().text("selection").text("info").execute([&](CommandOrigin const&, CommandOutput& output) {
-        auto const& selectionState = app::getAppKernel().controller().state().selection;
+        auto const& selectionState = app::getAppKernel().selection().state();
         std::string msg            = "Selection Info:\n";
         msg += "  Mode: " + std::string(selectionState.selectionMode ? "ON" : "OFF") + "\n";
 
