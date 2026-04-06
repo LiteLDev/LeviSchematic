@@ -5,6 +5,7 @@
 #include "levishematic/app/RuntimeContext.h"
 #include "levishematic/app/SelectionService.h"
 #include "levishematic/input/InputHandler.h"
+#include "levishematic/verifier/VerifierService.h"
 
 #include <memory>
 
@@ -39,6 +40,8 @@ public:
     [[nodiscard]] SelectionService const&  selection() const { return *mSelectionService; }
     [[nodiscard]] ProjectionService&       projection() { return *mProjectionService; }
     [[nodiscard]] ProjectionService const& projection() const { return *mProjectionService; }
+    [[nodiscard]] verifier::VerifierService& verifier() { return *mVerifierService; }
+    [[nodiscard]] verifier::VerifierService const& verifier() const { return *mVerifierService; }
     [[nodiscard]] input::InputHandler&     input() { return mInputHandler; }
 
 private:
@@ -53,6 +56,7 @@ private:
     std::unique_ptr<PlacementService>             mPlacementService;
     std::unique_ptr<SelectionService>             mSelectionService;
     std::unique_ptr<ProjectionService>            mProjectionService;
+    std::unique_ptr<verifier::VerifierService>    mVerifierService;
     input::InputHandler                           mInputHandler;
     bool                                          mInitialized        = false;
     bool                                          mCommandsRegistered = false;

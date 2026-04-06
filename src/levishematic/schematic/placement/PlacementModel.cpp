@@ -76,7 +76,7 @@ std::pair<BlockPos, BlockPos> computeEnclosingBox(PlacementInstance const& place
     };
 
     for (auto const& entry : placement.asset->localBlocks) {
-        if (!entry.block || entry.block->isAir()) {
+        if (!entry.renderBlock || entry.renderBlock->isAir()) {
             continue;
         }
 

@@ -6,7 +6,7 @@ namespace levishematic::placement {
 
 PlacementProjectionCache::View PlacementProjectionCache::view(PlacementInstance const& placement) {
     auto const& record = ensureRecord(placement);
-    return View{record.worldEntries, record.byPos, record.bySubChunk};
+    return View{record.worldEntries, record.byPos, record.bySubChunk, record.expectedBlocksByPos};
 }
 
 void PlacementProjectionCache::clear() {
@@ -34,15 +34,22 @@ PlacementProjectionCache::Record PlacementProjectionCache::buildRecord(Placement
         return record;
     }
 
-    record.byPos.reserve(placement.asset->localBlocks.size() + placement.overrides.size());
+    auto reserveCount = placement.asset->localBlocks.size() + placement.overrides.size();
+    record.byPos.reserve(reserveCount);
+    record.expectedBlocksByPos.reserve(reserveCount);
 
     auto applyEntry = [&](render::ProjEntry entry) {
         auto posKey          = util::encodePosKey(entry.pos);
         record.byPos[posKey] = entry;
     };
 
+    auto applyExpected = [&](verifier::ExpectedBlockSnapshot entry) {
+        auto posKey = util::encodePosKey(entry.pos);
+        record.expectedBlocksByPos[posKey] = std::move(entry);
+    };
+
     for (auto const& localEntry : placement.asset->localBlocks) {
-        if (!localEntry.block || localEntry.block->isAir()) {
+        if (!localEntry.renderBlock || localEntry.renderBlock->isAir()) {
             continue;
         }
 
@@ -58,20 +65,32 @@ PlacementProjectionCache::Record PlacementProjectionCache::buildRecord(Placement
                 placement.origin.y + local.y,
                 placement.origin.z + local.z,
             },
-            localEntry.block,
+            localEntry.renderBlock,
             render::kDefaultProjectionColor,
+        };
+        verifier::ExpectedBlockSnapshot expected{
+            .pos         = resolved.pos,
+            .renderBlock = resolved.block,
+            .compareSpec = localEntry.compareSpec,
+            .blockEntity = localEntry.blockEntity,
+            .placementId = placement.id,
         };
 
         auto posKey = util::encodePosKey(resolved.pos);
         if (auto overrideIt = placement.overrides.find(posKey); overrideIt != placement.overrides.end()) {
             if (overrideIt->second.kind == OverrideEntry::Kind::Remove) {
                 record.byPos.erase(posKey);
+                record.expectedBlocksByPos.erase(posKey);
                 continue;
             }
             resolved.block = overrideIt->second.block;
+            expected.renderBlock = overrideIt->second.block;
+            expected.compareSpec = verifier::buildCompareSpecFromBlock(*overrideIt->second.block);
+            expected.blockEntity = overrideIt->second.blockEntity;
         }
 
         applyEntry(resolved);
+        applyExpected(std::move(expected));
     }
 
     for (auto const& [posKey, overrideEntry] : placement.overrides) {
@@ -83,6 +102,13 @@ PlacementProjectionCache::Record PlacementProjectionCache::buildRecord(Placement
             util::decodePosKey(posKey),
             overrideEntry.block,
             render::kDefaultProjectionColor,
+        });
+        applyExpected(verifier::ExpectedBlockSnapshot{
+            .pos         = util::decodePosKey(posKey),
+            .renderBlock = overrideEntry.block,
+            .compareSpec = verifier::buildCompareSpecFromBlock(*overrideEntry.block),
+            .blockEntity = overrideEntry.blockEntity,
+            .placementId = placement.id,
         });
     }
 

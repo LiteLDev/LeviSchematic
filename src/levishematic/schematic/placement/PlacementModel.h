@@ -1,5 +1,7 @@
 #pragma once
 
+#include "levishematic/verifier/VerifierTypes.h"
+
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/block/Block.h"
 
@@ -16,8 +18,10 @@ using PlacementId = uint32_t;
 
 struct SchematicAsset {
     struct LocalBlockEntry {
-        BlockPos     localPos;
-        const Block* block = nullptr;
+        BlockPos                              localPos;
+        const Block*                          renderBlock = nullptr;
+        verifier::BlockCompareSpec            compareSpec;
+        std::optional<verifier::BlockEntitySnapshot> blockEntity;
     };
 
     BlockPos                     size{0, 0, 0};
@@ -35,8 +39,9 @@ struct OverrideEntry {
         SetBlock,
     };
 
-    Kind        kind  = Kind::Remove;
-    const Block* block = nullptr;
+    Kind                                 kind  = Kind::Remove;
+    const Block*                         block = nullptr;
+    std::optional<verifier::BlockEntitySnapshot> blockEntity;
 };
 
 struct PlacementInstance {

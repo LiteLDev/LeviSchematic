@@ -8,6 +8,8 @@
 #include "levishematic/selection/SelectionExporter.h"
 
 #include "ll/api/service/ServerInfo.h"
+#include "ll/api/event/EventBus.h"
+#include "ll/api/event/client/ClientJoinLevelEvent.h"
 
 namespace levishematic::app {
 namespace {
@@ -35,6 +37,12 @@ AppKernel::AppKernel()
       ))
     , mProjectionService(std::make_unique<ProjectionService>(
           mState->placements,
+          mState->verifier,
+          *mProjector
+      ))
+    , mVerifierService(std::make_unique<verifier::VerifierService>(
+          mState->verifier,
+          mState->placements,
           *mProjector
       )) {}
 
@@ -47,6 +55,7 @@ void AppKernel::initialize() {
 
     configureSchematicDirectory();
     hook::registerRuntimeHooks();
+    // mVerifierService->attachToRuntime();
     mInitialized = true;
 }
 
@@ -57,8 +66,10 @@ void AppKernel::shutdown() {
 
     mInputHandler.shutdown();
     hook::unregisterRuntimeHooks();
+    mVerifierService->detachFromRuntime();
     mSelectionService->clearSelection();
     mPlacementService->clearPlacements();
+    mVerifierService->clear();
     mProjectionService->clear();
     mCommandsRegistered = false;
     mInitialized        = false;
@@ -108,5 +119,13 @@ void stop() {
     gAppKernel->shutdown();
     gAppKernel.reset();
 }
+
+static bool reg = [] {
+    using namespace ll::event;
+    EventBus::getInstance().emplaceListener<ClientJoinLevelEvent>([](ClientJoinLevelEvent&) {
+        getAppKernel().verifier().attachToRuntime();
+    });
+    return true;
+}();
 
 } // namespace levishematic::app

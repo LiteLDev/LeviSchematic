@@ -2,6 +2,7 @@
 
 #include "levishematic/render/ProjectionRenderer.h"
 #include "levishematic/schematic/placement/PlacementStore.h"
+#include "levishematic/verifier/VerifierTypes.h"
 
 #include <memory>
 
@@ -13,6 +14,7 @@ class ProjectionService {
 public:
     ProjectionService(
         placement::PlacementState const& placementState,
+        verifier::VerifierState const&   verifierState,
         render::ProjectionProjector&     projector
     );
 
@@ -24,6 +26,7 @@ public:
 
 private:
     placement::PlacementState const& mPlacementState;
+    verifier::VerifierState const&   mVerifierState;
     render::ProjectionProjector&     mProjector;
 };
 

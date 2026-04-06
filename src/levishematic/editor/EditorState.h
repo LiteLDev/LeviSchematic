@@ -2,6 +2,7 @@
 
 #include "levishematic/schematic/placement/PlacementStore.h"
 #include "levishematic/selection/SelectionState.h"
+#include "levishematic/verifier/VerifierTypes.h"
 
 namespace levishematic::editor {
 
@@ -34,6 +35,7 @@ struct DebugState {
 struct EditorState {
     placement::PlacementState placements;
     selection::SelectionState selection;
+    verifier::VerifierState   verifier;
     ToolState                 tool;
     ViewState                 view;
     DebugState                debug;

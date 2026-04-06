@@ -7,6 +7,7 @@
 #include "mc/server/commands/CommandBlockName.h"
 #include "mc/server/commands/CommandOutput.h"
 #include "mc/server/commands/CommandPositionFloat.h"
+#include "mc/world/level/dimension/Dimension.h"
 
 #include <filesystem>
 #include <memory>
@@ -117,7 +118,17 @@ void flushPlacementRefreshAndReply(
     ReplyFn&&            reply
 ) {
     if (app::hasAppKernel()) {
-        app::getAppKernel().projection().flushRefresh(getCoordinator(origin));
+        auto& kernel = app::getAppKernel();
+        auto  coordinator = getCoordinator(origin);
+
+        auto* dimension = origin.getDimension();
+        if (dimension) {
+            kernel.verifier().refresh(dimension->getBlockSourceFromMainChunkSource());
+        } else {
+            kernel.verifier().refresh();
+        }
+
+        (void)kernel.projection().flushRefresh(coordinator);
     }
     reply(output);
 }

@@ -10,9 +10,10 @@ namespace levishematic::placement {
 class PlacementProjectionCache {
 public:
     struct View {
-        std::vector<render::ProjEntry> const&                         worldEntries;
-        std::unordered_map<uint64_t, render::ProjEntry> const&        byPos;
+        std::vector<render::ProjEntry> const&                               worldEntries;
+        std::unordered_map<uint64_t, render::ProjEntry> const&              byPos;
         std::unordered_map<uint64_t, std::vector<render::ProjEntry>> const& bySubChunk;
+        std::unordered_map<uint64_t, verifier::ExpectedBlockSnapshot> const& expectedBlocksByPos;
     };
 
     [[nodiscard]] View view(PlacementInstance const& placement);
@@ -25,6 +26,7 @@ private:
         std::vector<render::ProjEntry> worldEntries;
         std::unordered_map<uint64_t, render::ProjEntry> byPos;
         std::unordered_map<uint64_t, std::vector<render::ProjEntry>> bySubChunk;
+        std::unordered_map<uint64_t, verifier::ExpectedBlockSnapshot> expectedBlocksByPos;
     };
 
     [[nodiscard]] Record const& ensureRecord(PlacementInstance const& placement);

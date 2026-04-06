@@ -59,7 +59,7 @@ LL_TYPE_INSTANCE_HOOK(
     }
 
     auto& projection = app::getAppKernel().projection();
-    projection.flushRefresh(nullptr);
+    (void)projection.flushRefresh(nullptr);
 
     tl_currentScene = projection.scene();
     if (!tl_currentScene || tl_currentScene->empty()) {
