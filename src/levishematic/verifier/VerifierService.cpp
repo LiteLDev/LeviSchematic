@@ -30,6 +30,7 @@ bool matchesContainerSnapshot(
     BlockSource&               source,
     BlockPos const&            pos
 ) {
+    return true; //暂时不考虑容器对比，所以先直接返回true，保留代码，以备后续
     if (!expected.container.has_value()) {
         return true;
     }

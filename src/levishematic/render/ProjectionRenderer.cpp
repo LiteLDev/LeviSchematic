@@ -58,7 +58,7 @@ void triggerRebuildForScene(
             auto currentIt = currentScene->bySubChunk.find(subChunkKey);
             if (currentIt != currentScene->bySubChunk.end() && !currentIt->second.empty()) {
                 auto const& pos = currentIt->second.front().pos;
-                coordinator->_setDirty(pos, pos, false, false, false);
+                coordinator->_setDirty(pos, pos, true, false, false);
                 continue;
             }
         }
@@ -67,7 +67,7 @@ void triggerRebuildForScene(
             auto previousIt = previousScene->bySubChunk.find(subChunkKey);
             if (previousIt != previousScene->bySubChunk.end() && !previousIt->second.empty()) {
                 auto const& pos = previousIt->second.front().pos;
-                coordinator->_setDirty(pos, pos, false, false, false);
+                coordinator->_setDirty(pos, pos, true, false, false);
             }
         }
     }
@@ -199,7 +199,7 @@ void ProjectionProjector::triggerRebuildForPosition(
         return;
     }
 
-    coordinator->_setDirty(pos, pos, false, false, false);
+    coordinator->_setDirty(pos, pos, true, false, false);
 }
 
 void ProjectionProjector::clear() {
