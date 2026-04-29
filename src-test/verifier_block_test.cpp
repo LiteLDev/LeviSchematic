@@ -1,9 +1,9 @@
-// #include "levishematic/LeviShematic.h"
+// #include "levischematic/LeviSchematic.h"
 
 // #include "mc/world/level/LevelListener.h"
 
 
-// namespace levishematic::verifier_block {
+// namespace levischematic::verifier_block {
 
 // class VerifierBlockTest : public LevelListener {
 // public:
@@ -29,4 +29,4 @@
 // };
 
 
-// } // namespace levishematic::verifier_block
+// } // namespace levischematic::verifier_block

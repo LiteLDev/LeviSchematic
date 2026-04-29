@@ -11,7 +11,7 @@
 // ============================================================
 
 /*
-#include "levishematic/LeviShematic.h"
+#include "levischematic/LeviSchematic.h"
 
 #include "ll/api/memory/Hook.h"
 
@@ -45,7 +45,7 @@ struct ClickBlockPoss {
     BlockPos pos2 = BlockPos::ZERO();
 };
 
-auto& logger = levishematic::LeviShematic::getInstance().getSelf().getLogger();
+auto& logger = levischematic::LeviShematic::getInstance().getSelf().getLogger();
 
 
 // ─────────────────────────────────────────────────────────────────

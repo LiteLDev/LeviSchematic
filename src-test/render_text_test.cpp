@@ -1,5 +1,5 @@
 
-// #include "levishematic/LeviShematic.h"
+// #include "levischematic/LeviSchematic.h"
 
 // #include "ll/api/memory/Hook.h"
 // #include "ll/api/service/TargetedBedrock.h"
@@ -13,9 +13,9 @@
 
 
 
-// namespace levishematic::rendertext_test {
+// namespace levischematic::rendertext_test {
 
-//     auto& logger = levishematic::LeviShematic::getInstance().getSelf().getLogger();
+//     auto& logger = levischematic::LeviShematic::getInstance().getSelf().getLogger();
 
 // static std::string g_overlayText  = "§cHello§r Custom\n§aText"; // §c红色 §a绿色
 
@@ -46,4 +46,4 @@
 //     );
 // }
 
-// } // namespace levishematic::rendertext_test
+// } // namespace levischematic::rendertext_test

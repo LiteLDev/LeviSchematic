@@ -1,10 +1,10 @@
-# LeviShematic
+# LeviSchematic
 
 [中文说明](README_zh.md)
 
 ## Introduction
 
-LeviShematic is a Bedrock client-side schematic projection mod built around `.mcstructure` files.
+LeviSchematic is a Bedrock client-side schematic projection mod built around `.mcstructure` files.
 It lets players load saved structures into the world as translucent projections, manage multiple placements, adjust transforms, mark selections, export in-world regions back to `.mcstructure`, and compare projected blocks with the actual world state.
 
 ## Features

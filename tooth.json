@@ -1,11 +1,11 @@
 {
   "format_version": 3,
   "format_uuid": "289f771f-2c9a-4d73-9f3f-8492495a924d",
-  "tooth": "github.com/LiteLDev/LeviShematic",
+  "tooth": "github.com/LiteLDev/LeviSchematic",
   "version": "0.0.0",
   "info": {
-    "name": "LeviShematic",
-    "description": "LeviShematic is a Bedrock client-side schematic projection mod built around `.mcstructure` files.",
+    "name": "LeviSchematic",
+    "description": "LeviSchematic is a Bedrock client-side schematic projection mod built around `.mcstructure` files.",
     "tags": [
       "platform:levilamina",
       "type:mod"
@@ -22,13 +22,13 @@
         {
           "type": "zip",
           "urls": [
-            "https://{{tooth}}/releases/download/v{{version}}/LeviShematic-client-windows-x64.zip"
+            "https://{{tooth}}/releases/download/v{{version}}/LeviSchematic-client-windows-x64.zip"
           ],
           "placements": [
             {
               "type": "dir",
-              "src": "LeviShematic/",
-              "dest": "mods/LeviShematic/"
+              "src": "LeviSchematic/",
+              "dest": "mods/LeviSchematic/"
             }
           ]
         }
