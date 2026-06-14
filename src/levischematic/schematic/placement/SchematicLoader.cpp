@@ -11,6 +11,7 @@
 #include "mc/world/level/levelgen/structure/StructureBlockPalette.h"
 #include "mc/world/level/levelgen/structure/StructureTemplate.h"
 #include "mc/world/level/block/actor/BlockActor.h"
+#include "mc/dataloadhelper/StructureDataLoadHelper.h"
 
 #include <fstream>
 
@@ -102,6 +103,18 @@ std::optional<verifier::BlockEntitySnapshot> getBlockEntitySnapshot(
     return parseBlockEntitySnapshot(*positionData->mBlockEntityData);
 }
 
+std::shared_ptr<BlockActor> getBlockActor(StructureTemplateData const& data, int flatIndex, DataLoadHelper& helper){
+    auto const* palette = data.getPalette(StructureTemplateData::DEFAULT_PALETTE_NAME());
+    if (!palette) {
+        return nullptr;
+    }
+    auto const* positionData = palette->getBlockPositionData(static_cast<uint64_t>(flatIndex));
+    if (positionData && !positionData->mBlockEntityData->empty()) {
+        return BlockActor::loadStatic(ll::service::getLevel(), *positionData->mBlockEntityData, helper);
+    }
+    return nullptr;
+}
+
 int getFlatIndex(BlockPos const& pos, BlockPos const& size) {
     return pos.z + size.z * (pos.y + size.y * pos.x);
 }
@@ -179,6 +192,8 @@ LoadAssetResult SchematicLoader::loadMcstructureAsset(std::filesystem::path cons
         asset->localBlocks.reserve(static_cast<size_t>(size.x) * size.y * size.z);
 
         auto const& data = structureTemplate.mStructureTemplateData;
+
+        auto datehelper = StructureDataLoadHelper({0,0,0},data->mStructureWorldOrigin,{0,0,0},ActorUniqueID::INVALID_ID(),Rotation::None,Mirror::None,level);
         for (int x = 0; x < size.x; ++x) {
             for (int y = 0; y < size.y; ++y) {
                 for (int z = 0; z < size.z; ++z) {
@@ -190,6 +205,7 @@ LoadAssetResult SchematicLoader::loadMcstructureAsset(std::filesystem::path cons
                     asset->localBlocks.push_back({
                         .localPos    = localPos,
                         .renderBlock = block,
+                        .blockActor  = getBlockActor(data, getFlatIndex(localPos, size), datehelper),
                         .compareSpec = verifier::buildCompareSpecFromBlock(*block),
                         .blockEntity = getBlockEntitySnapshot(data, getFlatIndex(localPos, size)),
                     });

@@ -20,6 +20,7 @@ struct SchematicAsset {
     struct LocalBlockEntry {
         BlockPos                              localPos;
         const Block*                          renderBlock = nullptr;
+        const std::shared_ptr<BlockActor>     blockActor = nullptr;
         verifier::BlockCompareSpec            compareSpec;
         std::optional<verifier::BlockEntitySnapshot> blockEntity;
     };
