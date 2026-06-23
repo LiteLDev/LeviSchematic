@@ -11,7 +11,7 @@ jobs:
         target_type:
           - client
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: xmake-io/github-action-setup-xmake@v1
         # with:

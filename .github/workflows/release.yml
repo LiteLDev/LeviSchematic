@@ -11,7 +11,7 @@ jobs:
         target_type:
           - client
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: xmake-io/github-action-setup-xmake@v1
         # with:
@@ -45,7 +45,7 @@ jobs:
       contents: write
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - id: extract-release-notes
         uses: ffurrer2/extract-release-notes@v3
@@ -68,7 +68,7 @@ jobs:
           - client
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/download-artifact@v8
         with:
