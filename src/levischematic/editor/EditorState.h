@@ -40,6 +40,7 @@ struct EditorState {
     placement::PlacementState placements;
     selection::SelectionState selection;
     verifier::VerifierState   verifier;
+    verifier::BlockActorVerifierState blockActorVerifier;
     ToolState                 tool;
     ViewState                 view;
     DebugState                debug;

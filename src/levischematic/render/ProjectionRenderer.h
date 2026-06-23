@@ -7,7 +7,6 @@
 #include "mc/deps/core/math/Color.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/block/Block.h"
-#include "mc/world/level/block/actor/BlockActorRendererId.h"
 
 #include <atomic>
 #include <cstdint>
@@ -18,8 +17,6 @@
 #include <vector>
 
 class RenderChunkCoordinator;
-class BlockActor;
-class AABB;
 
 namespace levischematic::placement {
 class PlacementProjectionCache;
@@ -40,25 +37,18 @@ struct ProjEntry {
     mce::Color   color;
 };
 
-struct BlockActorProjEntry {
-    BlockPos                    pos;
-    const Block*                block = nullptr;
-    std::shared_ptr<BlockActor> blockActor;
-    BlockActorRendererId        rendererId = BlockActorRendererId::Default;
-    mce::Color                  color;
-};
-
 inline constexpr int RENDERLAYER_BLEND = 3;
 
 struct ProjectionScene {
     struct DimensionScene {
-        std::unordered_map<uint64_t, std::vector<ProjEntry>>           bySubChunk;
-        std::unordered_map<uint64_t, std::vector<BlockActorProjEntry>> blockActorsBySubChunk;
-        std::unordered_map<uint64_t, mce::Color>                       posColorMap;
-        std::unordered_set<uint64_t>                                   subChunksWithColorOverrides;
+        std::unordered_map<uint64_t, std::vector<ProjEntry>> bySubChunk;
+        std::unordered_map<uint64_t, std::vector<ProjEntry>> byRenderColumn;
+        std::unordered_map<uint64_t, mce::Color>             posColorMap;
+        std::unordered_set<uint64_t>                         columnsWithColorOverrides;
+        std::unordered_set<uint64_t>                         subChunksWithColorOverrides;
 
         [[nodiscard]] bool empty() const {
-            return bySubChunk.empty() && blockActorsBySubChunk.empty() && posColorMap.empty();
+            return bySubChunk.empty() && posColorMap.empty();
         }
     };
 
@@ -66,9 +56,6 @@ struct ProjectionScene {
 
     [[nodiscard]] bool empty() const { return byDimension.empty(); }
 };
-
-[[nodiscard]] std::vector<BlockActorProjEntry const*>
-collectBlockActorsInAabb(ProjectionScene::DimensionScene const& scene, AABB const& bounds);
 
 struct PatchOp {
     enum class Kind {

@@ -1,20 +1,24 @@
 #include "ProjectionRenderer.h"
 
-#include "levischematic/LeviSchematic.h"
 #include "levischematic/editor/EditorState.h"
 #include "levischematic/schematic/placement/PlacementProjectionCache.h"
 #include "levischematic/schematic/placement/PlacementStore.h"
 
 #include "mc/client/renderer/chunks/RenderChunkCoordinator.h"
-#include "mc/world/phys/AABB.h"
 
-#include <cmath>
 #include <unordered_set>
 
 namespace levischematic::render {
 namespace {
 
-auto& getLogger() { return levischematic::LeviSchematic::getInstance().getSelf().getLogger(); }
+int floorDiv16(int value) noexcept {
+    return value / 16 - (value % 16 != 0 && value < 0 ? 1 : 0);
+}
+
+uint64_t renderColumnKeyFromWorldPos(int x, int z) noexcept {
+    return (static_cast<uint64_t>(static_cast<uint32_t>(floorDiv16(x))) << 21)
+         | static_cast<uint64_t>(static_cast<uint32_t>(floorDiv16(z)) & 0x1FFFFFu);
+}
 
 void markSceneSubChunks(std::unordered_set<uint64_t>& dirtyKeys, ProjectionScene::DimensionScene const* scene) {
     if (!scene) {
@@ -22,12 +26,6 @@ void markSceneSubChunks(std::unordered_set<uint64_t>& dirtyKeys, ProjectionScene
     }
 
     for (auto const& [subChunkKey, entries] : scene->bySubChunk) {
-        if (!entries.empty()) {
-            dirtyKeys.insert(subChunkKey);
-        }
-    }
-
-    for (auto const& [subChunkKey, entries] : scene->blockActorsBySubChunk) {
         if (!entries.empty()) {
             dirtyKeys.insert(subChunkKey);
         }
@@ -72,13 +70,6 @@ void triggerRebuildForScene(
                 continue;
             }
 
-            auto currentBlockActorIt = currentScene->blockActorsBySubChunk.find(subChunkKey);
-            if (currentBlockActorIt != currentScene->blockActorsBySubChunk.end()
-                && !currentBlockActorIt->second.empty()) {
-                auto const& pos = currentBlockActorIt->second.front().pos;
-                coordinator->_setDirty(pos, pos, true, false, false);
-                continue;
-            }
         }
 
         if (previousScene) {
@@ -101,28 +92,8 @@ void triggerRebuildForScene(
                 continue;
             }
 
-            auto previousBlockActorIt = previousScene->blockActorsBySubChunk.find(subChunkKey);
-            if (previousBlockActorIt != previousScene->blockActorsBySubChunk.end()
-                && !previousBlockActorIt->second.empty()) {
-                auto const& pos = previousBlockActorIt->second.front().pos;
-                coordinator->_setDirty(pos, pos, true, false, false);
-            }
         }
     }
-}
-
-int floorDiv16(int value) noexcept {
-    return value / 16 - (value % 16 != 0 && value < 0 ? 1 : 0);
-}
-
-uint64_t encodeSubChunkCoordKey(int sx, int sy, int sz) noexcept {
-    return util::encodeSubChunkKey(BlockPos{sx * 16, sy * 16, sz * 16});
-}
-
-bool intersectsBlock(AABB const& bounds, BlockPos const& pos) noexcept {
-    return static_cast<float>(pos.x + 1) >= bounds.min.x && static_cast<float>(pos.x) <= bounds.max.x
-        && static_cast<float>(pos.y + 1) >= bounds.min.y && static_cast<float>(pos.y) <= bounds.max.y
-        && static_cast<float>(pos.z + 1) >= bounds.min.z && static_cast<float>(pos.z) <= bounds.max.z;
 }
 
 std::shared_ptr<const ProjectionScene> buildScene(
@@ -148,11 +119,6 @@ std::shared_ptr<const ProjectionScene> buildScene(
 
         auto                         projection   = placementCache.view(placement);
         auto&                        entriesByPos = entriesByDimension[placement.dimensionId];
-        std::unordered_set<uint64_t> blockActorPosKeys;
-        blockActorPosKeys.reserve(projection.blockActorEntries.size());
-        for (auto const& entry : projection.blockActorEntries) {
-            blockActorPosKeys.insert(util::encodePosKey(entry.pos));
-        }
 
         for (auto const& [worldKey, expected] : projection.expectedBlocksByKey) {
             if (!viewState.layerRange.contains(expected.pos.y)) {
@@ -165,15 +131,23 @@ std::shared_ptr<const ProjectionScene> buildScene(
             auto& dimensionScene = next->byDimension[placement.dimensionId];
             auto  color          = colorResolver.resolveColor(*expected.renderBlock, status);
             auto  subChunkKey    = util::subChunkKeyFromWorldPos(expected.pos.x, expected.pos.y, expected.pos.z);
+            auto  columnKey      = renderColumnKeyFromWorldPos(expected.pos.x, expected.pos.z);
             if (verifier::isHiddenStatus(status)) {
                 entriesByPos.erase(worldKey.posKey);
                 dimensionScene.posColorMap.erase(worldKey.posKey);
                 dimensionScene.subChunksWithColorOverrides.erase(subChunkKey);
+                dimensionScene.columnsWithColorOverrides.erase(columnKey);
                 for (auto const& [otherPosKey, otherColor] : dimensionScene.posColorMap) {
                     (void)otherColor;
                     auto const otherPos = util::decodePosKey(otherPosKey);
                     if (util::subChunkKeyFromWorldPos(otherPos.x, otherPos.y, otherPos.z) == subChunkKey) {
                         dimensionScene.subChunksWithColorOverrides.insert(subChunkKey);
+                    }
+                    if (renderColumnKeyFromWorldPos(otherPos.x, otherPos.z) == columnKey) {
+                        dimensionScene.columnsWithColorOverrides.insert(columnKey);
+                    }
+                    if (dimensionScene.subChunksWithColorOverrides.contains(subChunkKey)
+                        && dimensionScene.columnsWithColorOverrides.contains(columnKey)) {
                         break;
                     }
                 }
@@ -184,12 +158,14 @@ std::shared_ptr<const ProjectionScene> buildScene(
                 entriesByPos.erase(worldKey.posKey);
                 dimensionScene.posColorMap[worldKey.posKey] = color;
                 dimensionScene.subChunksWithColorOverrides.insert(subChunkKey);
+                dimensionScene.columnsWithColorOverrides.insert(columnKey);
                 continue;
             }
             if (status == verifier::VerificationStatus::BlockMismatch) {
                 entriesByPos.erase(worldKey.posKey);
                 dimensionScene.posColorMap[worldKey.posKey] = color;
                 dimensionScene.subChunksWithColorOverrides.insert(subChunkKey);
+                dimensionScene.columnsWithColorOverrides.insert(columnKey);
                 continue;
             }
 
@@ -201,65 +177,7 @@ std::shared_ptr<const ProjectionScene> buildScene(
             entriesByPos[worldKey.posKey]               = entry;
             dimensionScene.posColorMap[worldKey.posKey] = entry.color;
             dimensionScene.subChunksWithColorOverrides.insert(subChunkKey);
-        }
-        auto& dimensionScene = next->byDimension[placement.dimensionId];
-        for (auto entry : projection.blockActorEntries) {
-            if (!entry.block || !entry.blockActor) {
-    getLogger().error(
-        "buildScene invalid blockActor entry: dim={}, pos=({}, {}, {}), block={}, actor={}",
-        placement.dimensionId,
-        entry.pos.x,
-        entry.pos.y,
-        entry.pos.z,
-        static_cast<bool>(entry.block),
-        static_cast<bool>(entry.blockActor)
-    );
-    continue;
-}
-
-auto expectedIt = projection.expectedBlocksByKey.find(
-    util::makeWorldBlockKey(placement.dimensionId, entry.pos)
-);
-if (expectedIt == projection.expectedBlocksByKey.end()) {
-    getLogger().error(
-        "buildScene blockActor has no expected block: dim={}, pos=({}, {}, {})",
-        placement.dimensionId,
-        entry.pos.x,
-        entry.pos.y,
-        entry.pos.z
-    );
-    continue;
-}
-
-if (expectedIt->second.renderBlock != entry.block) {
-    getLogger().error(
-        "buildScene blockActor/renderBlock mismatch: dim={}, pos=({}, {}, {})",
-        placement.dimensionId,
-        entry.pos.x,
-        entry.pos.y,
-        entry.pos.z
-    );
-}
-            if (!entry.block || !entry.blockActor || !viewState.layerRange.contains(entry.pos.y)) {
-                continue;
-            }
-
-            auto worldKey = util::makeWorldBlockKey(placement.dimensionId, entry.pos);
-            auto statusIt = verifierState.statusByKey.find(worldKey);
-            auto status =
-                statusIt == verifierState.statusByKey.end() ? verifier::VerificationStatus::Unknown : statusIt->second;
-            if (verifier::isHiddenStatus(status) || status == verifier::VerificationStatus::PropertyMismatch
-                || status == verifier::VerificationStatus::BlockMismatch) {
-                continue;
-            }
-
-            entry.color                                 = colorResolver.resolveColor(*entry.block, status);
-            dimensionScene.posColorMap[worldKey.posKey] = entry.color;
-            dimensionScene.subChunksWithColorOverrides.insert(
-                util::subChunkKeyFromWorldPos(entry.pos.x, entry.pos.y, entry.pos.z)
-            );
-            auto blockActorSubChunkKey = util::subChunkKeyFromWorldPos(entry.pos.x, entry.pos.y, entry.pos.z);
-            dimensionScene.blockActorsBySubChunk[blockActorSubChunkKey].push_back(std::move(entry));
+            dimensionScene.columnsWithColorOverrides.insert(columnKey);
         }
     }
 
@@ -270,6 +188,7 @@ if (expectedIt->second.renderBlock != entry.block) {
             dimensionScene.bySubChunk[util::subChunkKeyFromWorldPos(entry.pos.x, entry.pos.y, entry.pos.z)].push_back(
                 entry
             );
+            dimensionScene.byRenderColumn[renderColumnKeyFromWorldPos(entry.pos.x, entry.pos.z)].push_back(entry);
         }
     }
 
@@ -280,40 +199,6 @@ if (expectedIt->second.renderBlock != entry.block) {
 
 thread_local std::shared_ptr<const ProjectionScene::DimensionScene> tl_currentScene;
 thread_local bool                                                   tl_hasProjection = false;
-
-std::vector<BlockActorProjEntry const*>
-collectBlockActorsInAabb(ProjectionScene::DimensionScene const& scene, AABB const& bounds) {
-    std::vector<BlockActorProjEntry const*> result;
-    if (scene.blockActorsBySubChunk.empty()) {
-        return result;
-    }
-
-    auto minX = floorDiv16(static_cast<int>(std::floor(bounds.min.x)));
-    auto minY = floorDiv16(static_cast<int>(std::floor(bounds.min.y)));
-    auto minZ = floorDiv16(static_cast<int>(std::floor(bounds.min.z)));
-    auto maxX = floorDiv16(static_cast<int>(std::floor(bounds.max.x)));
-    auto maxY = floorDiv16(static_cast<int>(std::floor(bounds.max.y)));
-    auto maxZ = floorDiv16(static_cast<int>(std::floor(bounds.max.z)));
-
-    for (int sx = minX; sx <= maxX; ++sx) {
-        for (int sy = minY; sy <= maxY; ++sy) {
-            for (int sz = minZ; sz <= maxZ; ++sz) {
-                auto it = scene.blockActorsBySubChunk.find(encodeSubChunkCoordKey(sx, sy, sz));
-                if (it == scene.blockActorsBySubChunk.end()) {
-                    continue;
-                }
-
-                for (auto const& entry : it->second) {
-                    if (intersectsBlock(bounds, entry.pos)) {
-                        result.push_back(&entry);
-                    }
-                }
-            }
-        }
-    }
-
-    return result;
-}
 
 ProjectionProjector::ProjectionProjector()
 : mScene(std::make_shared<const ProjectionScene>()),

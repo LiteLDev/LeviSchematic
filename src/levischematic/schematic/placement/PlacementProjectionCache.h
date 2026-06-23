@@ -1,5 +1,6 @@
 #pragma once
 
+#include "levischematic/render/BlockActorProjectionRenderer.h"
 #include "levischematic/render/ProjectionRenderer.h"
 #include "levischematic/schematic/placement/PlacementModel.h"
 

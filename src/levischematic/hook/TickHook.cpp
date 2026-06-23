@@ -1,6 +1,7 @@
 #include "TickHook.h"
 
 #include "levischematic/app/AppKernel.h"
+#include "levischematic/app/ProjectionRefresh.h"
 #include "levischematic/LeviSchematic.h"
 
 #include "ll/api/memory/Hook.h"
@@ -121,6 +122,7 @@ LL_TYPE_INSTANCE_HOOK(
 
     if (app::hasAppKernel()) {
         app::getAppKernel().verifier().handleDimensionChanged();
+        (void)app::refreshCurrentClientProjectionState();
     }
 }
 

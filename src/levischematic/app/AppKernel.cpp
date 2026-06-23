@@ -4,6 +4,7 @@
 #include "levischematic/hook/RuntimeHooks.h"
 #include "levischematic/app/ProjectionRefresh.h"
 #include "levischematic/input/InputHandler.h"
+#include "levischematic/render/BlockActorProjectionRenderer.h"
 #include "levischematic/render/ProjectionRenderer.h"
 #include "levischematic/schematic/placement/PlacementStore.h"
 #include "levischematic/schematic/placement/SchematicLoader.h"
@@ -14,11 +15,31 @@
 #include "ll/api/event/client/ClientJoinLevelEvent.h"
 #include "ll/api/event/world/ServerLevelTickEvent.h"
 #include "ll/api/service/ServerInfo.h"
+#include "ll/api/service/TargetedBedrock.h"
+
+#include "mc/client/game/ClientInstance.h"
+#include "mc/client/player/LocalPlayer.h"
+#include "mc/world/level/BlockSource.h"
+#include "mc/world/level/dimension/Dimension.h"
 
 namespace levischematic::app {
 namespace {
 
 std::unique_ptr<AppKernel> gAppKernel;
+
+BlockSource* resolveCurrentClientBlockSource() {
+    auto client = ll::service::getClientInstance();
+    if (!client) {
+        return nullptr;
+    }
+
+    auto* player = client->getLocalPlayer();
+    if (!player) {
+        return nullptr;
+    }
+
+    return &player->getDimension().getBlockSourceFromMainChunkSource();
+}
 
 } // namespace
 
@@ -28,6 +49,7 @@ AppKernel::AppKernel()
     , mSchematicLoader(std::make_unique<placement::SchematicLoader>())
     , mSelectionExporter(std::make_unique<selection::SelectionExporter>())
     , mProjector(std::make_unique<render::ProjectionProjector>())
+    , mBlockActorProjector(std::make_unique<render::BlockActorProjectionProjector>())
     , mPlacementService(std::make_unique<PlacementService>(
           *mState,
           mRuntime,
@@ -50,11 +72,23 @@ AppKernel::AppKernel()
           mState->view,
           *mProjector
       ))
+    , mBlockActorProjectionService(std::make_unique<BlockActorProjectionService>(
+          mState->placements,
+          mState->blockActorVerifier,
+          mState->view,
+          *mBlockActorProjector
+      ))
     , mVerifierService(std::make_unique<verifier::VerifierService>(
           mState->verifier,
           mState->placements,
           mState->view,
           *mProjector
+      ))
+    , mBlockActorVerifierService(std::make_unique<verifier::BlockActorVerifierService>(
+          mState->blockActorVerifier,
+          mState->placements,
+          mState->view,
+          *mBlockActorProjector
       )) {
         mInputHandler = input::InputHandler();
         mInputHandler.initialize({
@@ -92,7 +126,9 @@ void AppKernel::shutdown() {
     mSelectionService->clearSelection();
     mPlacementService->clearPlacements();
     mVerifierService->clear();
+    mBlockActorVerifierService->clear();
     mProjectionService->clear();
+    mBlockActorProjectionService->clear();
     mCommandsRegistered = false;
     mInitialized        = false;
 }
@@ -123,13 +159,23 @@ void AppKernel::registerLifecycleListeners() {
 
     if (!mClientJoinListener) {
         mClientJoinListener = bus.emplaceListener<ll::event::client::ClientJoinLevelEvent>(
-            [this](ll::event::client::ClientJoinLevelEvent&) { mVerifierService->handleJoinLevel(); }
+            [this](ll::event::client::ClientJoinLevelEvent&) {
+                mVerifierService->handleJoinLevel();
+                if (auto* source = resolveCurrentClientBlockSource()) {
+                    mBlockActorVerifierService->refresh(*source);
+                } else {
+                    mBlockActorVerifierService->refresh();
+                }
+            }
         );
     }
 
     if (!mClientExitListener) {
         mClientExitListener = bus.emplaceListener<ll::event::client::ClientExitLevelEvent>(
-            [this](ll::event::client::ClientExitLevelEvent&) { mVerifierService->handleExitLevel(); }
+            [this](ll::event::client::ClientExitLevelEvent&) {
+                mVerifierService->handleExitLevel();
+                mBlockActorVerifierService->clear();
+            }
         );
     }
 

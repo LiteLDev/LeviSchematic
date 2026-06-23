@@ -5,12 +5,16 @@
 #include "mc/deps/core/string/HashedString.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/block/Block.h"
+#include "mc/world/level/block/actor/BlockActorRendererId.h"
 
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+class BlockActor;
 
 namespace levischematic::verifier {
 
@@ -50,6 +54,16 @@ struct ExpectedBlockSnapshot {
     uint32_t                         placementId = 0;
 };
 
+struct BlockActorExpectedSnapshot {
+    int                              dimensionId = 0;
+    BlockPos                         pos;
+    const Block*                     renderBlock = nullptr;
+    std::shared_ptr<BlockActor>       blockActor;
+    std::optional<BlockEntitySnapshot> blockEntity;
+    BlockActorRendererId              rendererId = BlockActorRendererId::Default;
+    uint32_t                         placementId = 0;
+};
+
 enum class VerificationStatus : uint8_t {
     Unknown,
     Matched,
@@ -63,6 +77,11 @@ enum class VerificationStatus : uint8_t {
 struct VerifierState {
     std::unordered_map<util::WorldBlockKey, VerificationStatus, util::WorldBlockKeyHash> statusByKey;
     uint64_t                                                                      revision = 0;
+};
+
+struct BlockActorVerifierState {
+    std::unordered_map<util::WorldBlockKey, VerificationStatus, util::WorldBlockKeyHash> statusByKey;
+    uint64_t revision = 0;
 };
 
 inline constexpr bool isHiddenStatus(VerificationStatus status) {

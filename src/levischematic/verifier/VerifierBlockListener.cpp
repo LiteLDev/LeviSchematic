@@ -1,6 +1,7 @@
 #include "VerifierBlockListener.h"
 
 #include "levischematic/LeviSchematic.h"
+#include "levischematic/app/AppKernel.h"
 
 #include "mc/world/level/BlockSource.h"
 
@@ -22,6 +23,9 @@ void VerifierBlockListener::onBlockChanged(
     ::Actor*                       /*blockChangeSource*/
 ) {
     mVerifierService.handleBlockChanged(source, pos, block);
+    if (levischematic::app::hasAppKernel()) {
+        levischematic::app::getAppKernel().blockActorVerifier().handleBlockChanged(source, pos, block);
+    }
     // getLogger().debug("Block change");
 }
 

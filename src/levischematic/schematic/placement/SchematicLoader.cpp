@@ -3,30 +3,26 @@
 #include "levischematic/LeviSchematic.h"
 
 #include "ll/api/service/Bedrock.h"
+#include "ll/api/memory/Memory.h"
 
+#include "mc/dataloadhelper/StructureDataLoadHelper.h"
 #include "mc/deps/nbt/CompoundTag.h"
 #include "mc/deps/nbt/CompoundTagVariant.h"
 #include "mc/deps/nbt/ListTag.h"
 #include "mc/world/level/Level.h"
+#include "mc/world/level/block/actor/BlockActor.h"
 #include "mc/world/level/levelgen/structure/StructureBlockPalette.h"
 #include "mc/world/level/levelgen/structure/StructureTemplate.h"
-#include "mc/world/level/block/actor/BlockActor.h"
-#include "mc/dataloadhelper/StructureDataLoadHelper.h"
 
 #include <fstream>
+#include <Windows.h>
 
 namespace levischematic::placement {
 namespace {
 
-auto& getLogger() {
-    return levischematic::LeviSchematic::getInstance().getSelf().getLogger();
-}
+auto& getLogger() { return levischematic::LeviSchematic::getInstance().getSelf().getLogger(); }
 
-void logFailure(
-    std::string_view             operation,
-    std::filesystem::path const& file,
-    LoadPlacementError const&    error
-) {
+void logFailure(std::string_view operation, std::filesystem::path const& file, LoadPlacementError const& error) {
     getLogger().warn(
         "Placement operation failed [operation={}, file={}]: {}",
         operation,
@@ -65,7 +61,7 @@ std::optional<verifier::BlockEntitySnapshot> parseBlockEntitySnapshot(CompoundTa
     if (tag.contains("Items", Tag::List)) {
         sawContainerTag = true;
         verifier::ContainerSnapshot container;
-        auto const& items = tag["Items"].get<ListTag>();
+        auto const&                 items = tag["Items"].get<ListTag>();
         container.slots.reserve(items.size());
         for (auto const& entry : items) {
             if (!entry || !entry.hold(Tag::Compound)) {
@@ -86,10 +82,7 @@ std::optional<verifier::BlockEntitySnapshot> parseBlockEntitySnapshot(CompoundTa
     return snapshot;
 }
 
-std::optional<verifier::BlockEntitySnapshot> getBlockEntitySnapshot(
-    StructureTemplateData const& data,
-    int                          flatIndex
-) {
+std::optional<verifier::BlockEntitySnapshot> getBlockEntitySnapshot(StructureTemplateData const& data, int flatIndex) {
     auto const* palette = data.getPalette(StructureTemplateData::DEFAULT_PALETTE_NAME());
     if (!palette) {
         return std::nullopt;
@@ -103,21 +96,48 @@ std::optional<verifier::BlockEntitySnapshot> getBlockEntitySnapshot(
     return parseBlockEntitySnapshot(*positionData->mBlockEntityData);
 }
 
-std::shared_ptr<BlockActor> getBlockActor(StructureTemplateData const& data, int flatIndex, DataLoadHelper& helper){
+std::shared_ptr<BlockActor> getBlockActor(StructureTemplateData const& data, int flatIndex, DataLoadHelper& helper) {
     auto const* palette = data.getPalette(StructureTemplateData::DEFAULT_PALETTE_NAME());
     if (!palette) {
         return nullptr;
     }
     auto const* positionData = palette->getBlockPositionData(static_cast<uint64_t>(flatIndex));
-    if (positionData && !positionData->mBlockEntityData->empty()) {
+    if (positionData && positionData->mBlockEntityData) {
         return BlockActor::loadStatic(ll::service::getLevel(), *positionData->mBlockEntityData, helper);
     }
     return nullptr;
 }
 
-int getFlatIndex(BlockPos const& pos, BlockPos const& size) {
-    return pos.z + size.z * (pos.y + size.y * pos.x);
-}
+int getFlatIndex(BlockPos const& pos, BlockPos const& size) { return pos.z + size.z * (pos.y + size.y * pos.x); }
+
+// StructureDataLoadHelper构建函数，临时使用，后续删除
+StructureDataLoadHelper&
+makeStructureDataLoadHelper(const BlockPos& pos, const BlockPos& structureWorldOrigin, Level& level) {
+    HMODULE hModule = GetModuleHandle(nullptr);
+    void* structureDataLoadHelper_va  = (void*)(reinterpret_cast<BYTE*>(hModule) + 0x0);
+    void* structureDataLoadHelper_ptr = malloc(0x0);
+    ZeroMemory(structureDataLoadHelper_ptr, 0x0);
+    Vec3 rotationPivot{0,0,0};
+    ll::memory::addressCall<void, void*,
+        BlockPos const&,
+        BlockPos const&,
+        Vec3 const&,
+        ActorUniqueID,
+        Rotation,
+        Mirror,
+        Level&>(
+        structureDataLoadHelper_va,
+        structureDataLoadHelper_ptr,
+        pos,
+        structureWorldOrigin,
+        rotationPivot,
+        ActorUniqueID::INVALID_ID(),
+        Rotation::None,
+        Mirror::None,
+        level
+    );
+    return *(StructureDataLoadHelper*)structureDataLoadHelper_ptr;
+};
 
 } // namespace
 
@@ -171,7 +191,7 @@ LoadAssetResult SchematicLoader::loadMcstructureAsset(std::filesystem::path cons
             });
         }
 
-        auto registry = level->getUnknownBlockTypeRegistry();
+        auto              registry = level->getUnknownBlockTypeRegistry();
         StructureTemplate structureTemplate(path.filename().string(), registry);
         if (!structureTemplate.load(*tagResult)) {
             return fail({
@@ -193,7 +213,16 @@ LoadAssetResult SchematicLoader::loadMcstructureAsset(std::filesystem::path cons
 
         auto const& data = structureTemplate.mStructureTemplateData;
 
-        auto datehelper = StructureDataLoadHelper({0,0,0},data->mStructureWorldOrigin,{0,0,0},ActorUniqueID::INVALID_ID(),Rotation::None,Mirror::None,level);
+        // auto datehelper = StructureDataLoadHelper(
+        //     {0, 0, 0},
+        //     data->mStructureWorldOrigin,
+        //     {0, 0, 0},
+        //     ActorUniqueID::INVALID_ID(),
+        //     Rotation::None,
+        //     Mirror::None,
+        //     level
+        // );
+        // auto datahelper = makeStructureDataLoadHelper(data->mStructureWorldOrigin, level);
         for (int x = 0; x < size.x; ++x) {
             for (int y = 0; y < size.y; ++y) {
                 for (int z = 0; z < size.z; ++z) {
@@ -202,10 +231,11 @@ LoadAssetResult SchematicLoader::loadMcstructureAsset(std::filesystem::path cons
                     if (!block || block->isAir()) {
                         continue;
                     }
+                    // getLogger().debug("Pos:{}",localPos.toString().c_str());
                     asset->localBlocks.push_back({
                         .localPos    = localPos,
                         .renderBlock = block,
-                        .blockActor  = getBlockActor(data, getFlatIndex(localPos, size), datehelper),
+                        .blockActor  = getBlockActor(data, getFlatIndex(localPos, size), makeStructureDataLoadHelper(localPos, data->mStructureWorldOrigin, level)),
                         .compareSpec = verifier::buildCompareSpecFromBlock(*block),
                         .blockEntity = getBlockEntitySnapshot(data, getFlatIndex(localPos, size)),
                     });

@@ -1,13 +1,10 @@
 #include "PlacementProjectionCache.h"
 
-#include "levischematic/LeviSchematic.h"
 #include "levischematic/util/PositionUtils.h"
 
 #include "mc/world/level/block/actor/BlockActor.h"
 
 namespace levischematic::placement {
-
-    auto& getLogger() { return levischematic::LeviSchematic::getInstance().getSelf().getLogger(); }
 
 PlacementProjectionCache::View PlacementProjectionCache::view(PlacementInstance const& placement) {
     auto const& record = ensureRecord(placement);
@@ -80,7 +77,7 @@ PlacementProjectionCache::Record PlacementProjectionCache::buildRecord(Placement
 
         auto posKey        = util::encodePosKey(resolved.pos);
         bool hasBlockActor = localEntry.blockActor
-    && localEntry.blockActor->mRendererId == BlockActorRendererId::Chest;
+            && localEntry.blockActor->mRendererId == BlockActorRendererId::Chest;
         if (auto overrideIt = placement.overrides.find(posKey); overrideIt != placement.overrides.end()) {
             if (overrideIt->second.kind == OverrideEntry::Kind::Remove) {
                 record.byPos.erase(posKey);
@@ -102,9 +99,8 @@ PlacementProjectionCache::Record PlacementProjectionCache::buildRecord(Placement
                 .rendererId = localEntry.blockActor->mRendererId,
                 .color      = render::kDefaultProjectionColor,
             });
-        } else {
-            applyEntry(resolved);
         }
+        applyEntry(resolved);
         applyExpected(std::move(expected));
     }
 

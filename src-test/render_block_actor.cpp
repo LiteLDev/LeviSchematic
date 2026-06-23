@@ -107,6 +107,8 @@ public:
     // 透明度
     float mTransparency = 1.0f;
 
+    virtual ~BaseRenderSchematic() = default;
+
     virtual void
     renderSchematic(BaseActorRenderContext& renderContext, BlockActorRenderDataForSchematic& blockEntityRenderData) = 0;
 
@@ -118,32 +120,72 @@ public:
 };
 
 class BlockActorRenderSchematic {
-public:
+private:
     // 保存全部类型的render容器
     std::map<BlockActorRendererId, std::unique_ptr<BaseRenderSchematic>> renderers;
 
-    // // 当所有的texture上传后，把所有render内的textureptr替换新的
+public:
+    struct TextureUploadTarget {
+        BaseRenderSchematic::ResourceLocationMap* resource = nullptr;
+        BaseRenderSchematic*                      renderer = nullptr;
+        BlockActorRendererId                      id       = BlockActorRendererId::Default;
+    };
+
+    bool renderersIsEmpty() const { return renderers.empty(); }
+
+    bool hasRenderer(BlockActorRendererId id) const {
+        return renderers.find(id) != renderers.end();
+    }
+
+    BaseRenderSchematic* getRenderer(BlockActorRendererId id) {
+        auto it = renderers.find(id);
+        return it == renderers.end() ? nullptr : it->second.get();
+    }
+
+    void registerRenderer(BlockActorRendererId id, std::unique_ptr<BaseRenderSchematic> renderer) {
+        renderers[id] = std::move(renderer);
+    }
+
+    void renderSchematic(
+        BlockActorRendererId              id,
+        BaseActorRenderContext&           renderContext,
+        BlockActorRenderDataForSchematic& blockEntityRenderData
+    ) {
+        if (auto* renderer = getRenderer(id)) {
+            renderer->renderSchematic(renderContext, blockEntityRenderData);
+        }
+    }
+
+    // 当所有的texture上传后，把所有render内的textureptr替换新的
     void initAllTexturePtrToRenderer(mce::TextureGroup* textureGroup) {
         for (auto it = renderers.begin(); it != renderers.end(); ++it) {
             it->second->replaceTexture(textureGroup);
         }
     };
 
-    std::pair<const BaseRenderSchematic::ResourceLocationMap*, BlockActorRendererId> isSchematicRenderer(HashedString const& hash){
+    TextureUploadTarget findTextureUploadTarget(HashedString const& hash){
         for(auto it = renderers.begin(); it!=renderers.end(); ++it) {
-            if(it->second->isThisRender(hash))
-                return std::make_pair(it->second->isThisRender(hash), it->first);
+            auto* resource = const_cast<BaseRenderSchematic::ResourceLocationMap*>(it->second->isThisRender(hash));
+            if(resource)
+                return TextureUploadTarget{resource, it->second.get(), it->first};
         }
-        return std::make_pair(nullptr, BlockActorRendererId::Default);
+        return {};
     };
+
+    void onTextureUploaded(TextureUploadTarget const& target, mce::TextureGroup* textureGroup) {
+        if (!target.resource || !target.renderer) return;
+        target.resource->mIsUpload = true;
+        if (target.renderer->isAllUpload()) {
+            target.renderer->replaceTexture(textureGroup);
+        }
+    }
+
     static BlockActorRenderSchematic& getInstance() {
         static BlockActorRenderSchematic blockActorRenderSchematic{};
         return blockActorRenderSchematic;
     };
 };
 
-// 管理类实例
-// static BlockActorRenderSchematic blockActorRenderSchematic;
 
 
 LL_AUTO_TYPE_INSTANCE_HOOK(
@@ -156,7 +198,8 @@ LL_AUTO_TYPE_INSTANCE_HOOK(
     bool                    renderAlphaLayer
 ) {
     origin(renderContext, renderAlphaLayer);
-    if (renderAlphaLayer && !BlockActorRenderSchematic::getInstance().renderers.empty()) {
+    auto& manager = BlockActorRenderSchematic::getInstance();
+    if (renderAlphaLayer && !manager.renderersIsEmpty()) {
         BlockPos pos(2, 1, 1); // 渲染的世界位置
         BlockPos pos1(1, 1, 1);
         BlockPos pos2(2, 1, 0);
@@ -219,15 +262,15 @@ LL_AUTO_TYPE_INSTANCE_HOOK(
         block_actor_test::BlockActorRenderDataForSchematic data4{renderpos4, pos4, mViewRegion->get()->getBlock(pos4e), mViewRegion->get()->getBlockEntity(pos4e)};
         block_actor_test::BlockActorRenderDataForSchematic data5{renderpos5, pos5, mViewRegion->get()->getBlock(pos5e), mViewRegion->get()->getBlockEntity(pos5e)};
         block_actor_test::BlockActorRenderDataForSchematic data6{renderpos6, pos6, mViewRegion->get()->getBlock(pos6e), mViewRegion->get()->getBlockEntity(pos6e)};
-        BlockActorRenderSchematic::getInstance().renderers[BlockActorRendererId::Chest]->renderSchematic(renderContext, data);
-        BlockActorRenderSchematic::getInstance().renderers[BlockActorRendererId::Chest]->renderSchematic(renderContext, data1);
-        BlockActorRenderSchematic::getInstance().renderers[BlockActorRendererId::Chest]->renderSchematic(renderContext, data2);
-        BlockActorRenderSchematic::getInstance().renderers[BlockActorRendererId::Chest]->renderSchematic(renderContext, data3);
-        BlockActorRenderSchematic::getInstance().renderers[BlockActorRendererId::Chest]->renderSchematic(renderContext, data4);
-        BlockActorRenderSchematic::getInstance().renderers[BlockActorRendererId::Chest]->renderSchematic(renderContext, data5);
-        BlockActorRenderSchematic::getInstance().renderers[BlockActorRendererId::Chest]->renderSchematic(renderContext, data6);
+        manager.renderSchematic(BlockActorRendererId::Chest, renderContext, data);
+        manager.renderSchematic(BlockActorRendererId::Chest, renderContext, data1);
+        manager.renderSchematic(BlockActorRendererId::Chest, renderContext, data2);
+        manager.renderSchematic(BlockActorRendererId::Chest, renderContext, data3);
+        manager.renderSchematic(BlockActorRendererId::Chest, renderContext, data4);
+        manager.renderSchematic(BlockActorRendererId::Chest, renderContext, data5);
+        manager.renderSchematic(BlockActorRendererId::Chest, renderContext, data6);
     }
-    if (BlockActorRenderSchematic::getInstance().renderers.empty()) {
+    if (manager.renderersIsEmpty()) {
         logger.debug("renderer is empty!");
     }
 }
@@ -484,12 +527,10 @@ public:
         trappedLargeTex->mTexturePtrs->mColorTexture =
             textureGroup
                 ->getTexture(trappedLargeTex->mResourceLocations->mColorLocation, false, 0, cg::TextureSetLayerType::Color);
-            textureMap[3].mIsUpload=false;
 
         enderTex->mTexturePtrs->mColorTexture =
             textureGroup
                 ->getTexture(enderTex->mResourceLocations->mColorLocation, false, 0, cg::TextureSetLayerType::Color);
-            textureMap[4].mIsUpload=false;
 
         // 铜箱子
         auto assignTexture = [&](CopperType type) {
@@ -517,15 +558,16 @@ LL_AUTO_TYPE_INSTANCE_HOOK(
     ResourceLocation const&                                      resourceLocation,
     gsl::not_null<::std::shared_ptr<::cg::TextureSetDefinition>> textureSetDefinition
 ) {
-    if(BlockActorRenderSchematic::getInstance().renderers.empty()) {
+    auto& manager = BlockActorRenderSchematic::getInstance();
+    if(manager.renderersIsEmpty()) {
         return origin(resourceLocation, textureSetDefinition);
     }
-    auto newRes       = BlockActorRenderSchematic::getInstance().isSchematicRenderer(resourceLocation.getHashedPath());
-    if (newRes.first && !textureSetDefinition->_getImageContainer()->mLayerImageList->empty()) {
-        int  transparency = BlockActorRenderSchematic::getInstance().renderers[newRes.second]->mTransparency * 255;
+    auto target = manager.findTextureUploadTarget(resourceLocation.getHashedPath());
+    if (target.resource && !textureSetDefinition->_getImageContainer()->mLayerImageList->empty()) {
+        int  transparency = target.renderer->mTransparency * 255;
         auto old = textureSetDefinition->_getImageContainer()->mLayerImageList.get()[0].mImageList->getImage(0);
         cg::ImageBuffer newBuf(*old);
-        auto            textureSetDefinition_new = makeDefinitionFromImageBuffer(newRes.first->blendRes, &newBuf);
+        auto            textureSetDefinition_new = makeDefinitionFromImageBuffer(target.resource->blendRes, &newBuf);
         for (auto& item : textureSetDefinition_new->_getImageContainer()->mLayerImageList.get()) {
             if (item.mImageList->isValid() && item.mLayerType == cg::TextureSetLayerType::Color) {
                 auto imagebuff = item.mImageList->getImage(0);
@@ -535,17 +577,14 @@ LL_AUTO_TYPE_INSTANCE_HOOK(
                     for (uint32 i = 0; i < width * height * 4; i += 4) {
                         const_cast<cg::ImageBuffer*>(imagebuff)->mStorage->get()[i + 3] = transparency;
                     };
-                    logger.debug("me is target change, type->{}, text->{}", (uchar)item.mLayerType, newRes.first->blendRes.getFullPath().value);
+                    logger.debug("me is target change, type->{}, text->{}", (uchar)item.mLayerType, target.resource->blendRes.getFullPath().value);
                 }
             }
         }
         UploadImage::unhook();
-        uploadTexture(newRes.first->blendRes, textureSetDefinition_new);
-        const_cast<BaseRenderSchematic::ResourceLocationMap*>(newRes.first)->mIsUpload = true;
+        uploadTexture(target.resource->blendRes, textureSetDefinition_new);
+        manager.onTextureUploaded(target, this);
         UploadImage::hook();
-        if(BlockActorRenderSchematic::getInstance().renderers[newRes.second]->isAllUpload()) {
-            BlockActorRenderSchematic::getInstance().renderers[newRes.second]->replaceTexture(this);
-        }
     };
 
     return origin(resourceLocation, textureSetDefinition);
@@ -577,10 +616,11 @@ LL_AUTO_TYPE_INSTANCE_HOOK(
         baseGameVersion,
         experiments
     );
-    if (BlockActorRenderSchematic::getInstance().renderers.empty()) {
+    auto& manager = BlockActorRenderSchematic::getInstance();
+    if (!manager.hasRenderer(BlockActorRendererId::Chest)) {
         auto chestRenderer =
             std::make_unique<ModifyChestRenderer>(ll::service::getClientInstance()->getTextureGroup(), 0.5);
-        BlockActorRenderSchematic::getInstance().renderers[BlockActorRendererId::Chest] = std::move(chestRenderer);
+        manager.registerRenderer(BlockActorRendererId::Chest, std::move(chestRenderer));
     }
 }
 

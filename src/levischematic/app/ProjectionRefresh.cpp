@@ -32,11 +32,15 @@ bool refreshProjectionState(
     auto& kernel = getAppKernel();
     if (source) {
         kernel.verifier().refresh(*source);
+        kernel.blockActorVerifier().refresh(*source);
     } else {
         kernel.verifier().refresh();
+        kernel.blockActorVerifier().refresh();
     }
 
-    return kernel.projection().flushRefresh(coordinator);
+    auto refreshedBlockProjection = kernel.projection().flushRefresh(coordinator);
+    auto refreshedActorProjection = kernel.blockActorProjection().flushRefresh(coordinator);
+    return refreshedBlockProjection || refreshedActorProjection;
 }
 
 bool refreshProjectionStateForDimension(Dimension* dimension) {

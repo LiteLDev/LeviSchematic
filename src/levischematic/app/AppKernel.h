@@ -1,12 +1,14 @@
 #pragma once
 
 #include "levischematic/app/InfoOverlayService.h"
+#include "levischematic/app/BlockActorProjectionService.h"
 #include "levischematic/app/PlacementService.h"
 #include "levischematic/app/ProjectionService.h"
 #include "levischematic/app/RuntimeContext.h"
 #include "levischematic/app/SelectionService.h"
 #include "levischematic/app/ViewService.h"
 #include "levischematic/input/InputHandler.h"
+#include "levischematic/verifier/BlockActorVerifierService.h"
 #include "levischematic/verifier/VerifierService.h"
 
 #include "ll/api/event/ListenerBase.h"
@@ -19,6 +21,7 @@ class SchematicLoader;
 }
 
 namespace levischematic::render {
+class BlockActorProjectionProjector;
 class ProjectionProjector;
 }
 
@@ -48,8 +51,18 @@ public:
     [[nodiscard]] ViewService const&       view() const { return *mViewService; }
     [[nodiscard]] ProjectionService&       projection() { return *mProjectionService; }
     [[nodiscard]] ProjectionService const& projection() const { return *mProjectionService; }
+    [[nodiscard]] BlockActorProjectionService& blockActorProjection() { return *mBlockActorProjectionService; }
+    [[nodiscard]] BlockActorProjectionService const& blockActorProjection() const {
+        return *mBlockActorProjectionService;
+    }
     [[nodiscard]] verifier::VerifierService& verifier() { return *mVerifierService; }
     [[nodiscard]] verifier::VerifierService const& verifier() const { return *mVerifierService; }
+    [[nodiscard]] verifier::BlockActorVerifierService& blockActorVerifier() {
+        return *mBlockActorVerifierService;
+    }
+    [[nodiscard]] verifier::BlockActorVerifierService const& blockActorVerifier() const {
+        return *mBlockActorVerifierService;
+    }
     [[nodiscard]] input::InputHandler&     input() { return mInputHandler; }
 
 private:
@@ -63,12 +76,15 @@ private:
     std::unique_ptr<placement::SchematicLoader>   mSchematicLoader;
     std::unique_ptr<selection::SelectionExporter> mSelectionExporter;
     std::unique_ptr<render::ProjectionProjector>  mProjector;
+    std::unique_ptr<render::BlockActorProjectionProjector> mBlockActorProjector;
     std::unique_ptr<PlacementService>             mPlacementService;
     std::unique_ptr<SelectionService>             mSelectionService;
     std::unique_ptr<InfoOverlayService>           mInfoOverlayService;
     std::unique_ptr<ViewService>                  mViewService;
     std::unique_ptr<ProjectionService>            mProjectionService;
+    std::unique_ptr<BlockActorProjectionService>  mBlockActorProjectionService;
     std::unique_ptr<verifier::VerifierService>    mVerifierService;
+    std::unique_ptr<verifier::BlockActorVerifierService> mBlockActorVerifierService;
     input::InputHandler                           mInputHandler;
     ll::event::ListenerPtr                        mClientJoinListener;
     ll::event::ListenerPtr                        mClientExitListener;
