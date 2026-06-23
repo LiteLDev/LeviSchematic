@@ -11,7 +11,7 @@ option_end()
 -- add_requires("levilamina x.x.x") for a specific version
 -- add_requires("levilamina develop") to use develop version
 -- please note that you should add bdslibrary yourself if using dev version
-add_requires("levilamina", {configs = {target_type = get_config("target_type")}})
+add_requires("levilamina v26.10.13", {configs = {target_type = get_config("target_type")}})
 
 add_requires("levibuildscript")
 add_requires("glm 1.0.1")
@@ -31,7 +31,9 @@ target("LeviSchematic") -- Change this to your mod name.
     set_kind("shared")
     set_languages("c++20")
     set_symbols("debug")
-    add_headerfiles("src/**.h")
+    add_headerfiles(
+        "src/**.h"
+    )
     add_files("src/**.cpp")
     add_includedirs("src")
     if is_config("target_type", "server") then

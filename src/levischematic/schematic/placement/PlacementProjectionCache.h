@@ -11,6 +11,7 @@ class PlacementProjectionCache {
 public:
     struct View {
         std::vector<render::ProjEntry> const&                               worldEntries;
+        std::vector<render::BlockActorProjEntry> const&                     blockActorEntries;
         std::unordered_map<uint64_t, render::ProjEntry> const&              byPos;
         std::unordered_map<uint64_t, std::vector<render::ProjEntry>> const& bySubChunk;
         std::unordered_map<util::WorldBlockKey, verifier::ExpectedBlockSnapshot, util::WorldBlockKeyHash> const&
@@ -23,9 +24,10 @@ public:
 
 private:
     struct Record {
-        uint64_t revision = 0;
-        std::vector<render::ProjEntry> worldEntries;
-        std::unordered_map<uint64_t, render::ProjEntry> byPos;
+        uint64_t                                                     revision = 0;
+        std::vector<render::ProjEntry>                               worldEntries;
+        std::vector<render::BlockActorProjEntry>                     blockActorEntries;
+        std::unordered_map<uint64_t, render::ProjEntry>              byPos;
         std::unordered_map<uint64_t, std::vector<render::ProjEntry>> bySubChunk;
         std::unordered_map<util::WorldBlockKey, verifier::ExpectedBlockSnapshot, util::WorldBlockKeyHash>
             expectedBlocksByKey;

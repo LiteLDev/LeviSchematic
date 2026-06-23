@@ -1,24 +1,30 @@
 #include "PlacementProjectionCache.h"
 
+#include "levischematic/LeviSchematic.h"
 #include "levischematic/util/PositionUtils.h"
+
+#include "mc/world/level/block/actor/BlockActor.h"
 
 namespace levischematic::placement {
 
+    auto& getLogger() { return levischematic::LeviSchematic::getInstance().getSelf().getLogger(); }
+
 PlacementProjectionCache::View PlacementProjectionCache::view(PlacementInstance const& placement) {
     auto const& record = ensureRecord(placement);
-    return View{record.worldEntries, record.byPos, record.bySubChunk, record.expectedBlocksByKey};
+    return View{
+        record.worldEntries,
+        record.blockActorEntries,
+        record.byPos,
+        record.bySubChunk,
+        record.expectedBlocksByKey,
+    };
 }
 
-void PlacementProjectionCache::clear() {
-    mRecords.clear();
-}
+void PlacementProjectionCache::clear() { mRecords.clear(); }
 
-void PlacementProjectionCache::remove(PlacementId id) {
-    mRecords.erase(id);
-}
+void PlacementProjectionCache::remove(PlacementId id) { mRecords.erase(id); }
 
-PlacementProjectionCache::Record const&
-PlacementProjectionCache::ensureRecord(PlacementInstance const& placement) {
+PlacementProjectionCache::Record const& PlacementProjectionCache::ensureRecord(PlacementInstance const& placement) {
     auto& record = mRecords[placement.id];
     if (record.revision != placement.revision) {
         record = buildRecord(placement);
@@ -52,18 +58,14 @@ PlacementProjectionCache::Record PlacementProjectionCache::buildRecord(Placement
             continue;
         }
 
-        auto local = transformLocalPos(
-            localEntry.localPos,
-            placement.asset->size,
-            placement.mirror,
-            placement.rotation
-        );
+        auto local =
+            transformLocalPos(localEntry.localPos, placement.asset->size, placement.mirror, placement.rotation);
         render::ProjEntry resolved{
             BlockPos{
-                placement.origin.x + local.x,
-                placement.origin.y + local.y,
-                placement.origin.z + local.z,
-            },
+                     placement.origin.x + local.x,
+                     placement.origin.y + local.y,
+                     placement.origin.z + local.z,
+                     },
             localEntry.renderBlock,
             render::kDefaultProjectionColor,
         };
@@ -76,20 +78,33 @@ PlacementProjectionCache::Record PlacementProjectionCache::buildRecord(Placement
             .placementId = placement.id,
         };
 
-        auto posKey = util::encodePosKey(resolved.pos);
+        auto posKey        = util::encodePosKey(resolved.pos);
+        bool hasBlockActor = localEntry.blockActor
+    && localEntry.blockActor->mRendererId == BlockActorRendererId::Chest;
         if (auto overrideIt = placement.overrides.find(posKey); overrideIt != placement.overrides.end()) {
             if (overrideIt->second.kind == OverrideEntry::Kind::Remove) {
                 record.byPos.erase(posKey);
                 record.expectedBlocksByKey.erase(util::makeWorldBlockKey(placement.dimensionId, posKey));
                 continue;
             }
-            resolved.block = overrideIt->second.block;
+            hasBlockActor        = false;
+            resolved.block       = overrideIt->second.block;
             expected.renderBlock = overrideIt->second.block;
             expected.compareSpec = verifier::buildCompareSpecFromBlock(*overrideIt->second.block);
             expected.blockEntity = overrideIt->second.blockEntity;
         }
 
-        applyEntry(resolved);
+        if (hasBlockActor) {
+            record.blockActorEntries.push_back(render::BlockActorProjEntry{
+                .pos        = resolved.pos,
+                .block      = resolved.block,
+                .blockActor = localEntry.blockActor,
+                .rendererId = localEntry.blockActor->mRendererId,
+                .color      = render::kDefaultProjectionColor,
+            });
+        } else {
+            applyEntry(resolved);
+        }
         applyExpected(std::move(expected));
     }
 
