@@ -13,7 +13,9 @@
 #include "mc/deps/minecraft_renderer/framebuilder/CSSGameplayFlags.h"
 #include "mc/deps/minecraft_renderer/renderer/MaterialPtr.h"
 #include "mc/deps/minecraft_renderer/renderer/RenderMaterial.h"
+#include "mc/deps/minecraft_renderer/resources/OffscreenCaptureData.h"
 #include "mc/deps/renderer/Camera.h"
+#include "mc/external/render_dragon/resources/ServerResourcePointer.h"
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/block/Block.h"
 #include "mc/world/level/block/CopperBehavior.h"
@@ -24,12 +26,43 @@
 
 #include <glm/ext/matrix_transform.hpp>
 
+
+namespace dragon {
+class ResolvedImageResource {};
+}; // namespace dragon
 namespace mce::framebuilder {
 struct CustomSurfaceShaderMetadata {
     uint             mHash;
     CSSGameplayFlags mGameplayFlags;
 };
 } // namespace mce::framebuilder
+
+ResourceLocation& ResourceLocation::operator=(ResourceLocation const& rhs) {
+    if (this == &rhs) {
+        return *this;
+    }
+
+    mFileSystem  = rhs.mFileSystem;
+    mPath->value = rhs.mPath->value;
+    mPathHash    = rhs.mPathHash;
+    mFullHash    = rhs.mFullHash;
+
+    return *this;
+}
+
+OffscreenCaptureData::OffscreenCaptureData() {
+    mUnk59fd72.as<uint>() = 0;
+    mUnkde1fa8.as<uint>() = 0;
+    mUnk8285b9.as<mce::ServerResourcePointer<dragon::ResolvedImageResource>>() =
+        mce::ServerResourcePointer<dragon::ResolvedImageResource>();
+}
+
+OffscreenCaptureData::OffscreenCaptureData(OffscreenCaptureData const& rhs) {
+    mUnk59fd72.as<uint>() = rhs.mUnk59fd72.as<uint>();
+    mUnkde1fa8.as<uint>() = rhs.mUnkde1fa8.as<uint>();
+    mUnk8285b9.as<mce::ServerResourcePointer<dragon::ResolvedImageResource>>() =
+        rhs.mUnk8285b9.as<mce::ServerResourcePointer<dragon::ResolvedImageResource>>();
+}
 
 namespace dragon {
 struct RenderMetadata {
@@ -51,35 +84,33 @@ namespace levischematic::schematic::block_actor {
 SchematicChestRenderer::SchematicChestRenderer(std::shared_ptr<::mce::TextureGroup> textureGroup, float transparency)
 : ChestRenderer(std::move(textureGroup)) {
     mTransparency       = transparency;
-    auto newmaterialptr = mce::MaterialPtr();
+    auto newmaterialptr = mce::MaterialPtr(mce::RenderMaterialGroup::common(), HashedString("chest.skinning_blend"));
+
     auto newmater_ptr =
         std::make_unique<mce::RenderMaterial>(*mChestModel->mDefaultMaterial->mRenderMaterialInfoPtr->mPtr);
-    newmaterialptr.mRenderMaterialInfoPtr              = std::make_shared<mce::RenderMaterialInfo>();
-    newmaterialptr.mRenderMaterialInfoPtr->mHashedName = HashedString("chest.skinning_blend");
-    newmaterialptr.mRenderMaterialInfoPtr->mPtr        = std::move(newmater_ptr);
+    newmaterialptr.mRenderMaterialInfoPtr = std::make_shared<mce::RenderMaterialInfo>();
+    // newmaterialptr.mRenderMaterialInfoPtr->mHashedName = HashedString("chest.skinning_blend");
+    newmaterialptr.mRenderMaterialInfoPtr->mPtr = std::move(newmater_ptr);
 
 
     newmaterialptr.mRenderMaterialInfoPtr->mPtr->mStateMask                         = mce::RenderState::Blending;
     newmaterialptr.mRenderMaterialInfoPtr->mPtr->blendStateDescription->enableBlend = true;
-    newmaterialptr.mRenderMaterialInfoPtr->mPtr->blendStateDescription->enableAlphaToCoverage = false;
-    newmaterialptr.mRenderMaterialInfoPtr->mPtr->blendStateDescription->blendSource = mce::BlendTarget::SourceAlpha;
-    newmaterialptr.mRenderMaterialInfoPtr->mPtr->blendStateDescription->blendDestination =
-        mce::BlendTarget::OneMinusSrcAlpha;
-    newmaterialptr.mRenderMaterialInfoPtr->mPtr->blendStateDescription->alphaSource = mce::BlendTarget::SourceAlpha;
-    newmaterialptr.mRenderMaterialInfoPtr->mPtr->blendStateDescription->alphaDestination =
-        mce::BlendTarget::OneMinusSrcAlpha;
+    newmaterialptr.mRenderMaterialInfoPtr->mPtr->blendStateDescription->enableAlphaToCoverage   = false;
+    newmaterialptr.mRenderMaterialInfoPtr->mPtr->blendStateDescription->blendSource             = (mce::BlendTarget)0x6;
+    newmaterialptr.mRenderMaterialInfoPtr->mPtr->blendStateDescription->blendDestination        = (mce::BlendTarget)0x8;
+    newmaterialptr.mRenderMaterialInfoPtr->mPtr->blendStateDescription->alphaSource             = (mce::BlendTarget)0x6;
+    newmaterialptr.mRenderMaterialInfoPtr->mPtr->blendStateDescription->alphaDestination        = (mce::BlendTarget)0x8;
     newmaterialptr.mRenderMaterialInfoPtr->mPtr->blendStateDescription->colorWriteMask          = 0xF;
     newmaterialptr.mRenderMaterialInfoPtr->mPtr->depthStencilStateDescription->depthTestEnabled = true;
     newmaterialptr.mRenderMaterialInfoPtr->mPtr->depthStencilStateDescription->depthWriteMask =
         (mce::DepthWriteMask)0x1;
 
-    mChestModel->mDefaultMaterial = newmaterialptr;
-
-    mChestModel->setModelMaterial(mChestModel->mDefaultMaterial);
+    mChestModel->mDefaultMaterial                             = newmaterialptr;
+    mChestModel->mMaterialVariants->mSkinningMaterialPtr      = newmaterialptr;
     mChestModel->mMaterialVariants->mSkinningColorMaterialPtr = newmaterialptr;
 
-    mLargeChestModel->mDefaultMaterial = newmaterialptr;
-    mLargeChestModel->setModelMaterial(newmaterialptr);
+    mLargeChestModel->mDefaultMaterial                             = newmaterialptr;
+    mLargeChestModel->mMaterialVariants->mSkinningMaterialPtr      = newmaterialptr;
     mLargeChestModel->mMaterialVariants->mSkinningColorMaterialPtr = newmaterialptr;
 
     mChestModel->mLid->mRot->x = 0;
@@ -213,14 +244,21 @@ void SchematicChestRenderer::renderSchematic(
 
     {
         dragon::RenderMetadata renderMetadata{
-            blockEntityRenderData.pos.hashCode(),
-            {blockEntityRenderData.block.getBlockType().mNameInfo->mFullName->getHash(),
-                             (mce::framebuilder::CSSGameplayFlags)1},
+            blockEntityRenderData.pos.hash(),
+            {(uint)blockEntityRenderData.block.getBlockType().mNameInfo->mFullName->getHash(),
+                         (mce::framebuilder::CSSGameplayFlags)1},
             false,
             renderContext.mOffscreenCaptureDescription
         };
 
-        _renderModel(screenContext, renderMetadata, *chestModel, *chestTexture);
+        _renderModel(
+            screenContext,
+            renderMetadata,
+            *chestModel,
+            *chestTexture,
+            chestModel->mDefaultMaterial,
+            chestTexture->mTexturePtrs->mColorTexture->getClientTexture()
+        );
     }
 }
 

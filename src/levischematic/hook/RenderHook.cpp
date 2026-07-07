@@ -19,9 +19,8 @@
 #include "mc/client/renderer/block/BlockTessellator.h"
 #include "mc/client/renderer/blockactor/BlockActorRenderDispatcher.h"
 #include "mc/client/renderer/chunks/RenderChunkBuilder.h"
-#include "mc/client/renderer/game/LevelRendererCamera.h"
 #include "mc/client/renderer/chunks/RenderChunkGeometry.h"
-#include "mc/client/renderer/chunks/BlockQueueEntry.h"
+#include "mc/client/renderer/game/LevelRendererCamera.h"
 #include "mc/deps/core/resource/ResourceLocationPair.h"
 #include "mc/deps/core_graphics/ImageBuffer.h"
 #include "mc/deps/core_graphics/ImageResource.h"
@@ -32,12 +31,13 @@
 #include "mc/util/texture_set_helpers/TextureSetDefinitionLoader.h"
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/block/Block.h"
+#include "mc/world/level/dimension/DimensionType.h"
 
-#include <Windows.h>
-#include <cstdlib>
-#include <memory>
-#include <minwinbase.h>
-#include <utility>
+
+struct BlockQueueEntry {
+    BlockPos     pos;
+    Block const& blockInfo;
+};
 
 namespace levischematic::hook {
 
@@ -49,40 +49,11 @@ namespace {
 
 bool gRenderHooksRegistered = false;
 
-int floorDiv16(int value) noexcept {
-    return value / 16 - (value % 16 != 0 && value < 0 ? 1 : 0);
-}
+int floorDiv16(int value) noexcept { return value / 16 - (value % 16 != 0 && value < 0 ? 1 : 0); }
 
 uint64_t renderColumnKeyFromWorldPos(int x, int z) noexcept {
     return (static_cast<uint64_t>(static_cast<uint32_t>(floorDiv16(x))) << 21)
          | static_cast<uint64_t>(static_cast<uint32_t>(floorDiv16(z)) & 0x1FFFFFu);
-}
-
-std::shared_ptr<::cg::TextureSetDefinition>
-makeDefinitionFromImageBuffer(ResourceLocation const& res, cg::ImageBuffer const* buffer) {
-    HMODULE hModule = GetModuleHandle(nullptr);
-
-    void* resourceLocationPair_va  = (void*)(reinterpret_cast<BYTE*>(hModule) + 0x0);
-    void* resourceLocationPair_ptr = malloc(0x0);
-    ZeroMemory(resourceLocationPair_ptr, 0x0);
-
-    void* packid = malloc(0x0);
-    ZeroMemory(packid, 0x0);
-    ll::memory::addressCall<void, void*, ResourceLocation const&, void*, int>(
-        resourceLocationPair_va,
-        resourceLocationPair_ptr,
-        res,
-        packid,
-        0
-    );
-
-    void* func_ptr = (void*)(reinterpret_cast<BYTE*>(hModule) + 0x0);
-    return ll::memory::addressCall<
-        std::shared_ptr<::cg::TextureSetDefinition>,
-        ResourceLocationPair*,
-        cg::ImageBuffer const*,
-        bool,
-        bool>(func_ptr, (ResourceLocationPair*)resourceLocationPair_ptr, buffer, false, false);
 }
 
 } // namespace
@@ -112,16 +83,16 @@ LL_TYPE_INSTANCE_HOOK(
     auto& projection = app::getAppKernel().projection();
     (void)projection.flushRefresh(nullptr);
 
-    tl_currentScene = projection.sceneForDimension(static_cast<int>(region.getDimensionId()));
+    tl_currentScene = projection.sceneForDimension(region.getDimensionId());
     if (!tl_currentScene || tl_currentScene->empty()) {
         return result;
     }
 
-    auto const& renderPosition = renderChunkGeometry.mPosition.get();
-    auto columnKey             = renderColumnKeyFromWorldPos(renderPosition.x, renderPosition.z);
-    auto it                = tl_currentScene->byRenderColumn.find(columnKey);
-    bool hasProjectionMesh = it != tl_currentScene->byRenderColumn.end() && !it->second.empty();
-    bool hasColorOverride  = tl_currentScene->columnsWithColorOverrides.contains(columnKey);
+    auto const& renderPosition    = renderChunkGeometry.mPosition.get();
+    auto        columnKey         = renderColumnKeyFromWorldPos(renderPosition.x, renderPosition.z);
+    auto        it                = tl_currentScene->byRenderColumn.find(columnKey);
+    bool        hasProjectionMesh = it != tl_currentScene->byRenderColumn.end() && !it->second.empty();
+    bool        hasColorOverride  = tl_currentScene->columnsWithColorOverrides.contains(columnKey);
     if (!hasProjectionMesh && !hasColorOverride) {
         return result;
     }
@@ -130,10 +101,7 @@ LL_TYPE_INSTANCE_HOOK(
     if (hasProjectionMesh) {
         auto const& entries = it->second;
         for (auto const& entry : entries) {
-            BlockQueueEntry queueEntry{
-                entry.pos,
-                *entry.block
-            };
+            BlockQueueEntry queueEntry{entry.pos, *entry.block};
             this->mQueues[RENDERLAYER_BLEND].push_back(queueEntry);
         }
     }
@@ -190,7 +158,7 @@ LL_TYPE_INSTANCE_HOOK(
     auto& projection = app::getAppKernel().blockActorProjection();
     (void)projection.flushRefresh(nullptr);
 
-    auto scene = projection.sceneForDimension(static_cast<int>(mViewRegion->get()->getDimensionId()));
+    auto scene = projection.sceneForDimension(mViewRegion->get()->getDimensionId());
     if (!scene || scene->empty()) {
         return;
     }
@@ -243,8 +211,13 @@ LL_TYPE_INSTANCE_HOOK(
         int  transparency = static_cast<int>(target.renderer->mTransparency * 255);
         auto old = textureSetDefinition->_getImageContainer()->mLayerImageList.get()[0].mImageList->getImage(0);
         if (old) {
-            cg::ImageBuffer newBuf(*old);
-            auto            textureSetDefinitionNew = makeDefinitionFromImageBuffer(target.resource->blendRes, &newBuf);
+            cg::ImageBuffer      newBuf(*old);
+            auto textureSetDefinitionNew = TextureSetHelpers::TextureSetDefinitionLoader::makeDefinitionFromImageBuffer(
+                ResourceLocationPair(target.resource->blendRes, PackIdVersion::EMPTY(), 0),
+                &newBuf,
+                false,
+                false
+            );
             for (auto& item : textureSetDefinitionNew->_getImageContainer()->mLayerImageList.get()) {
                 if (item.mImageList->isValid() && item.mLayerType == cg::TextureSetLayerType::Color) {
                     auto imageBuffer = item.mImageList->getImage(0);

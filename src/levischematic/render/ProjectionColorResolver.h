@@ -10,7 +10,7 @@
 
 namespace levischematic::render {
 
-inline constexpr mce::Color kDefaultProjectionColor(0.75f, 0.85f, 1.0f, 0.85f);
+inline constexpr mce::Color kDefaultProjectionColor(0.75f, 0.85f, 1.0f, 0.7f);
 inline constexpr mce::Color kPropertyMismatchProjectionColor(1.0f, 0.87f, 0.25f, 0.9f);
 inline constexpr mce::Color kBlockMismatchProjectionColor(0.95f, 0.35f, 0.35f, 0.9f);
 

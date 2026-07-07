@@ -2,8 +2,9 @@
 
 #include "levischematic/LeviSchematic.h"
 
-#include "ll/api/service/Bedrock.h"
 #include "ll/api/memory/Memory.h"
+#include "ll/api/service/Bedrock.h"
+
 
 #include "mc/dataloadhelper/StructureDataLoadHelper.h"
 #include "mc/deps/nbt/CompoundTag.h"
@@ -14,8 +15,6 @@
 #include "mc/world/level/levelgen/structure/StructureBlockPalette.h"
 #include "mc/world/level/levelgen/structure/StructureTemplate.h"
 
-#include <fstream>
-#include <Windows.h>
 
 namespace levischematic::placement {
 namespace {
@@ -110,35 +109,6 @@ std::shared_ptr<BlockActor> getBlockActor(StructureTemplateData const& data, int
 
 int getFlatIndex(BlockPos const& pos, BlockPos const& size) { return pos.z + size.z * (pos.y + size.y * pos.x); }
 
-// StructureDataLoadHelper构建函数，临时使用，后续删除
-StructureDataLoadHelper&
-makeStructureDataLoadHelper(const BlockPos& pos, const BlockPos& structureWorldOrigin, Level& level) {
-    HMODULE hModule = GetModuleHandle(nullptr);
-    void* structureDataLoadHelper_va  = (void*)(reinterpret_cast<BYTE*>(hModule) + 0x0);
-    void* structureDataLoadHelper_ptr = malloc(0x0);
-    ZeroMemory(structureDataLoadHelper_ptr, 0x0);
-    Vec3 rotationPivot{0,0,0};
-    ll::memory::addressCall<void, void*,
-        BlockPos const&,
-        BlockPos const&,
-        Vec3 const&,
-        ActorUniqueID,
-        Rotation,
-        Mirror,
-        Level&>(
-        structureDataLoadHelper_va,
-        structureDataLoadHelper_ptr,
-        pos,
-        structureWorldOrigin,
-        rotationPivot,
-        ActorUniqueID::INVALID_ID(),
-        Rotation::None,
-        Mirror::None,
-        level
-    );
-    return *(StructureDataLoadHelper*)structureDataLoadHelper_ptr;
-};
-
 } // namespace
 
 LoadAssetResult SchematicLoader::loadMcstructureAsset(std::filesystem::path const& path) const {
@@ -232,10 +202,19 @@ LoadAssetResult SchematicLoader::loadMcstructureAsset(std::filesystem::path cons
                         continue;
                     }
                     // getLogger().debug("Pos:{}",localPos.toString().c_str());
+                    auto dataloadhelp = StructureDataLoadHelper(
+                        localPos,
+                        data->mStructureWorldOrigin,
+                        {0, 0, 0},
+                        ActorUniqueID::INVALID_ID(),
+                        Rotation::None,
+                        Mirror::None,
+                        level
+                    );
                     asset->localBlocks.push_back({
                         .localPos    = localPos,
                         .renderBlock = block,
-                        .blockActor  = getBlockActor(data, getFlatIndex(localPos, size), makeStructureDataLoadHelper(localPos, data->mStructureWorldOrigin, level)),
+                        .blockActor  = getBlockActor(data, getFlatIndex(localPos, size), dataloadhelp),
                         .compareSpec = verifier::buildCompareSpecFromBlock(*block),
                         .blockEntity = getBlockEntitySnapshot(data, getFlatIndex(localPos, size)),
                     });
