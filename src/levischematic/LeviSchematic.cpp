@@ -9,10 +9,6 @@ namespace levischematic {
 namespace {
 
 
-
-
-
-
 void logBuildStamp() {
     LeviSchematic::getInstance().getSelf().getLogger().info(
         "LeviSchematic build stamp: {} {} (Phase 5: preview runtime lifecycle)",

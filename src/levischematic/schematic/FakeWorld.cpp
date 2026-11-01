@@ -94,13 +94,13 @@ uint64_t FakeWorld::visibilityStamp(
 void FakeWorld::markDirty(BlockPos pos) {
     auto origin = util::subChunkOrigin(pos.x, pos.y, pos.z);
     for (BlockPos offset : {
-             BlockPos{0,   0,   0  },
-             BlockPos{16,  0,   0  },
-             BlockPos{-16, 0,   0  },
-             BlockPos{0,   16,  0  },
-             BlockPos{0,   -16, 0  },
-             BlockPos{0,   0,   16 },
-             BlockPos{0,   0,   -16}
+             BlockPos{  0,   0,   0},
+             BlockPos{ 16,   0,   0},
+             BlockPos{-16,   0,   0},
+             BlockPos{  0,  16,   0},
+             BlockPos{  0, -16,   0},
+             BlockPos{  0,   0,  16},
+             BlockPos{  0,   0, -16}
     })
         dirty.insert(util::encodeSubChunkKey({origin.x + offset.x, origin.y + offset.y, origin.z + offset.z}));
 }
@@ -110,7 +110,7 @@ void FakeWorld::advance(
     editor::ViewState const&            view,
     util::WorkBudget const&             budget
 ) {
-    
+
     while (!indexed && budget.available()) {
         if (mIndex < placement.asset->localBlocks.size()) {
             auto const& entry = placement.asset->localBlocks[mIndex++];
@@ -152,21 +152,21 @@ void FakeWorld::advance(
             chunk.ready  = true;
             chunk.built  = true;
             chunk.cursor = 0;
-            
+
             chunk.epoch = UINT64_MAX;
             markDirty(origin);
             ++mBuild;
         }
     }
-    
+
     size_t visited = 0;
     while (indexed && mBuild && visited++ < mBuild && budget.available()) {
         if (mVisibility >= mBuild) mVisibility = 0;
-        auto  origin = origins[mVisibility];
-        auto& chunk  = subChunks.at(util::encodeSubChunkKey(origin));
-        auto  stamp  = visibilityStamp(placement, verification, origin);
-        bool current = chunk.epoch == verification.epoch && chunk.viewRevision == view.revision
-                    && chunk.stamp == stamp && chunk.visibilityOrigin == placement.origin;
+        auto  origin  = origins[mVisibility];
+        auto& chunk   = subChunks.at(util::encodeSubChunkKey(origin));
+        auto  stamp   = visibilityStamp(placement, verification, origin);
+        bool  current = chunk.epoch == verification.epoch && chunk.viewRevision == view.revision && chunk.stamp == stamp
+                     && chunk.visibilityOrigin == placement.origin;
         if (chunk.ready && current) {
             ++mVisibility;
             continue;

@@ -39,7 +39,7 @@ class ValidationHullRenderer {
 public:
     using TextureVariant = std::variant<std::monostate, mce::TexturePtr, mce::ClientTexture, mce::ServerTexture>;
 
-    
+
     void renderPass(
         ScreenContext&,
         Vec3 const&,
@@ -48,16 +48,12 @@ public:
         app::Config const&,
         selection::SelectionOverlayView const&
     );
-    
+
     bool contains(app::PlacementService const&, BlockPos const&, int dimension, app::Config const&) const;
-    
+
     void clear() noexcept;
 
 private:
-    
-
-
-
     struct Vertex {
         float      x = 0.0f;
         float      y = 0.0f;
@@ -66,13 +62,8 @@ private:
         mce::Color color;
     };
 
-    
 
-
-
-
-
-    void appendCube(std::vector<Vertex>& vertices, BlockPos const& position, mce::Color color);
+    void        appendCube(std::vector<Vertex>& vertices, BlockPos const& position, mce::Color color);
     static void appendBox(std::vector<Vertex>&, Vec3 const& minimum, Vec3 const& maximum, mce::Color);
     void        drawSelection(
         ScreenContext&,
@@ -83,12 +74,6 @@ private:
         selection::SelectionOverlayView const&,
         app::Config::Selection const&
     );
-    
-
-
-
-
-
 
 
     static std::unique_ptr<mce::Mesh> buildMesh(
@@ -99,17 +84,17 @@ private:
         std::vector<Vertex> const& vertices
     );
 
-    
+
     struct Batch : detail::RenderBatchVersion {
         std::vector<Vertex>                                                      block, property;
         std::unique_ptr<mce::Mesh>                                               blockMesh, propertyMesh;
         std::unordered_map<uint64_t, verifier::VerificationCell>::const_iterator cursor;
     };
-    
+
     TextureVariant resolveTexture(LevelRenderer*);
-    
+
     mce::MaterialPtr const* resolveMaterial();
-    
+
     void draw(
         ScreenContext&,
         Tessellator&,
@@ -123,10 +108,10 @@ private:
     );
     std::unordered_map<util::WorldBlockKey, Batch, util::WorldBlockKeyHash> mBatches;
     detail::HullCacheState                                                  mCache;
-    mce::TexturePtr                   mTexture;
-    std::unique_ptr<mce::MaterialPtr> mMaterial;
-    bool                              mTextureResolved = false;
-    bool                              mDrawable        = false;
+    mce::TexturePtr                                                         mTexture;
+    std::unique_ptr<mce::MaterialPtr>                                       mMaterial;
+    bool                                                                    mTextureResolved = false;
+    bool                                                                    mDrawable        = false;
     std::size_t                                                             mBuildStart      = 0;
     std::optional<bool>                                                     mDeferred;
     std::unique_ptr<mce::Mesh>                                              mSelectionMesh;

@@ -4,8 +4,8 @@
 
 #include "levischematic/app/PlacementService.h"
 #include "levischematic/render/SchematicRenderAlgorithms.h"
-#include "levischematic/selection/SelectionState.h"
 #include "levischematic/schematic/FakeWorld.h"
+#include "levischematic/selection/SelectionState.h"
 
 #include "mc/client/gui/screens/ScreenContext.h"
 #include "mc/client/renderer/Tessellator.h"
@@ -148,10 +148,8 @@ std::unique_ptr<mce::Mesh> ValidationHullRenderer::buildMesh(
     }
 
     tessellator.begin({}, mce::PrimitiveMode::QuadList, static_cast<int>(vertices.size()), false);
-    
-    
-    
-    
+
+
     tessellator.mNextNormal        = std::nullopt;
     tessellator.mNextPBRTextureIdx = std::nullopt;
     tessellator.mNextMERS          = std::nullopt;
@@ -247,21 +245,21 @@ void ValidationHullRenderer::draw(
     bool const       oldApplyTransform       = tessellator.mApplyTransform;
     auto const       oldNextColor            = tessellator.mNextColor;
     auto const       oldNextBone             = tessellator.mNextBoneId;
-    std::array oldNextUv{tessellator.mNextUV[0].get(), tessellator.mNextUV[1].get(), tessellator.mNextUV[2].get()};
-    auto const       oldNextNormal           = tessellator.mNextNormal;
-    auto const       oldNextPbrTextureIdx    = tessellator.mNextPBRTextureIdx;
-    auto const       oldNextMers             = tessellator.mNextMERS;
-    auto const       oldNextGeoType          = tessellator.mNextGeoType;
-    uchar const      oldQuadFacing           = tessellator.mQuadFacing;
-    bool const       oldQuadTwoSided         = tessellator.mQuadTwoSided;
-    bool const       oldNoColor              = tessellator.mNoColor;
-    util::ScopeExit  restoreState([&] {
-        *tessellator.mPostTransformOffset               = oldOffset;
-        tessellator.mPostTransformScale                 = oldScale;
-        tessellator.mTransformMatrix                    = oldTransform;
-        tessellator.mApplyTransform                     = oldApplyTransform;
-        tessellator.mNextColor                          = oldNextColor;
-        tessellator.mNextBoneId                         = oldNextBone;
+    std::array      oldNextUv{tessellator.mNextUV[0].get(), tessellator.mNextUV[1].get(), tessellator.mNextUV[2].get()};
+    auto const      oldNextNormal        = tessellator.mNextNormal;
+    auto const      oldNextPbrTextureIdx = tessellator.mNextPBRTextureIdx;
+    auto const      oldNextMers          = tessellator.mNextMERS;
+    auto const      oldNextGeoType       = tessellator.mNextGeoType;
+    uchar const     oldQuadFacing        = tessellator.mQuadFacing;
+    bool const      oldQuadTwoSided      = tessellator.mQuadTwoSided;
+    bool const      oldNoColor           = tessellator.mNoColor;
+    util::ScopeExit restoreState([&] {
+        *tessellator.mPostTransformOffset = oldOffset;
+        tessellator.mPostTransformScale   = oldScale;
+        tessellator.mTransformMatrix      = oldTransform;
+        tessellator.mApplyTransform       = oldApplyTransform;
+        tessellator.mNextColor            = oldNextColor;
+        tessellator.mNextBoneId           = oldNextBone;
         for (std::size_t index = 0; index < oldNextUv.size(); ++index) tessellator.mNextUV[index] = oldNextUv[index];
         tessellator.mNextNormal                         = oldNextNormal;
         tessellator.mNextPBRTextureIdx                  = oldNextPbrTextureIdx;
@@ -281,9 +279,8 @@ void ValidationHullRenderer::draw(
         screenContext.isAlphaMaskedTintEnabled          = oldAlphaMaskedTint;
     });
     screenContext.isDrawingUI = false;
-    
-    
-    
+
+
     screenContext.isDrawingEditorSelectionHighlight = false;
     screenContext.isDrawingMovingBlock              = false;
     screenContext.isDitheringEnabled                = false;
@@ -328,7 +325,7 @@ void ValidationHullRenderer::draw(
         ++builds;
         auto build = [&](auto& pending, auto& mesh) {
             if (pending.empty() || mesh || !budget.available()) return;
-            mesh      = buildMesh(screenContext, tessellator, material, texture, pending);
+            mesh = buildMesh(screenContext, tessellator, material, texture, pending);
             if (mesh) std::vector<Vertex>{}.swap(pending);
         };
         build(batch.block, batch.blockMesh);
@@ -461,9 +458,9 @@ void ValidationHullRenderer::renderPass(
         return;
     }
 
-    auto const*             glowMaterial      = resolveMaterial();
-    auto                    texture           = glowMaterial ? resolveTexture(levelRenderer) : TextureVariant{};
-    bool const              deferred          = static_cast<bool>(itemRenderer->mIsDeferredEnabled);
+    auto const* glowMaterial = resolveMaterial();
+    auto        texture      = glowMaterial ? resolveTexture(levelRenderer) : TextureVariant{};
+    bool const  deferred     = static_cast<bool>(itemRenderer->mIsDeferredEnabled);
     if (mDeferred && *mDeferred != deferred) {
         mBatches.clear();
         mSelectionMesh.reset();
@@ -472,10 +469,8 @@ void ValidationHullRenderer::renderPass(
     auto const&             outlineMaterial   = rendererPlayer->mOutlineSelectionMaterial.get();
     auto const&             selectionMaterial = rendererPlayer->selectionTwoSidedMaterial.get();
     mce::MaterialPtr const* materialPtr       = nullptr;
-    
-    
-    
-    
+
+
     if (glowMaterial) {
         materialPtr = glowMaterial;
     } else if (deferred && outlineMaterial.mRenderMaterialInfoPtr) {
@@ -492,8 +487,6 @@ void ValidationHullRenderer::renderPass(
     auto const& blendMaterialPtr = itemRenderer->mMatBlendBlock.get();
     auto*       blendMaterial =
         blendMaterialPtr.mRenderMaterialInfoPtr ? blendMaterialPtr.mRenderMaterialInfoPtr->mPtr.get() : nullptr;
-    
-
 
 
     struct MaterialStateRestore {
@@ -503,7 +496,6 @@ void ValidationHullRenderer::renderPass(
         float                                     depthBias{};
         float                                     slopeBias{};
         bool                                      restorePrimitive = false;
-        
 
 
         ~MaterialStateRestore() {

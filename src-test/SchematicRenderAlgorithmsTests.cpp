@@ -1,13 +1,8 @@
 
 
 
-
-
-
-
-
-#include "levischematic/render/SchematicRenderAlgorithms.h"
 #include "levischematic/render/BoxFaces.h"
+#include "levischematic/render/SchematicRenderAlgorithms.h"
 
 #include <array>
 #include <cstdlib>
@@ -33,8 +28,7 @@ void check(bool value, std::string const& what) {
 
 void checkOrigins(Origins const& actual, Origins const& expected, std::string const& what) {
     if (actual == expected) return;
-    std::cerr << "FAIL: " << what << "\n  expected " << expected.size() << " origin(s), got " << actual.size()
-              << "\n";
+    std::cerr << "FAIL: " << what << "\n  expected " << expected.size() << " origin(s), got " << actual.size() << "\n";
     for (auto const& o : actual) {
         std::cerr << "    (" << o[0] << ", " << o[1] << ", " << o[2] << ")\n";
     }
@@ -42,35 +36,118 @@ void checkOrigins(Origins const& actual, Origins const& expected, std::string co
 }
 
 void testChunkOrigins() {
-    
-    checkOrigins(algorithms::generateChunkOrigins({0, 0, 0}, {1, 1, 1}), {{0, 0, 0}}, "one block");
-    checkOrigins(algorithms::generateChunkOrigins({0, 0, 0}, {16, 16, 16}), {{0, 0, 0}}, "exclusive max");
-    checkOrigins(algorithms::generateChunkOrigins({16, 16, 16}, {32, 32, 32}), {{16, 16, 16}}, "aligned origin");
 
-    
     checkOrigins(
-        algorithms::generateChunkOrigins({0, 0, 0}, {17, 17, 17}),
+        algorithms::generateChunkOrigins(
+            {
+                0,
+                0,
+                0
+    },
+            {1, 1, 1}
+        ),
+        {{0, 0, 0}},
+        "one block"
+    );
+    checkOrigins(
+        algorithms::generateChunkOrigins(
+            {
+                0,
+                0,
+                0
+    },
+            {16, 16, 16}
+        ),
+        {{0, 0, 0}},
+        "exclusive max"
+    );
+    checkOrigins(
+        algorithms::generateChunkOrigins(
+            {
+                16,
+                16,
+                16
+    },
+            {32, 32, 32}
+        ),
+        {{16, 16, 16}},
+        "aligned origin"
+    );
+
+
+    checkOrigins(
+        algorithms::generateChunkOrigins(
+            {
+                0,
+                0,
+                0
+    },
+            {17, 17, 17}
+        ),
         {{0, 0, 0}, {0, 0, 16}, {0, 16, 0}, {0, 16, 16}, {16, 0, 0}, {16, 0, 16}, {16, 16, 0}, {16, 16, 16}},
         "three-axis boundary order"
     );
 
-    
+
     checkOrigins(
-        algorithms::generateChunkOrigins({-17, -1, -16}, {0, 1, 0}),
+        algorithms::generateChunkOrigins(
+            {
+                -17,
+                -1,
+                -16
+    },
+            {0, 1, 0}
+        ),
         {{-32, -16, -16}, {-32, 0, -16}, {-16, -16, -16}, {-16, 0, -16}},
         "negative floor division"
     );
-    checkOrigins(algorithms::generateChunkOrigins({-16, -16, -16}, {-15, -15, -15}), {{-16, -16, -16}}, "exact negative multiple");
     checkOrigins(
-        algorithms::generateChunkOrigins({-1, -1, -1}, {1, 1, 1}),
-        {{-16, -16, -16}, {-16, -16, 0}, {-16, 0, -16}, {-16, 0, 0}, {0, -16, -16}, {0, -16, 0}, {0, 0, -16}, {0, 0, 0}},
+        algorithms::generateChunkOrigins(
+            {
+                -16,
+                -16,
+                -16
+    },
+            {-15, -15, -15}
+        ),
+        {{-16, -16, -16}},
+        "exact negative multiple"
+    );
+    checkOrigins(
+        algorithms::generateChunkOrigins(
+            {
+                -1,
+                -1,
+                -1
+    },
+            {1, 1, 1}
+        ),
+        {{-16, -16, -16},
+         {-16, -16, 0},
+         {-16, 0, -16},
+         {-16, 0, 0},
+         {0, -16, -16},
+         {0, -16, 0},
+         {0, 0, -16},
+         {0, 0, 0}},
         "cross-chunk boundary from -1"
     );
 
-    
-    checkOrigins(algorithms::generateChunkOrigins({-.5f, 0, 0}, {.5f, 1, 1}), {{-16, 0, 0}, {0, 0, 0}}, "fractional boundary");
 
-    
+    checkOrigins(
+        algorithms::generateChunkOrigins(
+            {
+                -.5f,
+                0,
+                0
+    },
+            {.5f, 1, 1}
+        ),
+        {{-16, 0, 0}, {0, 0, 0}},
+        "fractional boundary"
+    );
+
+
     check(algorithms::generateChunkOrigins({1, 1, 1}, {1, 2, 2}).empty(), "zero width is empty");
     check(algorithms::generateChunkOrigins({2, 0, 0}, {1, 2, 2}).empty(), "inverted bounds");
     check(algorithms::generateChunkOrigins({0, 0, 0}, {INFINITY, 1, 1}).empty(), "infinite bounds");
@@ -79,11 +156,25 @@ void testChunkOrigins() {
 }
 
 void testRotatedSizes() {
-    
-    checkOrigins(std::vector<algorithms::GridOrigin>{algorithms::rotatedStructureSize({5, 3, 20}, false)}, {{5, 3, 20}}, "no rotation keeps size");
-    checkOrigins(std::vector<algorithms::GridOrigin>{algorithms::rotatedStructureSize({5, 3, 20}, true)}, {{20, 3, 5}}, "90 degree swaps x/z");
 
-    
+    checkOrigins(
+        std::vector<algorithms::GridOrigin>{
+            algorithms::rotatedStructureSize({5, 3, 20},
+            false)
+    },
+        {{5, 3, 20}},
+        "no rotation keeps size"
+    );
+    checkOrigins(
+        std::vector<algorithms::GridOrigin>{
+            algorithms::rotatedStructureSize({5, 3, 20},
+            true)
+    },
+        {{20, 3, 5}},
+        "90 degree swaps x/z"
+    );
+
+
     auto const straight = algorithms::generateChunkOrigins({0, 0, 0}, {20, 5, 5});
     auto const swapped  = algorithms::generateChunkOrigins({0, 0, 0}, {5, 5, 20});
     check(straight.size() == 2 && swapped.size() == 2, "rotated size enumerates same chunk count");
@@ -96,8 +187,14 @@ void testBlockEntityBounds() {
     check(!algorithms::withinBlockEntityBounds({0, 1.001f, 0}, {0, 0, 0}, {1, 1, 1}), "entity max y unchanged");
     check(!algorithms::withinBlockEntityBounds({0, 0, 1.001f}, {0, 0, 0}, {1, 1, 1}), "entity max z unchanged");
     check(algorithms::withinBlockEntityBounds({0, 0, 0}, {0, 0, 0}, {1, 1, 1}), "entity on lower face");
-    check(algorithms::withinBlockEntityBounds({16, 16, 16}, {0, 0, 0}, {17, 33, 17}), "entity crosses chunk boundaries");
-    check(algorithms::withinBlockEntityBounds({-16, -1, -17}, {-17, -2, -18}, {0, 1, 0}), "entity negative coordinates");
+    check(
+        algorithms::withinBlockEntityBounds({16, 16, 16}, {0, 0, 0}, {17, 33, 17}),
+        "entity crosses chunk boundaries"
+    );
+    check(
+        algorithms::withinBlockEntityBounds({-16, -1, -17}, {-17, -2, -18}, {0, 1, 0}),
+        "entity negative coordinates"
+    );
     check(!algorithms::withinBlockEntityBounds({NAN, 0, 0}, {0, 0, 0}, {1, 1, 1}), "entity NaN rejected");
 }
 

@@ -12,9 +12,8 @@ std::string SelectionError::describe(std::string_view target) const {
         if (!detail.empty()) {
             return detail;
         }
-        return target.empty()
-            ? "Failed to save selection."
-            : "Failed to save selection as '" + std::string(target) + "'.";
+        return target.empty() ? "Failed to save selection."
+                              : "Failed to save selection as '" + std::string(target) + "'.";
     }
 
     return "Unknown selection error.";
@@ -25,13 +24,11 @@ SelectionService::SelectionService(
     RuntimeContext&               runtime,
     selection::SelectionExporter& selectionExporter
 )
-    : mState(state)
-    , mRuntime(runtime)
-    , mSelectionExporter(selectionExporter) {}
+: mState(state),
+  mRuntime(runtime),
+  mSelectionExporter(selectionExporter) {}
 
-bool SelectionService::isSelectionModeEnabled() const {
-    return mState.selection.selectionMode;
-}
+bool SelectionService::isSelectionModeEnabled() const { return mState.selection.selectionMode; }
 
 selection::SelectionOverlayView SelectionService::overlay() const {
     return selection::makeOverlayView(mState.selection);
@@ -63,10 +60,8 @@ void SelectionService::toggleSelectionMode() {
     touchSelectionState();
 }
 
-Result<SelectionSaveInfo, SelectionError> SelectionService::saveSelection(
-    std::string_view name,
-    Dimension&       dimension
-) const {
+Result<SelectionSaveInfo, SelectionError>
+SelectionService::saveSelection(std::string_view name, Dimension& dimension) const {
     if (!selection::hasCompleteSelection(mState.selection)) {
         return Result<SelectionSaveInfo, SelectionError>::failure({
             .code = SelectionError::Code::IncompleteSelection,
@@ -80,12 +75,8 @@ Result<SelectionSaveInfo, SelectionError> SelectionService::saveSelection(
         });
     }
 
-    auto exportResult = mSelectionExporter.saveToMcstructure(
-        mState.selection,
-        mRuntime.schematicDirectory(),
-        name,
-        dimension
-    );
+    auto exportResult =
+        mSelectionExporter.saveToMcstructure(mState.selection, mRuntime.schematicDirectory(), name, dimension);
     if (!exportResult) {
         return Result<SelectionSaveInfo, SelectionError>::failure({
             .code   = SelectionError::Code::SaveFailed,
@@ -101,8 +92,6 @@ Result<SelectionSaveInfo, SelectionError> SelectionService::saveSelection(
     });
 }
 
-void SelectionService::touchSelectionState() {
-    ++mState.selection.revision;
-}
+void SelectionService::touchSelectionState() { ++mState.selection.revision; }
 
 } 

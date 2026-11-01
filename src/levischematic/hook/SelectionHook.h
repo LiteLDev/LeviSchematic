@@ -3,10 +3,7 @@
 namespace levischematic::hook {
 
 
-
-
 void registerSelectionHooks();
-
 
 
 void unregisterSelectionHooks();

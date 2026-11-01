@@ -8,11 +8,7 @@ namespace levischematic::command {
 namespace {
 
 
-
-
-auto& getLogger() {
-    return levischematic::LeviSchematic::getInstance().getSelf().getLogger();
-}
+auto& getLogger() { return levischematic::LeviSchematic::getInstance().getSelf().getLogger(); }
 
 } 
 

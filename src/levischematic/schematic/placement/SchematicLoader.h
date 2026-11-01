@@ -14,9 +14,8 @@ struct AssetPreparation {
 
 class SchematicLoader {
 public:
-    
     static Expected<AssetPreparation, LoadPlacementError> read(std::filesystem::path const& path, std::stop_token stop);
-    
+
     static bool advance(AssetPreparation& pending, util::WorkBudget const& budget);
 };
 } 

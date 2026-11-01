@@ -10,26 +10,21 @@ namespace levischematic::command {
 namespace {
 
 
-
-
-auto& getLogger() {
-    return levischematic::LeviSchematic::getInstance().getSelf().getLogger();
-}
+auto& getLogger() { return levischematic::LeviSchematic::getInstance().getSelf().getLogger(); }
 
 } 
 
 ll::command::CommandHandle& getOrCreateSchemCommand(bool isClient) {
-    return ll::command::CommandRegistrar::getInstance(isClient)
-        .getOrCreateCommand("schem", "LeviSchematic commands");
+    return ll::command::CommandRegistrar::getInstance(isClient).getOrCreateCommand("schem", "LeviSchematic commands");
 }
 
-void refreshProjectionStateForOrigin(app::AppKernel& session, const CommandOrigin& origin) {
+void refreshProjectionStateForOrigin(app::AppKernel& session, CommandOrigin const& origin) {
     app::refreshProjectionStateForDimension(session, origin.getDimension());
 }
 
 void logPlacementCommandFailure(
     std::string_view                      operation,
-    const std::filesystem::path&          file,
+    std::filesystem::path const&          file,
     std::optional<placement::PlacementId> placementId,
     std::string_view                      detail
 ) {
@@ -42,11 +37,7 @@ void logPlacementCommandFailure(
     );
 }
 
-void replyPlacementError(
-    CommandOutput&             output,
-    std::string_view           operation,
-    app::PlacementError const& error
-) {
+void replyPlacementError(CommandOutput& output, std::string_view operation, app::PlacementError const& error) {
     logPlacementCommandFailure(operation, error.path, error.placementId, error.describe());
     output.error(error.describe());
 }

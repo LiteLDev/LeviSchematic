@@ -67,7 +67,7 @@ void synchronizeBindings(IClientInstance& client) {
     load();
     auto layout = client.getOptions().getCurrentKeyboardRemapping();
     if (!layout || applied.lock() == layout) return;
-    
+
     for (auto const& [action, keys] : overrides) {
         bool found = false;
         for (auto const& mapping : *layout->mKeymappings)

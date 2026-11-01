@@ -147,12 +147,12 @@ void testContentRevisions() {
     using Placement = placement::PlacementInstance;
     placement::PlacementState state;
     placement::PlacementStore store(state);
-    auto asset = std::make_shared<placement::SchematicAsset>();
-    asset->size = {33, 2, 17};
-    auto id = store.createPlacement(asset, {-17, 64, -1}, 0, "moving", {});
-    auto const* placed = store.get(id);
-    auto content = placed->contentRevision;
-    auto revision = placed->revision;
+    auto                      asset = std::make_shared<placement::SchematicAsset>();
+    asset->size                     = {33, 2, 17};
+    auto        id                  = store.createPlacement(asset, {-17, 64, -1}, 0, "moving", {});
+    auto const* placed              = store.get(id);
+    auto        content             = placed->contentRevision;
+    auto        revision            = placed->revision;
     assert(store.move(id, 16, -1, -32));
     assert((placed->origin == BlockPos{-1, 63, -33}));
     assert(placed->revision > revision && placed->contentRevision == content);

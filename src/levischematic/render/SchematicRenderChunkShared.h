@@ -11,9 +11,6 @@ namespace levischematic::render {
 using SchematicRenderChunkShared = ::RenderChunkShared;
 
 
-
-
-
 [[nodiscard]] inline std::shared_ptr<SchematicRenderChunkShared>
 makeSchematicRenderChunkShared(::SubChunkPos const& chunkPos) {
     return std::make_shared<SchematicRenderChunkShared>(chunkPos);

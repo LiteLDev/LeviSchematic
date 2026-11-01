@@ -28,26 +28,26 @@ J configJson(app::Config const& config) {
 }
 std::string fieldLabel(std::string const& path) {
     std::map<std::string, std::string> const labels{
-        {"/visibility/renderDistanceBlocks",    tr("ui.field.distance")   },
-        {"/visibility/frustumCulling",          tr("ui.field.frustum")    },
-        {"/projection/alpha",                   tr("ui.field.alpha")      },
-        {"/projection/texture",                 tr("ui.field.texture")    },
-        {"/hull/expansion",                     tr("ui.field.expansion")  },
-        {"/hull/depthBias",                     tr("ui.field.depth")      },
-        {"/hull/slopeBias",                     tr("ui.field.slope")      },
-        {"/performance/tickBudgetMs",           tr("ui.field.tick")       },
-        {"/performance/frameBudgetMs",          tr("ui.field.frame")      },
-        {"/performance/maxLoadRequests",        tr("ui.field.loads")      },
-        {"/performance/geometryBuildsPerFrame", tr("ui.field.builds")     },
-        {"/performance/cameraResortsPerFrame",  tr("ui.field.resorts")    },
-        {"/performance/queuedChunkBuilds",      tr("ui.field.queue")      },
-        {"/diagnostics",                        tr("ui.field.diagnostics")},
+        {   "/visibility/renderDistanceBlocks",    tr("ui.field.distance")},
+        {         "/visibility/frustumCulling",     tr("ui.field.frustum")},
+        {                  "/projection/alpha",       tr("ui.field.alpha")},
+        {                "/projection/texture",     tr("ui.field.texture")},
+        {                    "/hull/expansion",   tr("ui.field.expansion")},
+        {                    "/hull/depthBias",       tr("ui.field.depth")},
+        {                    "/hull/slopeBias",       tr("ui.field.slope")},
+        {          "/performance/tickBudgetMs",        tr("ui.field.tick")},
+        {         "/performance/frameBudgetMs",       tr("ui.field.frame")},
+        {       "/performance/maxLoadRequests",       tr("ui.field.loads")},
+        {"/performance/geometryBuildsPerFrame",      tr("ui.field.builds")},
+        { "/performance/cameraResortsPerFrame",     tr("ui.field.resorts")},
+        {     "/performance/queuedChunkBuilds",       tr("ui.field.queue")},
+        {                       "/diagnostics", tr("ui.field.diagnostics")},
     };
     if (auto it = labels.find(path); it != labels.end()) return it->second;
     for (auto const& [prefix, label] : {
              std::pair{"/selection/faceColor/", tr("ui.field.selection_color")},
-             {"/hull/blockColor/",     tr("ui.field.block_color")    },
-             {"/hull/propertyColor/",  tr("ui.field.property_color") }
+             {    "/hull/blockColor/",     tr("ui.field.block_color")},
+             { "/hull/propertyColor/",  tr("ui.field.property_color")}
     }) {
         if (path.starts_with(prefix) && path.back() >= '0' && path.back() <= '3')
             return std::string(label) + " / " + "RGBA"[path.back() - '0'] + tr("ui.unit_color");
@@ -83,8 +83,8 @@ void projection(std::shared_ptr<Page> const& p) {
     }
     p->title = tr("ui.tab.projection");
     PageBuilder b{p};
-    
-    
+
+
     b.button("refresh", tr("ui.refresh"), [p] {
         p->rows.clear();
         projection(p);
@@ -167,9 +167,9 @@ void projection(std::shared_ptr<Page> const& p) {
                 mutate([](auto& svc, auto i) { return svc.rotatePlacement(i, PI::Rotation::CW_90); });
             });
         for (auto [name, mirror] : {
-                 std::pair{tr("ui.mirror.none"), PI::Mirror::NONE    },
-                 {tr("ui.mirror.x"),    PI::Mirror::MIRROR_X},
-                 {tr("ui.mirror.z"),    PI::Mirror::MIRROR_Z}
+                 std::pair{tr("ui.mirror.none"),     PI::Mirror::NONE},
+                 {   tr("ui.mirror.x"), PI::Mirror::MIRROR_X},
+                 {   tr("ui.mirror.z"), PI::Mirror::MIRROR_Z}
         })
             b.button("mirror" + std::to_string(static_cast<int>(mirror)), name, [mutate, mirror] {
                 mutate([mirror](auto& svc, auto i) { return svc.setPlacementMirror(i, mirror); });

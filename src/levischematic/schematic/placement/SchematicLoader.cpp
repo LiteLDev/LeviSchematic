@@ -30,7 +30,7 @@ SchematicLoader::read(std::filesystem::path const& path, std::stop_token stop) {
             return Result::failure({LoadPlacementError::Code::FileReadFailed, "incomplete read"});
         auto tag = CompoundTag::fromBinaryNbt(bytes, true);
         if (!tag) return Result::failure({LoadPlacementError::Code::NbtParseFailed});
-        
+
         auto structure = std::make_shared<StructureTemplate>(
             path.stem().string(),
             Bedrock::NonOwnerPointer<IUnknownBlockTypeRegistry>{}

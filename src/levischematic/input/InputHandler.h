@@ -28,73 +28,47 @@ enum class TriggerPhase {
 };
 
 
-
-
-
 struct InputExecutionContext {
-    app::ViewService*          viewService       = nullptr;
-    std::function<void()>      refreshProjectionState;
-
-    
+    app::ViewService*     viewService = nullptr;
+    std::function<void()> refreshProjectionState;
 
 
     [[nodiscard]] bool isValid() const;
 };
 
 
-
-
-
 class InputHandler {
 public:
     using InputExecutor = std::function<void(InputExecutionContext const&, ::FocusImpact, ::IClientInstance&)>;
 
-    
-
-
 
     struct InputBindingSpec {
-        InputActionId            id;
-        std::string_view         registryName;
-        std::vector<int>         defaultKeyCodes;
-        bool                     allowRemap = true;
-        TriggerPhase             phase      = TriggerPhase::ButtonDown;
-        InputExecutor            executor;
+        InputActionId    id;
+        std::string_view registryName;
+        std::vector<int> defaultKeyCodes;
+        bool             allowRemap = true;
+        TriggerPhase     phase      = TriggerPhase::ButtonDown;
+        InputExecutor    executor;
     };
-
-    
-
 
 
     void initialize(InputExecutionContext context);
-    
 
 
     void shutdown();
-    
 
 
     [[nodiscard]] bool isInitialized() const;
-    
 
 
-
-
-
-    void               execute(InputActionId action, ::FocusImpact focusImpact, ::IClientInstance& client) const;
+    void execute(InputActionId action, ::FocusImpact focusImpact, ::IClientInstance& client) const;
 
 private:
     InputExecutionContext mContext;
 };
 
 
-
-
-
-const char* inputActionToString(InputActionId action);
-
-
-
+char const* inputActionToString(InputActionId action);
 
 
 void registerInputDefinitions();

@@ -1,28 +1,12 @@
 #pragma once
 
 
-
-
-
 #include "mc/world/level/BlockPos.h"
 
 #include <cstdint>
 #include <functional>
 
 namespace levischematic::util {
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 inline uint64_t encodePosKey(int x, int y, int z) noexcept {
@@ -32,15 +16,7 @@ inline uint64_t encodePosKey(int x, int y, int z) noexcept {
 }
 
 
-
-
-
-inline uint64_t encodePosKey(const BlockPos& p) noexcept {
-    return encodePosKey(p.x, p.y, p.z);
-}
-
-
-
+inline uint64_t encodePosKey(BlockPos const& p) noexcept { return encodePosKey(p.x, p.y, p.z); }
 
 
 inline BlockPos decodePosKey(uint64_t key) noexcept {
@@ -56,12 +32,7 @@ inline BlockPos decodePosKey(uint64_t key) noexcept {
 }
 
 
-
-
-
-
-
-inline uint64_t encodeSubChunkKey(const BlockPos& origin) noexcept {
+inline uint64_t encodeSubChunkKey(BlockPos const& origin) noexcept {
     int sx = origin.x >> 4;
     int sy = origin.y >> 4;
     int sz = origin.z >> 4;
@@ -71,54 +42,28 @@ inline uint64_t encodeSubChunkKey(const BlockPos& origin) noexcept {
 }
 
 
-
-
-
-
-
-
 inline uint64_t subChunkKeyFromWorldPos(int wx, int wy, int wz) noexcept {
     auto floorDiv16 =
-    
 
 
-
-    [](int v) -> int {
-        return v / 16 - (v % 16 != 0 && v < 0 ? 1 : 0);
-    };
+        [](int v) -> int { return v / 16 - (v % 16 != 0 && v < 0 ? 1 : 0); };
     BlockPos origin{floorDiv16(wx) * 16, floorDiv16(wy) * 16, floorDiv16(wz) * 16};
     return encodeSubChunkKey(origin);
 }
 
 
-
-
-
-
-
-
 inline BlockPos subChunkOrigin(int wx, int wy, int wz) noexcept {
     auto floorDiv16 =
-    
 
 
-
-    [](int v) -> int {
-        return v / 16 - (v % 16 != 0 && v < 0 ? 1 : 0);
-    };
+        [](int v) -> int { return v / 16 - (v % 16 != 0 && v < 0 ? 1 : 0); };
     return {floorDiv16(wx) * 16, floorDiv16(wy) * 16, floorDiv16(wz) * 16};
 }
-
-
-
 
 
 struct WorldBlockKey {
     int      dimensionId = 0;
     uint64_t posKey      = 0;
-
-    
-
 
 
     [[nodiscard]] bool operator==(WorldBlockKey const& other) const noexcept {
@@ -127,12 +72,7 @@ struct WorldBlockKey {
 };
 
 
-
-
-
 struct WorldBlockKeyHash {
-    
-
 
 
     [[nodiscard]] size_t operator()(WorldBlockKey const& key) const noexcept {
@@ -143,17 +83,9 @@ struct WorldBlockKeyHash {
 };
 
 
-
-
-
-
 inline WorldBlockKey makeWorldBlockKey(int dimensionId, BlockPos const& pos) noexcept {
     return WorldBlockKey{dimensionId, encodePosKey(pos)};
 }
-
-
-
-
 
 
 inline WorldBlockKey makeWorldBlockKey(int dimensionId, uint64_t posKey) noexcept {

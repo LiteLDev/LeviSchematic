@@ -84,9 +84,9 @@ void VerifierService::insert(placement::PlacementInstance const& placement, Bloc
     auto  key           = util::makeWorldBlockKey(placement.dimensionId, pos);
     auto& chunk         = mState.chunks[{key.dimensionId, util::subChunkKeyFromWorldPos(pos.x, pos.y, pos.z)}];
     auto [it, inserted] = chunk.cells.try_emplace(key.posKey, VerificationCell{block, placement.id});
-    if (!inserted) return; 
+    if (!inserted) return;
     evaluate(key.dimensionId, pos, it->second);
-    chunk.revision    = ++mState.revision;
+    chunk.revision = ++mState.revision;
     mKeys.push_back(key);
 }
 void VerifierService::update(util::WorldBlockKey key) {
@@ -111,7 +111,7 @@ void VerifierService::tick(util::WorkBudget const& budget) {
         mBuilding        = true;
         mPolling.reset();
     }
-    
+
     while (mState.clearing && budget.available()) {
         if (!mState.chunks.empty()) {
             auto it = mState.chunks.begin();
@@ -180,7 +180,7 @@ void VerifierService::tick(util::WorkBudget const& budget) {
         mDirtySet.erase(key);
         update(key);
     }
-    
+
     auto   pollTime = VerificationPollSchedule::Clock::now();
     size_t count    = 0;
     while (!mState.clearing && !mBuilding && count++ < 512 && budget.available()) {
@@ -238,12 +238,10 @@ void VerifierService::detachFromRuntime() {
 }
 
 void VerifierService::handleSourceDestroyed(BlockSource& source) {
-    
-    
+
+
     std::erase_if(
         mSources,
-        
-
 
 
         [&](auto const& item) { return item.second == &source; }

@@ -24,7 +24,7 @@ int          teardownCount     = 0;
 void         drain() noexcept {
     if (!teardownRequested) return;
     teardownRequested = false;
-    
+
     auto callback = drainingGate->control();
     check(!drainingGate->acquire().owns_lock(), "closed gate rejects destructor callback business access");
     ++teardownCount;
@@ -41,9 +41,8 @@ int main() {
     }
     auto firstGeneration = gate.generation();
     {
-        
-        
-        
+
+
         auto lifecycle = gate.control();
         check(!gate.acquire(true).owns_lock(), "UI must not interpret a rejected render probe as no session");
         auto ui = gate.acquire();
@@ -101,8 +100,8 @@ int main() {
         auto control = gate.control();
         gate.publish();
     }
-    
-    
+
+
     std::atomic_bool done  = false;
     int              state = 0;
     std::thread      reader([&] {

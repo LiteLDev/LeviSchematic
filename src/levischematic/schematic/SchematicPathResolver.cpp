@@ -10,27 +10,17 @@ namespace {
 namespace fs = std::filesystem;
 
 
-
-
-
-bool pathExists(const fs::path& path) {
+bool pathExists(fs::path const& path) {
     std::error_code ec;
     return fs::exists(path, ec) && !ec;
 }
 
 
-
-
-
-fs::path makeAbsoluteIfPossible(const fs::path& path) {
+fs::path makeAbsoluteIfPossible(fs::path const& path) {
     std::error_code ec;
     auto            absolute = fs::absolute(path, ec);
     return ec ? path : absolute;
 }
-
-
-
-
 
 
 void appendUnique(std::vector<fs::path>& candidates, fs::path candidate) {
@@ -49,7 +39,7 @@ SchematicPathResolver::SchematicPathResolver(std::filesystem::path schematicDire
     }
 }
 
-std::filesystem::path SchematicPathResolver::withMcstructureExtension(const std::filesystem::path& path) const {
+std::filesystem::path SchematicPathResolver::withMcstructureExtension(std::filesystem::path const& path) const {
     auto result = path;
     if (result.extension().empty()) {
         result += ".mcstructure";
@@ -57,7 +47,7 @@ std::filesystem::path SchematicPathResolver::withMcstructureExtension(const std:
     return result.lexically_normal();
 }
 
-std::filesystem::path SchematicPathResolver::makeFilePath(const std::filesystem::path& path) const {
+std::filesystem::path SchematicPathResolver::makeFilePath(std::filesystem::path const& path) const {
     auto result = path;
     if (!result.is_absolute() && !mSchematicDirectory.empty()) {
         result = mSchematicDirectory / result;
@@ -66,7 +56,7 @@ std::filesystem::path SchematicPathResolver::makeFilePath(const std::filesystem:
     return withMcstructureExtension(result);
 }
 
-std::filesystem::path SchematicPathResolver::resolveExistingPath(const std::filesystem::path& path) const {
+std::filesystem::path SchematicPathResolver::resolveExistingPath(std::filesystem::path const& path) const {
     std::vector<fs::path> candidates;
 
     if (path.is_absolute()) {
@@ -82,7 +72,7 @@ std::filesystem::path SchematicPathResolver::resolveExistingPath(const std::file
         appendUnique(candidates, makeAbsoluteIfPossible(withMcstructureExtension(path)));
     }
 
-    for (const auto& candidate : candidates) {
+    for (auto const& candidate : candidates) {
         if (pathExists(candidate)) {
             return candidate;
         }

@@ -23,7 +23,7 @@ struct VisibilityStats {
 
 inline AABB subChunkBounds(Vec3 const& origin, float expansion = 0.01f) {
     return AABB{
-        {origin.x - expansion,         origin.y - expansion,         origin.z - expansion        },
+        {        origin.x - expansion,         origin.y - expansion,         origin.z - expansion},
         {origin.x + 16.0f + expansion, origin.y + 16.0f + expansion, origin.z + 16.0f + expansion}
     };
 }

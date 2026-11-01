@@ -35,8 +35,8 @@ Rect layout(J const& control, float width, float height) {
         r.height = std::min(r.height, dimension(control.at("max_size")[1], height));
     }
     auto anchor = control.value("anchor_from", "center");
-    
-    
+
+
     assert(anchor == control.value("anchor_to", "center"));
     r.x = anchor.ends_with("left") ? 0 : anchor.ends_with("right") ? width - r.width : (width - r.width) / 2;
     r.y = anchor.starts_with("top") ? 0 : anchor.starts_with("bottom") ? height - r.height : (height - r.height) / 2;
@@ -58,7 +58,7 @@ void checkBindings(nlohmann::ordered_json const& control) {
                 auto target = binding.value("binding_name_override", binding.value("binding_name", ""));
                 if (target == text) supplied = true;
             }
-            
+
             assert(supplied);
         }
     }
@@ -71,16 +71,16 @@ int main() {
     OpenRequests requests;
     requests.toggle(false);
     assert(requests.page == PageId::Projection && !requests.close);
-    requests.page.reset(); 
+    requests.page.reset();
     requests.toggle(true);
     assert(!requests.page && requests.close);
     requests.didClose();
     requests.toggle(false);
     assert(requests.page == PageId::Projection && !requests.close);
-    requests.toggle(false); 
+    requests.toggle(false);
     assert(!requests.page && !requests.close);
     requests.toggle(true);
-    requests.toggle(true); 
+    requests.toggle(true);
     requests.didClose();
     assert(requests.page == PageId::Projection && !requests.close);
     requests.clear();
@@ -97,15 +97,15 @@ int main() {
     auto const& body  = child(panel, "body");
     assert(strip.at("type") == "stack_panel" && strip.at("orientation") == "horizontal");
     assert(strip.at("controls").size() == 3);
-    assert(strip.at("layer") > body.at("layer")); 
+    assert(strip.at("layer") > body.at("layer"));
     child(body, "background@common.dialog_background_opaque");
     auto const& editor = child(body, "editor@common.text_edit_box");
     auto const& commit = child(body, "commit@common_buttons.light_text_button");
     assert(editor.at("bindings").at(0).at("binding_name") == "#ls_editing");
     assert(commit.at("bindings").at(0).at("binding_name_override") == "#visible");
     assert(!editor.at("visible").get<bool>() && !commit.at("visible").get<bool>());
-    
-    
+
+
     for (auto viewport : {
              std::array{481.f, 273.f},
              std::array{320.f, 240.f},
@@ -117,7 +117,7 @@ int main() {
         auto contentArea = layout(body, window.width, window.height);
         contained(tabArea, window.width, window.height);
         contained(contentArea, window.width, window.height);
-        assert(tabArea.y + tabArea.height > contentArea.y); 
+        assert(tabArea.y + tabArea.height > contentArea.y);
         for (auto const& entry : body.at("controls"))
             contained(
                 layout(entry.begin().value(), contentArea.width, contentArea.height),
@@ -144,7 +144,7 @@ int main() {
     for (auto const* suffix : {"projection", "settings", "keys"}) {
         std::string n   = suffix;
         auto const& tab = child(strip, "tab_" + n + "@common_tabs.tab_top");
-        assert(!tab.contains("controls")); 
+        assert(!tab.contains("controls"));
         assert(tab.at("$radio_toggle_group").get<bool>());
         assert(tab.at("$toggle_name") == "ls_tabs");
         assert(tab.at("$toggle_group_forced_index") == index++);
@@ -169,7 +169,7 @@ int main() {
         auto const& action = child(row, "action@common_buttons.light_text_button");
         assert(action.at("$button_text_binding_type") == "collection");
         assert(action.at("$button_text_grid_collection_name") == grid.at("collection_name"));
-        assert(!action.contains("controls")); 
+        assert(!action.contains("controls"));
         assert(action.at("bindings").at(0).at("binding_name") == "#ls_row_id");
         assert(action.at("bindings").at(0).at("binding_collection_name") == grid.at("collection_name"));
         auto const& selection = child(row, "selection@common.focus_border_white");
@@ -219,5 +219,5 @@ int main() {
         tabs.active   = PageId::Settings;
         assert(tabs.pages[1]->dirty && tabs.pages[1]->rows[0].value == "42");
     }
-    assert(released.expired()); 
+    assert(released.expired());
 }

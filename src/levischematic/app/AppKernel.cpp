@@ -1,5 +1,4 @@
 #include "AppKernel.h"
-#include "levischematic/ui/Ui.h"
 #include "levischematic/LeviSchematic.h"
 #include "levischematic/app/ProjectionRefresh.h"
 #include "levischematic/command/Command.h"
@@ -8,6 +7,7 @@
 #include "levischematic/schematic/placement/PlacementStore.h"
 #include "levischematic/schematic/placement/SchematicLoader.h"
 #include "levischematic/selection/SelectionExporter.h"
+#include "levischematic/ui/Ui.h"
 #include "ll/api/event/EventBus.h"
 #include "ll/api/event/client/ClientJoinLevelEvent.h"
 #include "ll/api/event/command/ClientCommandRegisterEvent.h"
@@ -24,8 +24,8 @@
 #include "mc/resources/ResourceLoadManager.h"
 #include <map>
 #include <stdexcept>
-namespace levischematic::app {
 
+namespace levischematic::app {
 
 
 void drainSession() noexcept;
@@ -40,18 +40,13 @@ unsigned                   gReloadOperations = 0;
 std::unique_ptr<AppKernel> gAppKernel;
 
 
-
-
-
-
 bool resourceLoadingComplete(ClientInstance& client) {
     auto manager = client.getMinecraftGame_DEPRECATED().getResourceLoadManager();
-    
-    
-    
+
+
     auto const& dispatch = ll::memory::dAccess<std::unique_ptr<TaskGroup>>(&manager->mUnkddb755, 0);
     if (!dispatch->isEmpty()) return false;
-    using LoadGroups = std::map<ResourceLoadType, std::unique_ptr<ResourceLoadManager::ResourceLoadTaskGroup>>;
+    using LoadGroups   = std::map<ResourceLoadType, std::unique_ptr<ResourceLoadManager::ResourceLoadTaskGroup>>;
     auto const& groups = ll::memory::dAccess<LoadGroups>(&manager->mUnk2466a3, 0);
     for (auto const& [type, group] : groups) {
         auto const& tasks = ll::memory::dAccess<std::unique_ptr<TaskGroup>>(&group->mUnk6c2afd, 0);
@@ -59,9 +54,6 @@ bool resourceLoadingComplete(ClientInstance& client) {
     }
     return true;
 }
-
-
-
 
 
 template <typename T>
@@ -78,8 +70,6 @@ ll::event::ListenerPtr gServerCommandListener;
 } 
 
 
-
-
 class AppKernel::WorldSession {
 public:
     RuntimeContext                                  runtime;
@@ -92,13 +82,12 @@ public:
     std::unique_ptr<ViewService>                    viewService;
     std::unique_ptr<verifier::VerifierService>      verifierService;
     input::InputHandler                             input;
-    bool                                            loadFirst = false;
+    bool                                            loadFirst              = false;
     bool                                            commandsRegistered     = false;
     bool                                            directoryWarningLogged = false;
-    
 
 
-    void                                            configureSchematicDirectory() {
+    void configureSchematicDirectory() {
         if (runtime.hasSchematicDirectory()) return;
         auto worldPath = ll::getWorldPath();
         if (!worldPath) {
@@ -127,7 +116,6 @@ public:
             directoryWarningLogged = true;
         }
     }
-    
 
 
     WorldSession()
@@ -139,17 +127,13 @@ public:
       selectionService(std::make_unique<SelectionService>(*state, runtime, *selectionExporter)),
       viewService(std::make_unique<ViewService>(state->view)),
       verifierService(std::make_unique<verifier::VerifierService>(state->verifier, state->placements, state->view)) {}
-    
-    
 
 
     ~WorldSession() = default;
 };
 AppKernel::AppKernel() : mGate(gSessionGate) {}
 AppKernel::~AppKernel() = default;
-bool AppKernel::hasSession() const noexcept {
-    return mSession && mState == State::Active;
-}
+bool     AppKernel::hasSession() const noexcept { return mSession && mState == State::Active; }
 uint64_t AppKernel::resourceGeneration() const noexcept { return mResourceGeneration.load(); }
 bool     AppKernel::runtimeReady() const noexcept { return hasSession() && mSession->runtime.hasSchematicDirectory(); }
 bool     AppKernel::usesClientCommands() const noexcept { return mUsesClientCommands; }
@@ -170,13 +154,13 @@ void                            AppKernel::startSession(ClientInstance& client) 
         auto s = std::make_unique<WorldSession>();
         s->configureSchematicDirectory();
         s->renderer->applyConfig(configStore().snapshot());
-        s->input.initialize({.viewService = s->viewService.get(), .refreshProjectionState =
-        
+        s->input.initialize(
+            {.viewService = s->viewService.get(),
+             .refreshProjectionState =
 
 
-        [this]() {
-                                 refreshCurrentClientProjectionState(*this);
-                             }});
+                 [this]() { refreshCurrentClientProjectionState(*this); }}
+        );
         mUsesClientCommands = useClientCommands;
         if (ll::service::getCommandRegistry(mUsesClientCommands)) {
             command::registerCommands(mUsesClientCommands);
@@ -207,7 +191,7 @@ void AppKernel::requestSession(ClientInstance& client) {
     startSession(client);
 }
 void AppKernel::endSession() {
-    
+
     mGate.close();
     mReadyPending = false;
     if (!mSession) return;
@@ -237,7 +221,7 @@ void AppKernel::maintain(ClientInstance& client) {
     if (!gReloading && client.getLocalPlayer() && client.getLevel() && client.isReadyToRender()) {
         mSession->verifierService->ensureRuntimeBindings(client);
         mSession->renderer->resume();
-        auto config = configStore().snapshot();
+        auto             config = configStore().snapshot();
         util::WorkBudget budget(config.performance.tickBudgetMs);
         mSession->loadFirst = !mSession->loadFirst;
         if (!mSession->loadFirst) mSession->verifierService->tick(budget);
@@ -292,43 +276,38 @@ void load() {
 void start() {
     auto lifecycle = gSessionGate.control();
     if (!gAppKernel || gTickListener || gStopRequested || gLeaveRequested) return;
-    auto& bus              = ll::event::EventBus::getInstance();
-    gJoinListener =
-        bus.emplaceListener<ll::event::client::ClientJoinLevelEvent>(
-        
+    auto& bus     = ll::event::EventBus::getInstance();
+    gJoinListener = bus.emplaceListener<ll::event::client::ClientJoinLevelEvent>(
 
 
-
-        [](auto& event) { clientReady(event.self()); });
-    gTickListener          = bus.emplaceListener<ll::event::world::ClientLevelTickEvent>(
-    
-
+        [](auto& event) { clientReady(event.self()); }
+    );
+    gTickListener = bus.emplaceListener<ll::event::world::ClientLevelTickEvent>(
 
 
-    [](auto&) {
-        auto c = ll::service::getClientInstance();
-        if (c) clientTick(*c);
-    });
+        [](auto&) {
+            auto c = ll::service::getClientInstance();
+            if (c) clientTick(*c);
+        }
+    );
     gClientCommandListener = bus.emplaceListener<ll::event::command::ClientCommandRegisterEvent>(
-    
 
 
-
-    [](auto&) {
-        if (auto session = accessSession(); session && session->usesClientCommands()) {
-            command::registerCommands(true);
+        [](auto&) {
+            if (auto session = accessSession(); session && session->usesClientCommands()) {
+                command::registerCommands(true);
+            }
         }
-    });
+    );
     gServerCommandListener = bus.emplaceListener<ll::event::command::ServerCommandRegisterEvent>(
-    
 
 
-
-    [](auto&) {
-        if (auto session = accessSession(); session && !session->usesClientCommands()) {
-            command::registerCommands(false);
+        [](auto&) {
+            if (auto session = accessSession(); session && !session->usesClientCommands()) {
+                command::registerCommands(false);
+            }
         }
-    });
+    );
     hook::registerTickHooks();
     if (auto c = ll::service::getClientInstance()) {
         if (!gReloading && !resourceLoadingComplete(*c)) {
@@ -338,7 +317,6 @@ void start() {
         gAppKernel->requestSession(*c);
     }
 }
-
 
 
 void drainSession() noexcept {
@@ -372,9 +350,9 @@ void drainSession() noexcept {
     gDraining       = false;
 }
 void stop() {
-    gSessionGate.close(); 
+    gSessionGate.close();
     auto lifecycle = gSessionGate.control();
-    gStopRequested = true; 
+    gStopRequested = true;
 }
 void clientReady(ClientInstance& c) {
     auto lifecycle = gSessionGate.control();
@@ -383,7 +361,7 @@ void clientReady(ClientInstance& c) {
 void clientLeaving(ClientInstance& c) {
     if (!c.isPrimaryClient()) return;
     gSessionGate.close();
-    auto lifecycle = gSessionGate.control();
+    auto lifecycle  = gSessionGate.control();
     gLeaveRequested = true;
 }
 void clientTick(ClientInstance& c) {
@@ -392,8 +370,8 @@ void clientTick(ClientInstance& c) {
         auto lifecycle = gSessionGate.control();
         if (gAppKernel && !gStopRequested && !gLeaveRequested) gAppKernel->maintain(c);
     }
-    
-    
+
+
     ui::pump();
 }
 void invalidateRuntime(std::optional<int> d) {
@@ -412,7 +390,7 @@ void resourceReloadQueued() {
     if (gReloading) gReloadQueued = gReloadOperations == 0;
 }
 void sourceDestroyed(verifier_block_listener::VerifierBlockListener& listener, BlockSource& source) {
-    
+
     auto lifecycle = gSessionGate.control();
     if (gAppKernel && gAppKernel->hasSession() && gAppKernel->verifier().ownsListener(listener)) {
         gAppKernel->verifier().handleSourceDestroyed(source);

@@ -21,8 +21,8 @@
 #include "mc/client/multiplayer/ClientLevel.h"
 #include "mc/client/player/LocalPlayer.h"
 #include "mc/client/renderer/BaseActorRenderContext.h"
-#include "mc/client/renderer/Tessellator.h"
 #include "mc/client/renderer/MinecraftGraphics.h"
+#include "mc/client/renderer/Tessellator.h"
 #include "mc/client/renderer/TextureGroup.h"
 #include "mc/client/renderer/block/tessellation_pipeline/client_block_pipeline/SchematicsRepository.h"
 #include "mc/client/renderer/block/tessellation_pipeline/client_block_pipeline/TessellatorContext.h"
@@ -64,32 +64,17 @@ namespace levischematic::render {
 namespace {
 
 
-
-
 auto& getLogger() { return levischematic::LeviSchematic::getInstance().getSelf().getLogger(); }
 
 
+constexpr float kOverlayOutlineWidth       = 0.0f;
+constexpr float kOverlayBlockEdgeThickness = 0.0f;
+constexpr float kOverlayHiddenBlocksAlpha  = 0.125f;
+constexpr float kOverlayTextureStretch     = 1.0f;
 
-
-
-
-
-constexpr float       kOverlayOutlineWidth       = 0.0f;
-constexpr float       kOverlayBlockEdgeThickness = 0.0f;
-constexpr float       kOverlayHiddenBlocksAlpha  = 0.125f;
-constexpr float       kOverlayTextureStretch     = 1.0f;
-
-constexpr auto        kOverlayDrawMode = static_cast<mce::framebuilder::gamecomponents::HighlightDrawMode>(1);
-constexpr mce::Color  kOverlayHighlightColor{1.0f, 1.0f, 1.0f, 0.0f};
-constexpr mce::Color  kOverlayEdgeColor{0.0f, 0.0f, 0.0f, 0.0f};
-
-
-
-
-
-
-
-
+constexpr auto       kOverlayDrawMode = static_cast<mce::framebuilder::gamecomponents::HighlightDrawMode>(1);
+constexpr mce::Color kOverlayHighlightColor{1.0f, 1.0f, 1.0f, 0.0f};
+constexpr mce::Color kOverlayEdgeColor{0.0f, 0.0f, 0.0f, 0.0f};
 
 
 void logOverlayTextureUnavailable(char const* what, std::string const& texture) {
@@ -107,10 +92,6 @@ void logOverlayTextureUnavailable(char const* what, std::string const& texture) 
 }
 
 
-
-
-
-
 void logEditorHighlightSubmitSkipped(char const* what) {
     static std::string_view reported;
     if (reported == what) {
@@ -125,15 +106,10 @@ void logEditorHighlightSubmitSkipped(char const* what) {
 }
 
 
-
-
-
-
-
-
-
-
-void submitEditorHighlight(mce::ServerResourcePointer<dragon::ResolvedTextureResource> const& overlayTexture, app::Config const& config) {
+void submitEditorHighlight(
+    mce::ServerResourcePointer<dragon::ResolvedTextureResource> const& overlayTexture,
+    app::Config const&                                                 config
+) {
     auto frameBuilderService = ServiceLocator<mce::framebuilder::FrameBuilder>::get();
     if (!frameBuilderService || !frameBuilderService.get()->enabled()) {
         logEditorHighlightSubmitSkipped(
@@ -142,16 +118,16 @@ void submitEditorHighlight(mce::ServerResourcePointer<dragon::ResolvedTextureRes
         return;
     }
 
-    
+
     mce::framebuilder::gamecomponents::EditorHighlightConfiguration::Style const style{
-        kOverlayHighlightColor,     
-        kOverlayEdgeColor,          
-        kOverlayEdgeColor,          
-        config.projection.alpha,              
-        kOverlayOutlineWidth,       
-        kOverlayBlockEdgeThickness, 
-        kOverlayHiddenBlocksAlpha,  
-        kOverlayTextureStretch,     
+        kOverlayHighlightColor,
+        kOverlayEdgeColor,
+        kOverlayEdgeColor,
+        config.projection.alpha,
+        kOverlayOutlineWidth,
+        kOverlayBlockEdgeThickness,
+        kOverlayHiddenBlocksAlpha,
+        kOverlayTextureStretch,
     };
 
     mce::framebuilder::gamecomponents::EditorHighlightConfiguration description{
@@ -160,13 +136,10 @@ void submitEditorHighlight(mce::ServerResourcePointer<dragon::ResolvedTextureRes
         style
     };
 
-    
-    
-    
+
     frameBuilderService.get()->_insert(description);
 
-    
-    
+
     static bool reportedSubmit = false;
     if (!reportedSubmit) {
         reportedSubmit = true;
@@ -199,13 +172,6 @@ void submitEditorHighlight(mce::ServerResourcePointer<dragon::ResolvedTextureRes
 }
 
 
-
-
-
-
-
-
-
 ScreenContext makeSchematicScreenContext(ScreenContext& screenContext) {
     return ScreenContext{
         screenContext.viewport,
@@ -227,18 +193,14 @@ ScreenContext makeSchematicScreenContext(ScreenContext& screenContext) {
 } 
 
 
-
-
-
 struct SchematicChunkRenderer::SchematicRendererInstanceData {
-    
 
 
     ~SchematicRendererInstanceData() {
-        
-        
+
+
         buildTask.wait();
-        
+
         chunkBuilder.reset();
         chunkInstances.clear();
         world.reset();
@@ -247,27 +209,26 @@ struct SchematicChunkRenderer::SchematicRendererInstanceData {
     placement::PlacementId              placementId = 0;
     std::unique_ptr<FakeWorld>          world;
     std::unique_ptr<RenderChunkBuilder> chunkBuilder;
-    
-    
-    
+
+
     VanillaChunkInstanceSet chunkInstances;
-    
+
     std::size_t lastSortedInstanceCount = 0;
-    
-    std::size_t lastSubmittedLayerCount = 0;
-    uint64_t    revision                = 0;
-    uint64_t    contentRevision         = 0;
-    uint64_t    renderTick              = 0;
-    uint64_t    entityDiagnosticFrame   = 0;
-    int         dimensionId             = -1;
-    detail::ChunkCpuTask buildTask;
+
+    std::size_t                    lastSubmittedLayerCount = 0;
+    uint64_t                       revision                = 0;
+    uint64_t                       contentRevision         = 0;
+    uint64_t                       renderTick              = 0;
+    uint64_t                       entityDiagnosticFrame   = 0;
+    int                            dimensionId             = -1;
+    detail::ChunkCpuTask           buildTask;
     SchematicRenderChunkInstanced* pendingBuildChunk = nullptr;
-    bool buildFailed = false;
+    bool                           buildFailed       = false;
     bool                           buildReady        = false;
     uint64_t                       boundsRevision    = UINT64_MAX;
     AABB                           worldBounds;
     BlockPos                       placementOrigin;
-    std::size_t completedBuildsThisFrame = 0;
+    std::size_t                    completedBuildsThisFrame = 0;
 };
 
 SchematicChunkRenderer::SchematicChunkRenderer()
@@ -306,18 +267,23 @@ void SchematicChunkRenderer::renderValidationHull(
 ) {
     std::unique_lock lock(mMutex, std::try_to_lock);
     if (!lock.owns_lock() || mSuspended) return;
-    auto hullConfig = mConfig;
+    auto hullConfig                       = mConfig;
     hullConfig.performance.frameBudgetMs *= 0.5;
     mValidationHullRenderer.renderPass(context, camera, placements, dimension, hullConfig, selection);
 }
-bool SchematicChunkRenderer::hasValidationHull(app::PlacementService const& placements, BlockPos const& pos, int dimension) const {
+bool SchematicChunkRenderer::hasValidationHull(
+    app::PlacementService const& placements,
+    BlockPos const&              pos,
+    int                          dimension
+) const {
     std::unique_lock lock(mMutex, std::try_to_lock);
     return lock.owns_lock() && !mSuspended && mValidationHullRenderer.contains(placements, pos, dimension, mConfig);
 }
 void SchematicChunkRenderer::applyConfig(app::Config const& config) {
     std::scoped_lock lock(mMutex);
     if (mConfig.projection.texture != config.projection.texture) {
-        overlayTexture.mResourcePointerBlock.reset(); overlayTexturePtr = {};
+        overlayTexture.mResourcePointerBlock.reset();
+        overlayTexturePtr = {};
     }
     if (mConfig.hull != config.hull) mValidationHullRenderer.clear();
     mConfig = config;
@@ -376,8 +342,8 @@ void SchematicChunkRenderer::renderFrame(ScreenContext& screenContext, app::Plac
     }
 
     auto const dimensionId = static_cast<int>(player->getDimensionId());
-    
-    
+
+
     auto placementLock = placements.tryLockPlacements();
     if (!placementLock.owns_lock()) return;
     auto const revision = placements.revision();
@@ -400,39 +366,39 @@ void SchematicChunkRenderer::renderFrame(ScreenContext& screenContext, app::Plac
                 it = mEntries.erase(it);
             }
         }
-        std::erase_if(mDiagnosticReasons,
-        
+        std::erase_if(
+            mDiagnosticReasons,
 
 
-
-        [&](auto const& item) { return !visibleIds.contains(item.first); });
+            [&](auto const& item) { return !visibleIds.contains(item.first); }
+        );
         mVisiblePlacementIds    = std::move(visible);
         mPlacementsRevision     = revision;
         mVisiblePlacementsValid = true;
     }
-    
-    std::erase_if(mRetiredEntries,
-    
+
+    std::erase_if(
+        mRetiredEntries,
 
 
-
-    [](auto const& entry) {
-        return !entry->buildTask.pending() || entry->buildTask.ready();
-    });
+        [](auto const& entry) { return !entry->buildTask.pending() || entry->buildTask.ready(); }
+    );
     if (mVisiblePlacementIds.empty()) {
         overlayTexture.mResourcePointerBlock.reset();
         overlayTexturePtr = {};
         return;
     }
-    
-    
+
+
     (void)mTerrainMaterials.ensure();
-    
+
     util::WorkBudget budget(mConfig.performance.frameBudgetMs * 0.5);
-    mFrameBuilds = 0; mFrameResorts = 0;
+    mFrameBuilds  = 0;
+    mFrameResorts = 0;
     for (size_t i = 0; i < mVisiblePlacementIds.size(); ++i) {
         auto id = mVisiblePlacementIds[(i + mPrepareStart) % mVisiblePlacementIds.size()];
-        if (auto const* placement = placements.findPlacement(id)) render(screenContext, *placement, dimensionId, placements, budget);
+        if (auto const* placement = placements.findPlacement(id))
+            render(screenContext, *placement, dimensionId, placements, budget);
     }
     ++mPrepareStart;
 }
@@ -459,15 +425,13 @@ std::vector<SchematicChunkRenderer::DebugStats> SchematicChunkRenderer::debugSta
         stats.push_back(std::move(item));
     }
 
-    std::sort(stats.begin(), stats.end(),
-    
+    std::sort(
+        stats.begin(),
+        stats.end(),
 
 
-
-
-    [](DebugStats const& lhs, DebugStats const& rhs) {
-        return lhs.placementId < rhs.placementId;
-    });
+        [](DebugStats const& lhs, DebugStats const& rhs) { return lhs.placementId < rhs.placementId; }
+    );
     return stats;
 }
 
@@ -484,24 +448,25 @@ void SchematicChunkRenderer::_pollChunkTask(
         }
         if (!publish || mFrameBuilds >= mConfig.performance.geometryBuildsPerFrame) return;
         ++mFrameBuilds;
-        entry.chunkInstances.finishRebuild(
-            *entry.pendingBuildChunk,
-            *entry.chunkBuilder,
-            screenContext.bufferResourceService
-        );
+        entry.chunkInstances
+            .finishRebuild(*entry.pendingBuildChunk, *entry.chunkBuilder, screenContext.bufferResourceService);
         entry.pendingBuildChunk = nullptr;
         entry.buildReady        = false;
         ++entry.completedBuildsThisFrame;
     } catch (std::exception const& error) {
-        getLogger().error("SchematicChunkRenderer [placement #{}]: async chunk build failed: {}", entry.placementId, error.what());
+        getLogger().error(
+            "SchematicChunkRenderer [placement #{}]: async chunk build failed: {}",
+            entry.placementId,
+            error.what()
+        );
         entry.buildFailed = true;
     } catch (...) {
         getLogger().error("SchematicChunkRenderer [placement #{}]: async chunk build failed", entry.placementId);
         entry.buildFailed = true;
     }
     if (entry.buildFailed) {
-        
-        
+
+
         entry.pendingBuildChunk = nullptr;
         entry.buildReady        = false;
         entry.chunkBuilder.reset();
@@ -528,8 +493,8 @@ void SchematicChunkRenderer::logDiagnostic(placement::PlacementId id, std::strin
 }
 
 bool SchematicChunkRenderer::_ensureOverlayTexture() {
-    
-    
+
+
     overlayTexture.reset();
 
     auto client = ll::service::getClientInstance();
@@ -547,12 +512,11 @@ bool SchematicChunkRenderer::_ensureOverlayTexture() {
     ResourceLocation const location{Core::PathView{mConfig.projection.texture}};
     overlayTexturePtr = textureGroup->getTexture(location, false, 0, cg::TextureSetLayerType::Color);
 
-    
-    
+
     auto const* textureData = overlayTexturePtr.mClientTexture ? overlayTexturePtr.mClientTexture.get()
                                                                : &mce::TexturePtr::mDefaultTextureData();
-    
-    
+
+
     mce::ServerTexture::ServerResource const serverResource{textureData->mClientTexture};
 
     auto const*       outer        = serverResource.mResourcePointerBlock.get();
@@ -570,17 +534,21 @@ bool SchematicChunkRenderer::_ensureOverlayTexture() {
     );
     static std::string lastTextureState;
     if (lastTextureState != textureState) {
-        getLogger().info("SchematicChunkRenderer [overlay texture probe]: {} | {}", mConfig.projection.texture, textureState);
+        getLogger()
+            .info("SchematicChunkRenderer [overlay texture probe]: {} | {}", mConfig.projection.texture, textureState);
         lastTextureState = textureState;
     }
 
     overlayTexture = detail::unwrapServerTexture(serverResource);
     if (overlayTexture.mResourcePointerBlock == nullptr) {
-        logOverlayTextureUnavailable("server resource handle invalid after unwrapServerTexture", mConfig.projection.texture);
+        logOverlayTextureUnavailable(
+            "server resource handle invalid after unwrapServerTexture",
+            mConfig.projection.texture
+        );
         return false;
     }
 
-    
+
     static bool reportedResolved = false;
     if (!reportedResolved) {
         getLogger().info(
@@ -597,7 +565,8 @@ void SchematicChunkRenderer::render(
     ScreenContext&                      screenContext,
     placement::PlacementInstance const& placement,
     int                                 currentDimensionId,
-    app::PlacementService const& placements, util::WorkBudget const& budget
+    app::PlacementService const&        placements,
+    util::WorkBudget const&             budget
 ) {
     if (!placement.enabled) {
         logDiagnostic(placement.id, "skipped: placement disabled");
@@ -688,13 +657,12 @@ void SchematicChunkRenderer::render(
 
     BaseActorRenderContext renderContext(schematicContext, *client, client->getMinecraftGame_DEPRECATED());
 
-    bool const needsRebuild =
-        !entry->world || entry->contentRevision != placement.contentRevision
-        || entry->dimensionId != placement.dimensionId;
+    bool const needsRebuild = !entry->world || entry->contentRevision != placement.contentRevision
+                           || entry->dimensionId != placement.dimensionId;
 
     if (needsRebuild) {
-        
-        
+
+
         if (entry->buildTask.pending() && !entry->buildTask.ready()) return;
         getLogger().info(
             "SchematicChunkRenderer [placement #{}]: rebuilding fake world (revision={}, dim={})",
@@ -703,29 +671,28 @@ void SchematicChunkRenderer::render(
             placement.dimensionId
         );
 
-        
-        
-        
-        
-        
+
         if (entry->buildTask.pending()) {
             try {
                 entry->buildTask.take();
-            } catch (...) {
-                
-            }
+            } catch (...) {}
         }
         entry->pendingBuildChunk = nullptr;
         entry->buildReady        = false;
-        entry->buildFailed = false;
+        entry->buildFailed       = false;
         entry->chunkBuilder.reset();
         entry->chunkInstances.reset();
         entry->world.reset();
         entry->lastSortedInstanceCount = 0;
         entry->entityDiagnosticFrame   = 0;
 
-        try { entry->world = std::make_unique<FakeWorld>(placement, *dimension); }
-        catch (std::exception const& error) { logDiagnostic(placement.id, error.what()); entry->buildFailed = true; return; }
+        try {
+            entry->world = std::make_unique<FakeWorld>(placement, *dimension);
+        } catch (std::exception const& error) {
+            logDiagnostic(placement.id, error.what());
+            entry->buildFailed = true;
+            return;
+        }
         entry->contentRevision = placement.contentRevision;
         entry->dimensionId     = placement.dimensionId;
     }
@@ -733,8 +700,13 @@ void SchematicChunkRenderer::render(
     _pollChunkTask(*entry, screenContext, budget.available());
     if (entry->buildFailed) return;
     if (!entry->pendingBuildChunk && entry->world) {
-        try { entry->world->advance(placement, placements.verification(), placements.viewState(), budget); }
-        catch (std::exception const& error) { logDiagnostic(placement.id, error.what()); entry->buildFailed = true; return; }
+        try {
+            entry->world->advance(placement, placements.verification(), placements.viewState(), budget);
+        } catch (std::exception const& error) {
+            logDiagnostic(placement.id, error.what());
+            entry->buildFailed = true;
+            return;
+        }
         for (auto key : entry->world->dirty) {
             auto index = util::decodePosKey(key);
             entry->chunkInstances.invalidate({index.x * 16, index.y * 16, index.z * 16});
@@ -748,7 +720,7 @@ void SchematicChunkRenderer::render(
         return;
     }
 
-    auto&      region = *entry->world->blockSource;
+    auto& region = *entry->world->blockSource;
     if (!entry->world->indexed) return;
     AABB const area = region.mBounds;
 
@@ -764,7 +736,7 @@ void SchematicChunkRenderer::render(
         pipelineContext.mTextureShiftsEnabled = levelRenderer->mTextureShiftsEnabled;
 
         WeakRef<RenderChunkCoordinator> weakCoordinator{coordinator};
-        auto graphics = client->getMinecraftGraphics();
+        auto                            graphics = client->getMinecraftGraphics();
         if (!_initializeChunkBuilder(
                 *entry,
                 pipelineContext,
@@ -781,26 +753,15 @@ void SchematicChunkRenderer::render(
         entry->chunkBuilder->mGUIRendering     = true;
         entry->chunkBuilder->mBuildBoundingBox = area;
     }
-    
-    
+
+
     if (_ensureOverlayTexture()) {
         submitEditorHighlight(overlayTexture, mConfig);
     }
 
     renderContext.mIgnoresLighting = true;
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+
+
     Vec3 const& cameraPos = levelRenderer->mLevelRendererPlayer->mCameraPos.get();
     Vec3 const  cameraTargetPosition{
         cameraPos.x - static_cast<float>(placement.origin.x),
@@ -825,21 +786,19 @@ void SchematicChunkRenderer::render(
 
     auto matrixRef            = renderContext.mScreenContext.camera.worldMatrixStack->push(false);
     matrixRef.stack->_isDirty = true;
-    
+
     matrixRef.mat->translate(glm::vec3{-cameraTargetPosition.x, -cameraTargetPosition.y, -cameraTargetPosition.z});
 
-    
-    
-    
+
     if (auto* levelRendererPlayer = levelRenderer->mLevelRendererPlayer.get(); levelRendererPlayer != nullptr) {
         levelRendererPlayer->setupCamera(renderContext.mScreenContext.camera, renderContext.mFrameAlpha);
     }
 
     ++entry->renderTick;
     ++entry->entityDiagnosticFrame;
-    Vec3       zeroOffset = {0.0f, 0.0f, 0.0f};
+    Vec3 zeroOffset = {0.0f, 0.0f, 0.0f};
     _renderBlocks(renderContext, region, area, zeroOffset);
-    
+
     if (!entry->pendingBuildChunk) {
         _renderBlockEntities(renderContext, *entry->world, area, cameraTargetPosition, false);
         _renderBlockEntities(renderContext, *entry->world, area, cameraTargetPosition, true);
@@ -855,12 +814,10 @@ std::size_t SchematicChunkRenderer::_renderBlockEntities(
 ) {
     if (!world.chunkSource || !world.blockSource || !renderContext.mImpl) return 0;
 
-    
+
     MaterialVariants defaultMaterials;
-    
-    
-    
-    
+
+
     auto        entityMatrix = renderContext.mScreenContext.camera.worldMatrixStack->pushIdentity(false);
     auto&       region       = *world.blockSource;
     auto&       dispatcher   = renderContext.mBlockEntityRenderDispatcher;
@@ -871,8 +828,8 @@ std::size_t SchematicChunkRenderer::_renderBlockEntities(
     std::size_t components = 0, alphaSkipped = 0, boundsSkipped = 0, missingRenderer = 0;
     std::size_t chests = 0, secondaryChests = 0, orphanChests = 0, chestSamples = 0, otherSamples = 0;
     diagnostics::BlockEntityTrace total;
-    
-    
+
+
     auto const chunks = world.chunkSource->mStructureLevelChunks;
     for (auto const& chunk : chunks) {
         if (!chunk) continue;
@@ -882,9 +839,9 @@ std::size_t SchematicChunkRenderer::_renderBlockEntities(
                 ++alphaSkipped;
                 continue;
             }
-            auto const&         pos = component->getBlockActorPosition();
-            auto                entityOrigin   = util::subChunkOrigin(pos.x, pos.y, pos.z);
-            auto                distanceBounds = subChunkBounds(
+            auto const& pos            = component->getBlockActorPosition();
+            auto        entityOrigin   = util::subChunkOrigin(pos.x, pos.y, pos.z);
+            auto        distanceBounds = subChunkBounds(
                 Vec3{
                     static_cast<float>(entityOrigin.x),
                     static_cast<float>(entityOrigin.y),
@@ -904,7 +861,7 @@ std::size_t SchematicChunkRenderer::_renderBlockEntities(
                 ++boundsSkipped;
                 continue;
             }
-            
+
             Vec3 const renderPos{
                 local[0] - cameraTargetPosition.x,
                 local[1] - cameraTargetPosition.y,
@@ -1078,7 +1035,6 @@ SchematicChunkRenderer::_findEntryByRegion(BlockSource const& region) noexcept {
 }
 
 
-
 bool SchematicChunkRenderer::_renderBlocks(
     BaseActorRenderContext& renderContext,
     BlockSource&            region,
@@ -1108,7 +1064,7 @@ bool SchematicChunkRenderer::_renderBlocks(
         return false;
     }
 
-    
+
     bool const layerMaterialsReady = mTerrainMaterials.get() != nullptr;
     if (!layerMaterialsReady) {
         logDiagnostic(
@@ -1117,50 +1073,37 @@ bool SchematicChunkRenderer::_renderBlocks(
         );
     }
 
-    auto&      bufferResourceService = renderContext.mScreenContext.bufferResourceService;
-    auto&      commandListQueue      = renderContext.mScreenContext.commandListQueue;
+    auto& bufferResourceService = renderContext.mScreenContext.bufferResourceService;
+    auto& commandListQueue      = renderContext.mScreenContext.commandListQueue;
 
-    
-    
-    
+
     Vec3 cameraTargetPosition{};
     if (auto const* impl = renderContext.mImpl.get(); impl != nullptr) {
         cameraTargetPosition = impl->mCameraTargetPosition.get();
     }
 
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+
     Vec3 const sortCenter = cameraTargetPosition;
 
     auto const& origins      = entry->world->origins;
     std::size_t rebuiltCount = entry->completedBuildsThisFrame;
     std::size_t sortedCount  = 0;
-    
+
     std::size_t pendingBuildCount = 0;
-    
-    
+
+
     std::size_t pendingResortCount = 0;
-    
+
     std::size_t cameraResortCount = 0;
 
-    
+
     std::size_t submittedLayerCount    = 0;
     std::size_t emptyLayerCount        = 0;
     std::size_t unavailableLayerCount  = 0;
     std::size_t submittedInstanceCount = 0;
-    
+
     std::size_t noMeshDataCount = 0;
-    
+
     std::string layerDetail;
 
     for (BlockPos const& chunkStart : origins) {
@@ -1191,15 +1134,18 @@ bool SchematicChunkRenderer::_renderBlocks(
                 ++mFrameBuilds;
                 if (entry->chunkInstances.prepareRebuild(*instanced, *entry->chunkBuilder)) {
                     entry->pendingBuildChunk = instanced;
-                    auto* builder = entry->chunkBuilder.get();
+                    auto* builder            = entry->chunkBuilder.get();
                     try {
                         entry->buildTask.start(
                             [this](auto work) { mChunkExecutor->execute(std::move(work)); },
                             [instanced, builder] { VanillaChunkInstanceSet::buildPrepared(*instanced, *builder); }
                         );
                     } catch (std::exception const& error) {
-                        getLogger().error("SchematicChunkRenderer [placement #{}]: submitting chunk build failed: {}",
-                                          entry->placementId, error.what());
+                        getLogger().error(
+                            "SchematicChunkRenderer [placement #{}]: submitting chunk build failed: {}",
+                            entry->placementId,
+                            error.what()
+                        );
                         entry->buildFailed = true;
                         return false;
                     }
@@ -1211,8 +1157,8 @@ bool SchematicChunkRenderer::_renderBlocks(
             && instanced->mRenderChunkShared->mCurrentRenderChunkGeometry
             && (instanced->mCurrentRenderChunkGeometry != instanced->mRenderChunkShared->mCurrentRenderChunkGeometry
                 || entry->chunkInstances.cameraDeltaChanged(*instanced, sortCenter))) {
-            
-            
+
+
             if (mFrameResorts >= mConfig.performance.cameraResortsPerFrame) {
                 ++pendingResortCount;
             } else {
@@ -1228,16 +1174,14 @@ bool SchematicChunkRenderer::_renderBlocks(
             continue;
         }
 
-        
-        
+
         SchematicChunkRenderData chunkRenderData;
         if (!makeChunkRenderData(*instanced, chunkRenderData)) {
             ++noMeshDataCount;
             continue;
         }
 
-        
-        
+
         writeChunkOriginAndScale(renderContext, chunkStart, relativeOrigin);
 
         auto const stats =
@@ -1277,7 +1221,7 @@ bool SchematicChunkRenderer::_renderBlocks(
         );
     }
 
-    
+
     logDiagnostic(
         entry->placementId,
         "layers: submitted=" + std::to_string(submittedLayerCount) + ", empty=" + std::to_string(emptyLayerCount)

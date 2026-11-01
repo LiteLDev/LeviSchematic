@@ -6,12 +6,12 @@
 #include "mc/world/level/block/Block.h"
 
 #include <cstdint>
+#include <deque>
 #include <filesystem>
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <deque>
 
 class StructureTemplate;
 
@@ -20,34 +20,22 @@ namespace levischematic::placement {
 using PlacementId = uint32_t;
 
 
-
-
-
 struct SchematicAsset {
-    
-
 
 
     struct LocalBlockEntry {
-        BlockPos                              localPos;
-        const Block*                          renderBlock = nullptr;
+        BlockPos     localPos;
+        Block const* renderBlock = nullptr;
     };
 
-    BlockPos                     size{0, 0, 0};
-    std::deque<LocalBlockEntry> localBlocks;
-    std::string                  defaultName;
-    std::shared_ptr<const StructureTemplate> structure;
-
-    
+    BlockPos                                 size{0, 0, 0};
+    std::deque<LocalBlockEntry>              localBlocks;
+    std::string                              defaultName;
+    std::shared_ptr<StructureTemplate const> structure;
 
 
-    [[nodiscard]] int totalNonAirBlocks() const noexcept {
-        return static_cast<int>(localBlocks.size());
-    }
+    [[nodiscard]] int totalNonAirBlocks() const noexcept { return static_cast<int>(localBlocks.size()); }
 };
-
-
-
 
 
 struct OverrideEntry {
@@ -56,12 +44,9 @@ struct OverrideEntry {
         SetBlock,
     };
 
-    Kind                                 kind  = Kind::Remove;
-    const Block*                         block = nullptr;
+    Kind         kind  = Kind::Remove;
+    Block const* block = nullptr;
 };
-
-
-
 
 
 struct PlacementInstance {
@@ -78,49 +63,32 @@ struct PlacementInstance {
         MIRROR_Z = 2,
     };
 
-    PlacementId                          id = 0;
-    std::shared_ptr<const SchematicAsset> asset;
-    std::string                          name;
-    std::filesystem::path                filePath;
-    int                                  dimensionId   = 0;
-    BlockPos                             origin{0, 0, 0};
-    Rotation                             rotation      = Rotation::NONE;
-    Mirror                               mirror        = Mirror::NONE;
-    bool                                 enabled       = true;
-    bool                                 renderEnabled = true;
-    uint64_t                             revision      = 1;
-    uint64_t                             contentRevision = 1;
+    PlacementId                                 id = 0;
+    std::shared_ptr<SchematicAsset const>       asset;
+    std::string                                 name;
+    std::filesystem::path                       filePath;
+    int                                         dimensionId = 0;
+    BlockPos                                    origin{0, 0, 0};
+    Rotation                                    rotation        = Rotation::NONE;
+    Mirror                                      mirror          = Mirror::NONE;
+    bool                                        enabled         = true;
+    bool                                        renderEnabled   = true;
+    uint64_t                                    revision        = 1;
+    uint64_t                                    contentRevision = 1;
     std::unordered_map<uint64_t, OverrideEntry> overrides;
 
-    
 
-
-    [[nodiscard]] int         totalNonAirBlocks() const noexcept;
-    
+    [[nodiscard]] int totalNonAirBlocks() const noexcept;
 
 
     [[nodiscard]] std::string describeTransform() const;
 };
 
 
-
-
-
-
-[[nodiscard]] inline PlacementInstance::Rotation rotateBy(
-    PlacementInstance::Rotation base,
-    PlacementInstance::Rotation delta
-) {
-    return static_cast<PlacementInstance::Rotation>(
-        (static_cast<int>(base) + static_cast<int>(delta)) % 4
-    );
+[[nodiscard]] inline PlacementInstance::Rotation
+rotateBy(PlacementInstance::Rotation base, PlacementInstance::Rotation delta) {
+    return static_cast<PlacementInstance::Rotation>((static_cast<int>(base) + static_cast<int>(delta)) % 4);
 }
-
-
-
-
-
-
 
 
 [[nodiscard]] inline BlockPos transformLocalPos(
@@ -157,9 +125,6 @@ struct PlacementInstance {
 
     return {x, y, z};
 }
-
-
-
 
 
 [[nodiscard]] std::pair<BlockPos, BlockPos> computeEnclosingBox(PlacementInstance const& placement);

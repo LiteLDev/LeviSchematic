@@ -11,10 +11,10 @@
 #include "mc/client/gui/screens/InGamePlayScreen.h"
 #include "mc/client/gui/screens/ScreenContext.h"
 #include "mc/client/player/LocalPlayer.h"
-#include "mc/client/renderer/game/LevelRenderer.h"
-#include "mc/client/renderer/game/LevelRendererPlayer.h"
-#include "mc/client/renderer/game/LevelRendererCamera.h"
 #include "mc/client/renderer/BaseActorRenderContext.h"
+#include "mc/client/renderer/game/LevelRenderer.h"
+#include "mc/client/renderer/game/LevelRendererCamera.h"
+#include "mc/client/renderer/game/LevelRendererPlayer.h"
 #include "mc/deps/minecraft_renderer/objects/FrameRenderObject.h"
 #include "mc/deps/minecraft_renderer/objects/ViewRenderObject.h"
 #include "mc/world/level/BlockSource.h"
@@ -26,12 +26,7 @@ namespace {
 
 bool registered = false;
 
-} 
-
-
-
-
-
+}
 
 
 LL_TYPE_INSTANCE_HOOK(
@@ -41,18 +36,13 @@ LL_TYPE_INSTANCE_HOOK(
     &LevelRendererCamera::$renderBlockEntities,
     void,
     BaseActorRenderContext& renderContext,
-    bool renderAlphaLayer
+    bool                    renderAlphaLayer
 ) {
     if (auto session = app::tryAccessSession(); session && !renderAlphaLayer) {
         session->schematicRenderer().renderFrame(renderContext.mScreenContext, session->placement());
     }
     origin(renderContext, renderAlphaLayer);
 }
-
-
-
-
-
 
 
 LL_TYPE_INSTANCE_HOOK(
@@ -70,14 +60,14 @@ LL_TYPE_INSTANCE_HOOK(
     }
 
     if (auto session = app::tryAccessSession()) {
-        auto client = ll::service::getClientInstance();
+        auto  client = ll::service::getClientInstance();
         auto* player = client ? client->getLocalPlayer() : nullptr;
         if (!player) {
             return;
         }
         auto const& viewData = renderObj.mViews.get().front().mViewData.get();
-        auto const& camera = viewData.mCameraTargetPos.get();
-        Vec3 const cameraPosition{camera.x, camera.y, camera.z};
+        auto const& camera   = viewData.mCameraTargetPos.get();
+        Vec3 const  cameraPosition{camera.x, camera.y, camera.z};
         session->schematicRenderer().renderValidationHull(
             screenContext,
             cameraPosition,
@@ -87,13 +77,6 @@ LL_TYPE_INSTANCE_HOOK(
         );
     }
 }
-
-
-
-
-
-
-
 
 
 LL_TYPE_INSTANCE_HOOK(
@@ -108,23 +91,13 @@ LL_TYPE_INSTANCE_HOOK(
     bool                    fancyGraphics
 ) {
     if (auto session = app::tryAccessSession()) {
-        if (session->schematicRenderer().hasValidationHull(
-                session->placement(),
-                position,
-                static_cast<int>(region.getDimensionId())
-            )) {
+        if (session->schematicRenderer()
+                .hasValidationHull(session->placement(), position, static_cast<int>(region.getDimensionId()))) {
             return;
         }
     }
     origin(renderContext, region, position, fancyGraphics);
 }
-
-
-
-
-
-
-
 
 
 LL_TYPE_INSTANCE_HOOK(
@@ -134,16 +107,13 @@ LL_TYPE_INSTANCE_HOOK(
     &LevelRendererPlayer::_renderOutlineSelection,
     void,
     BaseActorRenderContext& renderContext,
-    Block const&           block,
-    BlockSource&           region,
-    BlockPos const&        position
+    Block const&            block,
+    BlockSource&            region,
+    BlockPos const&         position
 ) {
     if (auto session = app::tryAccessSession()) {
-        if (session->schematicRenderer().hasValidationHull(
-                session->placement(),
-                position,
-                static_cast<int>(region.getDimensionId())
-            )) {
+        if (session->schematicRenderer()
+                .hasValidationHull(session->placement(), position, static_cast<int>(region.getDimensionId()))) {
             return;
         }
     }
@@ -155,8 +125,7 @@ using PreviewHook = ll::memory::HookRegistrar<
     PreviewScreenRenderHook,
     ValidationHullFinalRenderHook,
     ValidationHullHitSelectHook,
-    ValidationHullOutlineSelectionHook
->;
+    ValidationHullOutlineSelectionHook>;
 
 void registerPreviewRenderHooks() {
     if (registered) return;

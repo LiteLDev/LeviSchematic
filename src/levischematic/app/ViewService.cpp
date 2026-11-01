@@ -21,9 +21,9 @@ ViewMutationStatus ViewService::setMinY(int minY) {
         return status;
     }
 
-    auto& layerRange = mViewState.layerRange;
-    bool  changed    = layerRange.minY != minY || !layerRange.enabled;
-    layerRange.minY  = minY;
+    auto& layerRange   = mViewState.layerRange;
+    bool  changed      = layerRange.minY != minY || !layerRange.enabled;
+    layerRange.minY    = minY;
     layerRange.enabled = true;
     if (changed) {
         touch();
@@ -39,9 +39,9 @@ ViewMutationStatus ViewService::setMaxY(int maxY) {
         return status;
     }
 
-    auto& layerRange = mViewState.layerRange;
-    bool  changed    = layerRange.maxY != maxY || !layerRange.enabled;
-    layerRange.maxY  = maxY;
+    auto& layerRange   = mViewState.layerRange;
+    bool  changed      = layerRange.maxY != maxY || !layerRange.enabled;
+    layerRange.maxY    = maxY;
     layerRange.enabled = true;
     if (changed) {
         touch();
@@ -56,10 +56,10 @@ ViewMutationStatus ViewService::setRange(int minY, int maxY) {
         return status;
     }
 
-    auto& layerRange = mViewState.layerRange;
-    bool  changed    = layerRange.minY != minY || layerRange.maxY != maxY || !layerRange.enabled;
-    layerRange.minY  = minY;
-    layerRange.maxY  = maxY;
+    auto& layerRange   = mViewState.layerRange;
+    bool  changed      = layerRange.minY != minY || layerRange.maxY != maxY || !layerRange.enabled;
+    layerRange.minY    = minY;
+    layerRange.maxY    = maxY;
     layerRange.enabled = true;
     if (changed) {
         touch();
@@ -83,7 +83,7 @@ bool ViewService::adjustMaxYBy(int delta) {
         return false;
     }
 
-    layerRange.maxY   = targetMaxY;
+    layerRange.maxY    = targetMaxY;
     layerRange.enabled = true;
     touch();
     return true;
@@ -120,8 +120,6 @@ ViewMutationStatus ViewService::validateRange(int minY, int maxY) {
     return ok<ViewError>();
 }
 
-void ViewService::touch() {
-    ++mViewState.revision;
-}
+void ViewService::touch() { ++mViewState.revision; }
 
 } 

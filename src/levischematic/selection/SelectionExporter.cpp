@@ -20,11 +20,7 @@ namespace levischematic::selection {
 namespace {
 
 
-
-
-auto& getLogger() {
-    return levischematic::LeviSchematic::getInstance().getSelf().getLogger();
-}
+auto& getLogger() { return levischematic::LeviSchematic::getInstance().getSelf().getLogger(); }
 
 } 
 
@@ -33,16 +29,13 @@ std::string ExportSelectionError::describe(std::string_view target) const {
     case Code::IncompleteSelection:
         return "Selection is incomplete. Set both corners first (pos1/pos2).";
     case Code::RegistryUnavailable:
-        return detail.empty()
-            ? "Block registry is unavailable while exporting the selection."
-            : detail;
+        return detail.empty() ? "Block registry is unavailable while exporting the selection." : detail;
     case Code::WriteFailed:
         if (!detail.empty()) {
             return detail;
         }
-        return target.empty()
-            ? "Failed to save selection."
-            : "Failed to save selection as '" + std::string(target) + "'.";
+        return target.empty() ? "Failed to save selection."
+                              : "Failed to save selection as '" + std::string(target) + "'.";
     }
 
     return "Unknown selection export error.";
@@ -95,10 +88,10 @@ SelectionOverlayView makeOverlayView(SelectionState const& state) {
 }
 
 app::Result<std::filesystem::path, ExportSelectionError> SelectionExporter::saveToMcstructure(
-    SelectionState const& state,
+    SelectionState const&        state,
     std::filesystem::path const& schematicDirectory,
-    std::string_view      name,
-    Dimension&            dimension
+    std::string_view             name,
+    Dimension&                   dimension
 ) const {
     if (!hasCompleteSelection(state)) {
         return app::Result<std::filesystem::path, ExportSelectionError>::failure({
@@ -111,10 +104,10 @@ app::Result<std::filesystem::path, ExportSelectionError> SelectionExporter::save
         auto size   = getSize(state);
 
         StructureSettings settings;
-        settings.mStructureOffset = BlockPos::ZERO();
-        settings.mStructureSize   = size;
-        settings.mIgnoreEntities  = false;
-        settings.mIgnoreBlocks    = false;
+        settings.mStructureOffset                           = BlockPos::ZERO();
+        settings.mStructureSize                             = size;
+        settings.mIgnoreEntities                            = false;
+        settings.mIgnoreBlocks                              = false;
         settings.mAllowNonTickingPlayerAndTickingAreaChunks = false;
 
         auto level = ll::service::getLevel();
@@ -125,15 +118,9 @@ app::Result<std::filesystem::path, ExportSelectionError> SelectionExporter::save
             });
         }
 
-        auto structureTemplate = std::make_unique<StructureTemplate>(
-            std::string(name),
-            level->getUnknownBlockTypeRegistry()
-        );
-        structureTemplate->fillFromWorld(
-            dimension.getBlockSourceFromMainChunkSource(),
-            minPos,
-            settings
-        );
+        auto structureTemplate =
+            std::make_unique<StructureTemplate>(std::string(name), level->getUnknownBlockTypeRegistry());
+        structureTemplate->fillFromWorld(dimension.getBlockSourceFromMainChunkSource(), minPos, settings);
 
         auto nbtTag = structureTemplate->save();
 
@@ -147,18 +134,12 @@ app::Result<std::filesystem::path, ExportSelectionError> SelectionExporter::save
             });
         }
 
-        auto structurePath = schematic::SchematicPathResolver(schematicDirectory)
-            .makeFilePath(std::filesystem::path{std::string(name)});
+        auto structurePath =
+            schematic::SchematicPathResolver(schematicDirectory).makeFilePath(std::filesystem::path{std::string(name)});
 
         ll::utils::file_utils::writeFile(structurePath, nbtTag->toBinaryNbt(), true);
 
-        getLogger().info(
-            "Saved selection to {} (size: {}x{}x{})",
-            structurePath.string(),
-            size.x,
-            size.y,
-            size.z
-        );
+        getLogger().info("Saved selection to {} (size: {}x{}x{})", structurePath.string(), size.x, size.y, size.z);
         return app::Result<std::filesystem::path, ExportSelectionError>::success(std::move(structurePath));
     } catch (std::exception const& e) {
         getLogger().error("Exception while saving selection: {}", e.what());

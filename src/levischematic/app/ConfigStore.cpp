@@ -47,7 +47,7 @@ std::string ConfigStore::save() const {
         auto temporary  = mPath;
         temporary      += ".tmp";
         if (!ll::config::saveConfig(mPending ? *mPending : mCurrent, temporary)) return "Cannot write configuration.";
-        
+
         if (!MoveFileExW(temporary.c_str(), mPath.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
             return "Cannot replace configuration file.";
         return {};

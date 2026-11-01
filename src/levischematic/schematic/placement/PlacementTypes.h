@@ -10,9 +10,6 @@
 namespace levischematic::placement {
 
 
-
-
-
 struct LoadPlacementError {
     enum class Code {
         FileNotFound,
@@ -26,32 +23,19 @@ struct LoadPlacementError {
     Code        code{};
     std::string detail;
 
-    
-
-
 
     [[nodiscard]] std::string describe(std::string_view target) const;
 };
 
 
-
-
-
 template <typename T, typename E>
 class Expected {
 public:
-    
-
-
-
     static Expected success(T value) {
         Expected result;
         result.mValue.emplace(std::move(value));
         return result;
     }
-
-    
-
 
 
     static Expected failure(E error) {
@@ -60,29 +44,20 @@ public:
         return result;
     }
 
-    
-
 
     [[nodiscard]] bool hasValue() const { return mValue.has_value(); }
-    
 
 
     explicit operator bool() const { return hasValue(); }
 
-    
 
-
-    T&       value() & { return *mValue; }
-    
+    T& value() & { return *mValue; }
 
 
     T const& value() const& { return *mValue; }
-    
 
 
-    T&&      value() && { return std::move(*mValue); }
-
-    
+    T&& value() && { return std::move(*mValue); }
 
 
     E const& error() const { return *mError; }
@@ -92,18 +67,13 @@ private:
     std::optional<E> mError;
 };
 
-using LoadAssetResult = Expected<std::shared_ptr<const SchematicAsset>, LoadPlacementError>;
-
-
-
+using LoadAssetResult = Expected<std::shared_ptr<SchematicAsset const>, LoadPlacementError>;
 
 
 struct LoadPlacementResult {
     std::optional<PlacementId>        id;
     std::filesystem::path             resolvedPath;
     std::optional<LoadPlacementError> error;
-
-    
 
 
     explicit operator bool() const { return id.has_value(); }

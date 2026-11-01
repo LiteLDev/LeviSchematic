@@ -22,12 +22,6 @@ class RenderChunkCoordinator;
 namespace levischematic::command {
 
 
-
-
-
-
-
-
 inline app::SessionAccess acquireSession(CommandOutput& output) {
     auto session = app::accessSession();
     if (!session) {
@@ -37,24 +31,15 @@ inline app::SessionAccess acquireSession(CommandOutput& output) {
 }
 
 
-
-
-
 struct SchemLoadParam {
     std::string          filename;
     CommandPositionFloat pos;
 };
 
 
-
-
-
 struct SchemNamedParam {
     std::string filename;
 };
-
-
-
 
 
 struct SchemMoveParam {
@@ -64,15 +49,9 @@ struct SchemMoveParam {
 };
 
 
-
-
-
 struct SchemRotateParam {
     enum class direction { cw90, ccw90, r180 } dir;
 };
-
-
-
 
 
 struct SchemMirrorParam {
@@ -80,15 +59,9 @@ struct SchemMirrorParam {
 };
 
 
-
-
-
 struct SchemRemoveParam {
     int id;
 };
-
-
-
 
 
 struct SchemSelectParam {
@@ -96,23 +69,14 @@ struct SchemSelectParam {
 };
 
 
-
-
-
 struct SchemOriginParam {
     CommandPositionFloat pos;
 };
 
 
-
-
-
 struct SchemBlockPosParam {
     CommandPositionFloat pos;
 };
-
-
-
 
 
 struct SchemBlockSetParam {
@@ -122,16 +86,10 @@ struct SchemBlockSetParam {
 };
 
 
-
-
-
 struct SchemBlockSetSimpleParam {
     CommandPositionFloat pos;
     CommandBlockName     blockName;
 };
-
-
-
 
 
 struct SchemViewYValueParam {
@@ -139,15 +97,9 @@ struct SchemViewYValueParam {
 };
 
 
-
-
-
 struct SchemRendererIsolateParam {
     enum class mode { on, off } value;
 };
-
-
-
 
 
 struct SchemViewYRangeParam {
@@ -156,41 +108,21 @@ struct SchemViewYRangeParam {
 };
 
 
-
-
-
 ll::command::CommandHandle& getOrCreateSchemCommand(bool isClient);
 
 
+void refreshProjectionStateForOrigin(app::AppKernel& session, CommandOrigin const& origin);
 
 
-
-void                        refreshProjectionStateForOrigin(app::AppKernel& session, const CommandOrigin& origin);
-
-
-
-
-
-
-
-void                        logPlacementCommandFailure(
+void logPlacementCommandFailure(
     std::string_view                      operation,
-    const std::filesystem::path&          file,
+    std::filesystem::path const&          file,
     std::optional<placement::PlacementId> placementId,
     std::string_view                      detail
 );
 
 
-
-
-
-
 void replyPlacementError(CommandOutput& output, std::string_view operation, app::PlacementError const& error);
-
-
-
-
-
 
 
 void replySelectionError(
@@ -201,18 +133,12 @@ void replySelectionError(
 );
 
 
-
-
-
-
-
-
 template <typename Fn>
 void withSelectedPlacement(
     app::PlacementService& placementService,
     CommandOutput&         output,
     Fn&&                   fn,
-    const char*            fallbackErrorMessage = nullptr
+    char const*            fallbackErrorMessage = nullptr
 ) {
     auto selected = placementService.requireSelectedPlacement();
     if (!selected) {
@@ -228,16 +154,10 @@ void withSelectedPlacement(
 }
 
 
-
-
-
-
-
-
 template <typename ReplyFn>
 void flushPlacementRefreshAndReply(
     app::AppKernel&      session,
-    const CommandOrigin& origin,
+    CommandOrigin const& origin,
     CommandOutput&       output,
     ReplyFn&&            reply
 ) {
@@ -246,37 +166,22 @@ void flushPlacementRefreshAndReply(
 }
 
 
-
-
-
 void registerSchemLoadCommands(ll::command::CommandHandle& schemCmd);
-
-
 
 
 void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd);
 
 
-
-
 void registerSchemSelectionCommands(ll::command::CommandHandle& schemCmd);
-
-
 
 
 void registerSchemTransformCommands(ll::command::CommandHandle& schemCmd);
 
 
-
-
 void registerSchemViewCommands(ll::command::CommandHandle& schemCmd);
 
 
-
-
 void registerSchemConfigCommands(ll::command::CommandHandle& schemCmd);
-
-
 
 
 void registerSchemRendererCommands(ll::command::CommandHandle& schemCmd);

@@ -13,13 +13,9 @@ void RuntimeContext::setSchematicDirectory(std::filesystem::path directory) {
     }
 }
 
-bool RuntimeContext::hasSchematicDirectory() const {
-    return !mSchematicDirectory.empty();
-}
+bool RuntimeContext::hasSchematicDirectory() const { return !mSchematicDirectory.empty(); }
 
-std::filesystem::path const& RuntimeContext::schematicDirectory() const {
-    return mSchematicDirectory;
-}
+std::filesystem::path const& RuntimeContext::schematicDirectory() const { return mSchematicDirectory; }
 
 std::filesystem::path RuntimeContext::resolveSchematicPath(std::string const& filename) const {
     return schematic::SchematicPathResolver(mSchematicDirectory).resolveExistingPath(filename);

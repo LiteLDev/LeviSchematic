@@ -7,9 +7,6 @@ namespace levischematic::app {
 namespace {
 
 
-
-
-
 PlacementMutationResult successMutation(placement::PlacementInstance const* placement) {
     return PlacementMutationResult::success(placement);
 }
@@ -24,9 +21,7 @@ std::string PlacementError::describe() const {
         if (!detail.empty()) {
             return detail;
         }
-        return placementId
-            ? "Placement ID " + std::to_string(*placementId) + " not found."
-            : "Placement not found.";
+        return placementId ? "Placement ID " + std::to_string(*placementId) + " not found." : "Placement not found.";
     case Code::LoadFailed:
         if (loadError) {
             auto target = path.empty() ? std::string("unknown") : path.string();
@@ -43,16 +38,20 @@ std::string PlacementError::describe() const {
 }
 
 PlacementService::PlacementService(
-    editor::EditorState&        state,
-    RuntimeContext&             runtime,
-    placement::PlacementStore&  placementStore
+    editor::EditorState&       state,
+    RuntimeContext&            runtime,
+    placement::PlacementStore& placementStore
 )
-    : mState(state)
-    , mRuntime(runtime)
-    , mPlacementStore(placementStore) {}
+: mState(state),
+  mRuntime(runtime),
+  mPlacementStore(placementStore) {}
 
-PlacementLoadInfo PlacementService::adoptAsset(std::shared_ptr<const placement::SchematicAsset> asset,
-                                              std::filesystem::path const& path, BlockPos origin, int dimensionId) {
+PlacementLoadInfo PlacementService::adoptAsset(
+    std::shared_ptr<placement::SchematicAsset const> asset,
+    std::filesystem::path const&                     path,
+    BlockPos                                         origin,
+    int                                              dimensionId
+) {
     PlacementLoadInfo result{.resolvedPath = path, .name = asset->defaultName};
     result.id = mPlacementStore.createPlacement(std::move(asset), origin, dimensionId, result.name, path);
     return result;
@@ -62,9 +61,8 @@ placement::PlacementInstance const* PlacementService::findPlacement(placement::P
     return mPlacementStore.get(id);
 }
 
-Result<placement::PlacementInstance const*, PlacementError> PlacementService::requirePlacement(
-    placement::PlacementId id
-) const {
+Result<placement::PlacementInstance const*, PlacementError>
+PlacementService::requirePlacement(placement::PlacementId id) const {
     if (auto const* placement = mPlacementStore.get(id)) {
         return Result<placement::PlacementInstance const*, PlacementError>::success(placement);
     }
@@ -111,9 +109,7 @@ Result<RemovedPlacementInfo, PlacementError> PlacementService::removePlacement(p
     return Result<RemovedPlacementInfo, PlacementError>::success(std::move(removed));
 }
 
-void PlacementService::clearPlacements() {
-    mPlacementStore.clear();
-}
+void PlacementService::clearPlacements() { mPlacementStore.clear(); }
 
 PlacementStatus PlacementService::selectPlacement(placement::PlacementId id) {
     if (!mPlacementStore.select(id)) {
@@ -163,10 +159,8 @@ PlacementMutationResult PlacementService::setPlacementOrigin(placement::Placemen
     return successMutation(mPlacementStore.get(id));
 }
 
-PlacementMutationResult PlacementService::rotatePlacement(
-    placement::PlacementId                 id,
-    placement::PlacementInstance::Rotation delta
-) {
+PlacementMutationResult
+PlacementService::rotatePlacement(placement::PlacementId id, placement::PlacementInstance::Rotation delta) {
     auto placement = requirePlacement(id);
     if (!placement) {
         return PlacementMutationResult::failure(placement.error());
@@ -176,10 +170,8 @@ PlacementMutationResult PlacementService::rotatePlacement(
     return successMutation(mPlacementStore.get(id));
 }
 
-PlacementMutationResult PlacementService::setPlacementMirror(
-    placement::PlacementId               id,
-    placement::PlacementInstance::Mirror mirror
-) {
+PlacementMutationResult
+PlacementService::setPlacementMirror(placement::PlacementId id, placement::PlacementInstance::Mirror mirror) {
     auto placement = requirePlacement(id);
     if (!placement) {
         return PlacementMutationResult::failure(placement.error());
@@ -199,11 +191,8 @@ PlacementMutationResult PlacementService::resetPlacementTransform(placement::Pla
     return successMutation(mPlacementStore.get(id));
 }
 
-PlacementMutationResult PlacementService::patchPlacementBlock(
-    placement::PlacementId id,
-    BlockPos               worldPos,
-    placement::PatchOp const& op
-) {
+PlacementMutationResult
+PlacementService::patchPlacementBlock(placement::PlacementId id, BlockPos worldPos, placement::PatchOp const& op) {
     auto placement = requirePlacement(id);
     if (!placement) {
         return PlacementMutationResult::failure(placement.error());
@@ -219,23 +208,19 @@ PlacementMutationResult PlacementService::patchPlacementBlock(
 
     if (!(mPlacementStore.patchBlock(id, worldPos, op))) {
         return PlacementMutationResult::failure({
-            .code        = op.kind == placement::PatchOp::Kind::ClearOverride
-                ? PlacementError::Code::OverrideNotFound
-                : PlacementError::Code::InvalidBlockOverride,
+            .code = op.kind == placement::PatchOp::Kind::ClearOverride ? PlacementError::Code::OverrideNotFound
+                                                                       : PlacementError::Code::InvalidBlockOverride,
             .placementId = id,
             .detail      = op.kind == placement::PatchOp::Kind::ClearOverride
-                ? "No block override found at the requested position."
-                : "Failed to apply the block override.",
+                             ? "No block override found at the requested position."
+                             : "Failed to apply the block override.",
         });
     }
 
     return successMutation(mPlacementStore.get(id));
 }
 
-PlacementError PlacementService::makeNotFoundError(
-    std::optional<placement::PlacementId> id,
-    std::string                           detail
-) const {
+PlacementError PlacementService::makeNotFoundError(std::optional<placement::PlacementId> id, std::string detail) const {
     return PlacementError{
         .code        = PlacementError::Code::PlacementNotFound,
         .placementId = id,

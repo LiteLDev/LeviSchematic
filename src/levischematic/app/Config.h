@@ -14,28 +14,28 @@ struct Config {
         bool frustumCulling                      = true;
         bool operator==(Visibility const&) const = default;
     } visibility;
-    
+
     struct Projection {
         float       alpha   = 0.15f;
         std::string texture = "textures/test/Volume-Highlight-Overlay123";
-        
+
         bool operator==(Projection const&) const = default;
     } projection;
     struct Selection {
         std::array<float, 4> faceColor{1.0f, 1.0f, 1.0f, 0.10f};
         bool                 operator==(Selection const&) const = default;
     } selection;
-    
+
     struct Hull {
         std::array<float, 4> blockColor{0.95f, 0.35f, 0.35f, 0.55f};
         std::array<float, 4> propertyColor{1.0f, 0.87f, 0.25f, 0.55f};
         float                expansion = 0.003f;
         float                depthBias = 100.0f;
         float                slopeBias = 15.0f;
-        
+
         bool operator==(Hull const&) const = default;
     } hull;
-    
+
     struct Performance {
         double   tickBudgetMs           = 2.0;
         double   frameBudgetMs          = 2.0;

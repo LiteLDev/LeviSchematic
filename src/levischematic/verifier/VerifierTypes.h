@@ -3,10 +3,10 @@
 #include "levischematic/util/PositionUtils.h"
 
 #include "mc/deps/core/string/HashedString.h"
+#include "mc/world/Direction.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/block/Block.h"
 #include "mc/world/level/block/actor/BlockActorRendererId.h"
-#include "mc/world/Direction.h"
 
 #include <cstdint>
 #include <memory>
@@ -20,9 +20,6 @@ class BlockActor;
 namespace levischematic::verifier {
 
 
-
-
-
 struct BlockStateSnapshot {
     uint64_t    stateId  = 0;
     int         value    = 0;
@@ -31,13 +28,10 @@ struct BlockStateSnapshot {
 };
 
 
-
-
-
 struct BlockCompareSpec {
     uint64_t                        nameHash = 0;
     std::vector<BlockStateSnapshot> exactStates;
-    std::optional<Direction::Type>   bedDirection;
+    std::optional<Direction::Type>  bedDirection;
     bool                            complete = true;
 };
 
@@ -50,10 +44,7 @@ enum class VerificationStatus : uint8_t {
 };
 
 
-
-
-
-[[nodiscard]] BlockCompareSpec buildCompareSpecFromBlock(Block const& block);
+[[nodiscard]] BlockCompareSpec               buildCompareSpecFromBlock(Block const& block);
 [[nodiscard]] std::optional<Direction::Type> readBedDirection(Block const& block);
 
 
@@ -86,7 +77,7 @@ struct VerifierState {
     uint64_t                                                                            revision = 0;
     uint64_t                                                                            epoch    = 0;
     bool                                                                                clearing = false;
-    
+
     [[nodiscard]] VerificationCell const* find(int dimension, BlockPos const& pos) const {
         if (clearing) return nullptr;
         auto it = chunks.find({dimension, util::subChunkKeyFromWorldPos(pos.x, pos.y, pos.z)});
@@ -94,7 +85,7 @@ struct VerifierState {
         auto cell = it->second.cells.find(util::encodePosKey(pos));
         return cell == it->second.cells.end() ? nullptr : &cell->second;
     }
-    
+
     [[nodiscard]] bool showsProjection(int dimension, BlockPos const& pos, uint32_t placementId) const {
         auto* cell = find(dimension, pos);
         return !cell

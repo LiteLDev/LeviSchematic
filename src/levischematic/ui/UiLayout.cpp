@@ -25,27 +25,27 @@ nlohmann::ordered_json buildNativeDefinitions() {
     };
     auto label = [&](std::string text) {
         return J{
-            {"type",     "label"           },
-            {"text",     text              },
-            {"localize", false             },
-            {"shadow",   false             },
-            {"color",    {0.25, 0.25, 0.25}},
-            {"layer",    2                 },
-            {"bindings", bind(text)        }
+            {    "type",            "label"},
+            {    "text",               text},
+            {"localize",              false},
+            {  "shadow",              false},
+            {   "color", {0.25, 0.25, 0.25}},
+            {   "layer",                  2},
+            {"bindings",         bind(text)}
         };
     };
     J definitions = J::object();
-    
-    
+
+
     definitions["tab_caption"] = J{
-        {"type",           "label"                },
-        {"size",           {"100%", "100%"}       },
-        {"text",           "$ls_tab_caption"      },
-        {"localize",       false                  },
-        {"shadow",         false                  },
-        {"color",          "$text_color"          },
-        {"text_alignment", "center"               },
-        {"bindings",       bind("$ls_tab_caption")}
+        {          "type",                 "label"},
+        {          "size",        {"100%", "100%"}},
+        {          "text",       "$ls_tab_caption"},
+        {      "localize",                   false},
+        {        "shadow",                   false},
+        {         "color",           "$text_color"},
+        {"text_alignment",                "center"},
+        {      "bindings", bind("$ls_tab_caption")}
     };
     J   tabControls  = J::array();
     J   bodyControls = J::array({J{{"background@common.dialog_background_opaque", J{{"layer", 0}}}}});
@@ -66,36 +66,36 @@ nlohmann::ordered_json buildNativeDefinitions() {
               {"binding_condition", "always"}}
         });
         definitions["row_" + n]                     = J{
-            {"type",     "panel"     },
-            {"size",     {"100%", 22}},
+            {    "type","panel"                        },
+            {    "size", {"100%", 22}},
             {"controls",
              J::array(
-                 {cell,
-                  J{{"selection@common.focus_border_white",
-                     J{{"size", {"100% - 4px", 20}},
-                       {"anchor_from", "top_middle"},
-                       {"anchor_to", "top_middle"},
-                       {"layer", 5},
-                       {"visible", false},
-                       {"bindings",
-                        J::array(
-                            {J{{"binding_type", "collection"},
-                               {"binding_collection_name", collection},
-                               {"binding_name", "#ls_row_selected"},
-                               {"binding_name_override", "#visible"},
-                               {"binding_condition", "always"}}}
-                        )}}}}}
+             {cell,
+             J{{"selection@common.focus_border_white",
+             J{{"size", {"100% - 4px", 20}},
+             {"anchor_from", "top_middle"},
+             {"anchor_to", "top_middle"},
+             {"layer", 5},
+             {"visible", false},
+             {"bindings",
+             J::array(
+             {J{{"binding_type", "collection"},
+             {"binding_collection_name", collection},
+             {"binding_name", "#ls_row_selected"},
+             {"binding_name_override", "#visible"},
+             {"binding_condition", "always"}}}
+             )}}}}}
              )                       }
         };
         definitions["content_" + n] = J{
-            {"type",                   "grid"                  },
-            {"size",                   {"100%", "default"}     },
-            {"anchor_from",            "top_left"              },
-            {"anchor_to",              "top_left"              },
-            {"grid_item_template",     "levischematic.row_" + n},
-            {"grid_dimension_binding", "#ls_dims_" + n         },
-            {"collection_name",        collection              },
-            {"bindings",               bind("#ls_dims_" + n)   }
+            {                  "type",                   "grid"},
+            {                  "size",      {"100%", "default"}},
+            {           "anchor_from",               "top_left"},
+            {             "anchor_to",               "top_left"},
+            {    "grid_item_template", "levischematic.row_" + n},
+            {"grid_dimension_binding",          "#ls_dims_" + n},
+            {       "collection_name",               collection},
+            {              "bindings",    bind("#ls_dims_" + n)}
         };
         tabControls.push_back(
             J{
@@ -121,8 +121,8 @@ nlohmann::ordered_json buildNativeDefinitions() {
                    {"$is_right_most_tab", tab == 2}}}
         }
         );
-        
-        
+
+
         bodyControls.push_back(
             J{
                 {"scroll_" + n + "@common.container_scroll_panel",
@@ -149,10 +149,10 @@ nlohmann::ordered_json buildNativeDefinitions() {
     auto title = label("#ls_title");
     title.update(
         J{
-            {"size",        {"100% - 80px", 12}},
-            {"offset",      {10, 8}            },
-            {"anchor_from", "top_left"         },
-            {"anchor_to",   "top_left"         }
+            {       "size", {"100% - 80px", 12}},
+            {     "offset",             {10, 8}},
+            {"anchor_from",          "top_left"},
+            {  "anchor_to",          "top_left"}
     }
     );
     bodyControls.push_back(
@@ -163,20 +163,20 @@ nlohmann::ordered_json buildNativeDefinitions() {
     auto close = button("back", "#ls_back", "button.ls_back");
     close.begin().value().update(
         J{
-            {"size",        {52, 18}   },
-            {"offset",      {-8, 6}    },
+            {       "size",    {52, 18}},
+            {     "offset",     {-8, 6}},
             {"anchor_from", "top_right"},
-            {"anchor_to",   "top_right"}
+            {  "anchor_to", "top_right"}
     }
     );
     bodyControls.push_back(close);
     auto message = label("#ls_message");
     message.update(
         J{
-            {"size",        {"100% - 20px", 14}},
-            {"offset",      {0, 25}            },
-            {"anchor_from", "top_middle"       },
-            {"anchor_to",   "top_middle"       }
+            {       "size", {"100% - 20px", 14}},
+            {     "offset",             {0, 25}},
+            {"anchor_from",        "top_middle"},
+            {  "anchor_to",        "top_middle"}
     }
     );
     bodyControls.push_back(
@@ -218,10 +218,10 @@ nlohmann::ordered_json buildNativeDefinitions() {
     auto hint = label("#ls_hint");
     hint.update(
         J{
-            {"size",        {"100% - 20px", 20}},
-            {"offset",      {0, -8}            },
-            {"anchor_from", "bottom_middle"    },
-            {"anchor_to",   "bottom_middle"    }
+            {       "size", {"100% - 20px", 20}},
+            {     "offset",             {0, -8}},
+            {"anchor_from",     "bottom_middle"},
+            {  "anchor_to",     "bottom_middle"}
     }
     );
     hint["bindings"].push_back(bind("#ls_not_editing", "#visible").at(0));
@@ -234,46 +234,46 @@ nlohmann::ordered_json buildNativeDefinitions() {
     for (auto from : {"button.menu_cancel", "button.menu_exit", "button.menu_inventory_cancel"})
         mappings.push_back(
             J{
-                {"from_button_id", from            },
-                {"to_button_id",   "button.ls_back"},
-                {"mapping_type",   "global"        }
+                {"from_button_id",             from},
+                {  "to_button_id", "button.ls_back"},
+                {  "mapping_type",         "global"}
         }
         );
     definitions["screen"] = J{
-        {"type",                   "screen"        },
-        {"size",                   {"100%", "100%"}},
-        {"always_listen_to_input", true            },
-        {"is_modal",               true            },
-        {"absorbs_input",          true            },
-        {"render_game_behind",     true            },
-        {"should_steal_mouse",     false           },
-        {"button_mappings",        mappings        },
-        {"controls",
+        {                  "type","screen"                                  },
+        {                  "size", {"100%", "100%"}},
+        {"always_listen_to_input",             true},
+        {              "is_modal",             true},
+        {         "absorbs_input",             true},
+        {    "render_game_behind",             true},
+        {    "should_steal_mouse",            false},
+        {       "button_mappings",         mappings},
+        {              "controls",
          J::array(
-             {J{{"screen_background@common.screen_background", J{{"size", {"100%", "100%"}}}}},
-              J{{"panel",
-                 J{{"type", "panel"},
-                   {"size", {"94%", "100% - 20px"}},
-                   {"max_size", {420, 248}},
-                   {"controls",
-                    J::array(
-                        {J{{"tab_strip",
-                            J{{"type", "stack_panel"},
-                              {"orientation", "horizontal"},
-                              {"size", {"100%", 28}},
-                              {"anchor_from", "top_left"},
-                              {"anchor_to", "top_left"},
-                              {"layer", 3},
-                              {"controls", tabControls}}}},
-                         J{{"body",
-                            J{{"type", "panel"},
-                              {"size", {"100%", "100% - 26px"}},
-                              {"offset", {0, 26}},
-                              {"anchor_from", "top_left"},
-                              {"anchor_to", "top_left"},
-                              {"layer", 1},
-                              {"controls", bodyControls}}}}}
-                    )}}}}}
+         {J{{"screen_background@common.screen_background", J{{"size", {"100%", "100%"}}}}},
+         J{{"panel",
+         J{{"type", "panel"},
+         {"size", {"94%", "100% - 20px"}},
+         {"max_size", {420, 248}},
+         {"controls",
+         J::array(
+         {J{{"tab_strip",
+         J{{"type", "stack_panel"},
+         {"orientation", "horizontal"},
+         {"size", {"100%", 28}},
+         {"anchor_from", "top_left"},
+         {"anchor_to", "top_left"},
+         {"layer", 3},
+         {"controls", tabControls}}}},
+         J{{"body",
+         J{{"type", "panel"},
+         {"size", {"100%", "100% - 26px"}},
+         {"offset", {0, 26}},
+         {"anchor_from", "top_left"},
+         {"anchor_to", "top_left"},
+         {"layer", 1},
+         {"controls", bodyControls}}}}}
+         )}}}}}
          )                                         }
     };
     return definitions;

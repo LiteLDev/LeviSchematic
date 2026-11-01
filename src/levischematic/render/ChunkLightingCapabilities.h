@@ -8,13 +8,6 @@
 namespace levischematic::render::detail {
 
 
-
-
-
-
-
-
-
 struct ChunkLightingCapabilities {
     alignas(4) mce::framebuilder::FrameLightingModelCapabilities value{};
     std::array<std::byte, 7> padding{};

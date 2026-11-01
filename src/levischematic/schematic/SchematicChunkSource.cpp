@@ -2,20 +2,17 @@
 
 #include "levischematic/LeviSchematic.h"
 
-#include "mc/world/level/ILevel.h"
-#include "mc/world/level/ChunkPos.h"
 #include "mc/deps/core/utility/EnableNonOwnerReferences.h"
+#include "mc/world/level/ChunkPos.h"
+#include "mc/world/level/ILevel.h"
 #include "mc/world/level/chunk/ChunkSource.h"
-#include "mc/world/level/dimension/Dimension.h"
 #include "mc/world/level/chunk/LevelChunk.h"
+#include "mc/world/level/dimension/Dimension.h"
 
 #include <memory>
 
 
-
-
-ChunkSource::ChunkSource()=default;
-
+ChunkSource::ChunkSource() = default;
 
 
 Bedrock::PubSub::Subscription::Subscription() = default;
@@ -28,8 +25,6 @@ namespace levischematic::schematic {
 namespace {
 
 
-
-
 auto& getLogger() { return levischematic::LeviSchematic::getInstance().getSelf().getLogger(); }
 
 } 
@@ -39,13 +34,8 @@ SchematicChunkSource::SchematicChunkSource(
     int                                            side,
     ::std::vector<::std::unique_ptr<::LevelChunk>> levelChunks
 ) {
-    
-    
-    
-    
-    
-    
-    
+
+
     mControlBlock           = ::std::make_shared<::Bedrock::EnableNonOwnerReferences::ControlBlock>();
     mControlBlock->mIsValid = true;
     getLogger().debug(
@@ -57,25 +47,26 @@ SchematicChunkSource::SchematicChunkSource(
         levelChunks.size()
     );
 
-    mChunkSide = side;
-    mLevel     = dimension.mLevel.asLevel();
-    mDimension = &dimension;
-    mParent    = nullptr;
-    mOwnedParent  = nullptr;
+    mChunkSide             = side;
+    mLevel                 = dimension.mLevel.asLevel();
+    mDimension             = &dimension;
+    mParent                = nullptr;
+    mOwnedParent           = nullptr;
     mLevelChunkBuilderData = dimension.mLevelChunkBuilderData.get();
-    mShuttingDown = false;
+    mShuttingDown          = false;
     for (auto& item : levelChunks) {
         if (!item) continue;
-        auto cp = item->mPosition.get();
+        auto cp    = item->mPosition.get();
         auto chunk = std::shared_ptr<LevelChunk>(std::move(item));
-        mChunksByPosition[(static_cast<uint64_t>(static_cast<uint32_t>(cp.x)) << 32) | static_cast<uint32_t>(cp.z)] = chunk;
+        mChunksByPosition[(static_cast<uint64_t>(static_cast<uint32_t>(cp.x)) << 32) | static_cast<uint32_t>(cp.z)] =
+            chunk;
         mStructureLevelChunks.push_back(std::move(chunk));
     }
 }
 
 SchematicChunkSource::~SchematicChunkSource() {
-    
-    
+
+
     getLogger().debug(
         "SchematicChunkSource {} destroying: controlBlock={:p} (mIsValid={}), chunks={}",
         static_cast<void*>(this),
@@ -94,9 +85,9 @@ SchematicChunkSource::getOrLoadChunk(::ChunkPos const& cp, ::ChunkSource::LoadMo
         result = createNewChunk(cp, lm, readOnly);
     }
     return result;
-};
+}
 
-bool SchematicChunkSource::isChunkKnown(::ChunkPos const& chunkPos) { return getExistingChunk(chunkPos) != nullptr; };
+bool SchematicChunkSource::isChunkKnown(::ChunkPos const& chunkPos) { return getExistingChunk(chunkPos) != nullptr; }
 
 std::shared_ptr<::LevelChunk>
 SchematicChunkSource::createNewChunk(::ChunkPos const& cp, ::ChunkSource::LoadMode, bool readOnly) {
@@ -110,15 +101,16 @@ SchematicChunkSource::createNewChunk(::ChunkPos const& cp, ::ChunkSource::LoadMo
     if (newChunk) {
         result = std::shared_ptr<LevelChunk>(std::move(newChunk));
         mStructureLevelChunks.push_back(result);
-        mChunksByPosition[(static_cast<uint64_t>(static_cast<uint32_t>(cp.x)) << 32) | static_cast<uint32_t>(cp.z)] = result;
+        mChunksByPosition[(static_cast<uint64_t>(static_cast<uint32_t>(cp.x)) << 32) | static_cast<uint32_t>(cp.z)] =
+            result;
     }
     return result;
-};
+}
 
 std::shared_ptr<::LevelChunk> SchematicChunkSource::getExistingChunk(::ChunkPos const& cp) {
     auto key = (static_cast<uint64_t>(static_cast<uint32_t>(cp.x)) << 32) | static_cast<uint32_t>(cp.z);
-    auto it = mChunksByPosition.find(key);
+    auto it  = mChunksByPosition.find(key);
     return it == mChunksByPosition.end() ? nullptr : it->second;
-};
+}
 
 } 

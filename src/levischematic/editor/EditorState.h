@@ -13,25 +13,14 @@ enum class ToolMode {
 };
 
 
-
-
-
 struct LayerRange {
     int  minY    = -64;
     int  maxY    = 320;
     bool enabled = false;
 
-    
 
-
-
-    [[nodiscard]] bool contains(int worldY) const noexcept {
-        return !enabled || (worldY >= minY && worldY <= maxY);
-    }
+    [[nodiscard]] bool contains(int worldY) const noexcept { return !enabled || (worldY >= minY && worldY <= maxY); }
 };
-
-
-
 
 
 struct ToolState {
@@ -40,24 +29,15 @@ struct ToolState {
 };
 
 
-
-
-
 struct ViewState {
     LayerRange layerRange;
     uint64_t   revision = 0;
 };
 
 
-
-
-
 struct DebugState {
     uint64_t revision = 0;
 };
-
-
-
 
 
 struct EditorState {

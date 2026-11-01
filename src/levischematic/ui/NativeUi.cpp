@@ -50,7 +50,6 @@ void report(std::string message) {
 }
 
 
-
 Json::Value const& definition() {
     static Json::Value const value = [] {
         Json::Value result;
@@ -70,8 +69,8 @@ LL_TYPE_INSTANCE_HOOK(
     std::string const& name
 ) {
     if (space == "levischematic") {
-        
-        
+
+
         if (origin("common_buttons", "light_text_button").isNull() || origin("common", "screen_background").isNull()
             || origin("common", "dialog_background_opaque").isNull() || origin("common", "text_edit_box").isNull()
             || origin("common", "container_scroll_panel").isNull() || origin("common_tabs", "tab_top").isNull()
@@ -99,7 +98,7 @@ class Controller final : public ScreenController {
     std::weak_ptr<UIScene>            scene;
     unsigned                          observationTicks = 0;
     void                              back() {
-        
+
         if (std::exchange(backHandled, true)) return;
         if (page->capturing) {
             page->capturing = false;
@@ -242,7 +241,6 @@ public:
             );
         }
         registerToggleChangeEventHandler(StringHash{"ls_tabs"}, [this](ToggleChangeEventData& event) {
-            
             int index = event.index;
             if (!event.state || !event.toggledByButtonClick || index < 0
                 || static_cast<size_t>(index) >= tabs.pages.size())
@@ -341,8 +339,8 @@ public:
         if (++tickCount == 1) report("controller tick reached");
         bool valid = enabled;
         {
-            
-            
+
+
             auto session = app::accessSession();
             valid        = valid && session && session->sessionGeneration() == generation
                         && session->resourceGeneration() == resources;
@@ -459,8 +457,8 @@ void pump() {
             return;
         }
         controller->attachScene(uiScene);
-        
-        
+
+
         auto scene = factory._createScreen(std::move(uiScene));
         if (!scene) {
             report("open failed: _createScreen returned null");
@@ -468,8 +466,8 @@ void pump() {
         }
         report("scene prepared; definition queries=" + std::to_string(definitionCount.load()));
         opened = true;
-        
-        
+
+
         auto stack = client->getClientSceneStack();
         stack->pushScreen(std::move(scene), false);
         report("scene queued on client stack; top=" + stack->getScreenName());

@@ -16,24 +16,15 @@ namespace levischematic::input {
 namespace {
 
 
-
-
 struct InputRuntimeState {
-    bool          bindingsRegistered = false;
+    bool bindingsRegistered = false;
 };
-
-
 
 
 InputRuntimeState& runtimeState() {
     static InputRuntimeState state;
     return state;
 }
-
-
-
-
-
 
 
 void dispatchRegisteredAction(InputActionId action, ::FocusImpact focusImpact, ::IClientInstance& client) {
@@ -43,10 +34,8 @@ void dispatchRegisteredAction(InputActionId action, ::FocusImpact focusImpact, :
 }
 
 
-
-
 std::array<InputHandler::InputBindingSpec, 2> const& getBindingSpecs() {
-    static const std::array<InputHandler::InputBindingSpec, 2> specs{
+    static std::array<InputHandler::InputBindingSpec, 2> const specs{
         {
          InputHandler::InputBindingSpec{
                 .id              = InputActionId::IncreaseViewMaxY,
@@ -55,13 +44,9 @@ std::array<InputHandler::InputBindingSpec, 2> const& getBindingSpecs() {
                 .allowRemap      = true,
                 .phase           = TriggerPhase::ButtonDown,
                 .executor =
-                
 
 
-
-
-
-                [](InputExecutionContext const& context, ::FocusImpact, ::IClientInstance&) {
+                    [](InputExecutionContext const& context, ::FocusImpact, ::IClientInstance&) {
                         if (!context.viewService) {
                             return;
                         }
@@ -80,34 +65,27 @@ std::array<InputHandler::InputBindingSpec, 2> const& getBindingSpecs() {
                 .defaultKeyCodes = {VK_NEXT},
                 .allowRemap      = true,
                 .phase           = TriggerPhase::ButtonDown,
-                .executor        =
-                
+                .executor =
 
 
+                    [](InputExecutionContext const& context, ::FocusImpact, ::IClientInstance&) {
+                        if (!context.viewService) {
+                            return;
+                        }
 
+                        if (!context.viewService->adjustMaxYBy(-1)) {
+                            return;
+                        }
 
-
-                [](InputExecutionContext const& context, ::FocusImpact, ::IClientInstance&) {
-                    if (!context.viewService) {
-                        return;
-                    }
-
-                    if (!context.viewService->adjustMaxYBy(-1)) {
-                        return;
-                    }
-
-                    if (context.refreshProjectionState) {
-                        context.refreshProjectionState();
-                    }
-                },
+                        if (context.refreshProjectionState) {
+                            context.refreshProjectionState();
+                        }
+                    },
             }, }
     };
 
     return specs;
 }
-
-
-
 
 
 InputHandler::InputBindingSpec const* findBindingSpec(InputActionId action) {
@@ -120,8 +98,6 @@ InputHandler::InputBindingSpec const* findBindingSpec(InputActionId action) {
 
     return nullptr;
 }
-
-
 
 
 void ensureBindingsRegistered() {
@@ -143,27 +119,22 @@ void ensureBindingsRegistered() {
 
         if (spec.phase == TriggerPhase::ButtonDown) {
             keyHandle.registerButtonDownHandler(
-            
 
 
-
-
-            [action =
-                                                     spec.id](::FocusImpact focusImpact, ::IClientInstance& client) {
-                dispatchRegisteredAction(action, focusImpact, client);
-            });
+                [action = spec.id](::FocusImpact focusImpact, ::IClientInstance& client) {
+                    dispatchRegisteredAction(action, focusImpact, client);
+                }
+            );
             continue;
         }
 
         keyHandle.registerButtonUpHandler(
-        
 
 
-
-
-        [action = spec.id](::FocusImpact focusImpact, ::IClientInstance& client) {
-            dispatchRegisteredAction(action, focusImpact, client);
-        });
+            [action = spec.id](::FocusImpact focusImpact, ::IClientInstance& client) {
+                dispatchRegisteredAction(action, focusImpact, client);
+            }
+        );
     }
 
     state.bindingsRegistered = true;
@@ -177,12 +148,10 @@ bool InputExecutionContext::isValid() const { return viewService && static_cast<
 
 void InputHandler::initialize(InputExecutionContext context) {
     ensureBindingsRegistered();
-    mContext                     = std::move(context);
+    mContext = std::move(context);
 }
 
-void InputHandler::shutdown() {
-    mContext = {};
-}
+void InputHandler::shutdown() { mContext = {}; }
 
 bool InputHandler::isInitialized() const { return mContext.isValid(); }
 
@@ -199,7 +168,7 @@ void InputHandler::execute(InputActionId action, ::FocusImpact focusImpact, ::IC
     spec->executor(mContext, focusImpact, client);
 }
 
-const char* inputActionToString(InputActionId action) {
+char const* inputActionToString(InputActionId action) {
     switch (action) {
     case InputActionId::IncreaseViewMaxY:
         return "increase_view_max_y";

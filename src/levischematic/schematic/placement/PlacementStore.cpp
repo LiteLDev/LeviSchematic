@@ -8,25 +8,29 @@
 namespace levischematic::placement {
 
 PlacementId PlacementStore::createPlacement(
-    std::shared_ptr<const SchematicAsset> asset,
+    std::shared_ptr<SchematicAsset const> asset,
     BlockPos                              origin,
     int                                   dimensionId,
     std::string                           name,
     std::filesystem::path                 filePath
 ) {
-    std::scoped_lock lock(mState.mutex);
+    std::scoped_lock  lock(mState.mutex);
     PlacementInstance placement;
-    placement.id       = mState.nextPlacementId;
-    placement.asset    = std::move(asset);
-    placement.name     = name.empty() && placement.asset ? placement.asset->defaultName : std::move(name);
-    placement.filePath = std::move(filePath);
+    placement.id          = mState.nextPlacementId;
+    placement.asset       = std::move(asset);
+    placement.name        = name.empty() && placement.asset ? placement.asset->defaultName : std::move(name);
+    placement.filePath    = std::move(filePath);
     placement.dimensionId = dimensionId;
-    placement.origin   = origin;
+    placement.origin      = origin;
 
     auto id = placement.id;
     mState.placements.emplace(id, std::move(placement));
-    try { mState.order.push_back(id); }
-    catch (...) { mState.placements.erase(id); throw; }
+    try {
+        mState.order.push_back(id);
+    } catch (...) {
+        mState.placements.erase(id);
+        throw;
+    }
     ++mState.nextPlacementId;
     mState.selectedId = id;
     touchState();
@@ -43,9 +47,7 @@ PlacementInstance const* PlacementStore::get(PlacementId id) const {
     return it == mState.placements.end() ? nullptr : &it->second;
 }
 
-PlacementInstance* PlacementStore::selected() {
-    return mState.selectedId ? get(*mState.selectedId) : nullptr;
-}
+PlacementInstance* PlacementStore::selected() { return mState.selectedId ? get(*mState.selectedId) : nullptr; }
 
 PlacementInstance const* PlacementStore::selected() const {
     return mState.selectedId ? get(*mState.selectedId) : nullptr;
@@ -57,10 +59,7 @@ bool PlacementStore::remove(PlacementId id) {
         return false;
     }
 
-    mState.order.erase(
-        std::remove(mState.order.begin(), mState.order.end(), id),
-        mState.order.end()
-    );
+    mState.order.erase(std::remove(mState.order.begin(), mState.order.end(), id), mState.order.end());
 
     if (mState.selectedId && *mState.selectedId == id) {
         selectLast();
@@ -89,14 +88,13 @@ bool PlacementStore::select(PlacementId id) {
 }
 
 void PlacementStore::selectLast() {
-    mState.selectedId = mState.order.empty()
-        ? std::optional<PlacementId>{}
-        : std::optional<PlacementId>{mState.order.back()};
+    mState.selectedId =
+        mState.order.empty() ? std::optional<PlacementId>{} : std::optional<PlacementId>{mState.order.back()};
 }
 
 bool PlacementStore::move(PlacementId id, int dx, int dy, int dz) {
     std::scoped_lock lock(mState.mutex);
-    auto* placement = get(id);
+    auto*            placement = get(id);
     if (!placement) {
         return false;
     }
@@ -110,7 +108,7 @@ bool PlacementStore::move(PlacementId id, int dx, int dy, int dz) {
 
 bool PlacementStore::setOrigin(PlacementId id, BlockPos origin) {
     std::scoped_lock lock(mState.mutex);
-    auto* placement = get(id);
+    auto*            placement = get(id);
     if (!placement) {
         return false;
     }
@@ -122,7 +120,7 @@ bool PlacementStore::setOrigin(PlacementId id, BlockPos origin) {
 
 bool PlacementStore::rotate(PlacementId id, PlacementInstance::Rotation delta) {
     std::scoped_lock lock(mState.mutex);
-    auto* placement = get(id);
+    auto*            placement = get(id);
     if (!placement) {
         return false;
     }
@@ -134,7 +132,7 @@ bool PlacementStore::rotate(PlacementId id, PlacementInstance::Rotation delta) {
 
 bool PlacementStore::setMirror(PlacementId id, PlacementInstance::Mirror mirror) {
     std::scoped_lock lock(mState.mutex);
-    auto* placement = get(id);
+    auto*            placement = get(id);
     if (!placement) {
         return false;
     }
@@ -146,7 +144,7 @@ bool PlacementStore::setMirror(PlacementId id, PlacementInstance::Mirror mirror)
 
 bool PlacementStore::resetTransform(PlacementId id) {
     std::scoped_lock lock(mState.mutex);
-    auto* placement = get(id);
+    auto*            placement = get(id);
     if (!placement) {
         return false;
     }
@@ -159,7 +157,7 @@ bool PlacementStore::resetTransform(PlacementId id) {
 
 bool PlacementStore::toggleEnabled(PlacementId id) {
     std::scoped_lock lock(mState.mutex);
-    auto* placement = get(id);
+    auto*            placement = get(id);
     if (!placement) {
         return false;
     }
@@ -171,7 +169,7 @@ bool PlacementStore::toggleEnabled(PlacementId id) {
 
 bool PlacementStore::toggleRender(PlacementId id) {
     std::scoped_lock lock(mState.mutex);
-    auto* placement = get(id);
+    auto*            placement = get(id);
     if (!placement) {
         return false;
     }
@@ -183,7 +181,7 @@ bool PlacementStore::toggleRender(PlacementId id) {
 
 bool PlacementStore::patchBlock(PlacementId id, BlockPos worldPos, placement::PatchOp const& op) {
     std::scoped_lock lock(mState.mutex);
-    auto* placement = get(id);
+    auto*            placement = get(id);
     if (!placement) {
         return false;
     }
@@ -210,9 +208,7 @@ bool PlacementStore::patchBlock(PlacementId id, BlockPos worldPos, placement::Pa
     return true;
 }
 
-void PlacementStore::touchState() {
-    ++mState.revision;
-}
+void PlacementStore::touchState() { ++mState.revision; }
 
 void PlacementStore::touchPlacement(PlacementInstance& placement, bool contentChanged) {
     ++placement.revision;

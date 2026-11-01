@@ -11,7 +11,6 @@ namespace levischematic::ui {
 enum class PageId { Projection, Settings, KeyBindings };
 
 
-
 struct Row {
     std::string                      id;
     std::string                      label;
@@ -41,7 +40,7 @@ public:
     explicit PageBuilder(std::shared_ptr<Page> page) : mPage(std::move(page)) {}
     PageBuilder& button(std::string id, std::string label, std::function<void()> action);
     PageBuilder& input(std::string id, std::string label, std::string value, std::function<void(std::string)> action);
-    
+
     static std::string validate(Page const& page);
 
 private:

@@ -37,9 +37,6 @@ namespace {
 using ResolvedTexturePointer = mce::ServerResourcePointer<dragon::ResolvedTextureResource>;
 
 
-
-
-
 struct NativePerChunkData {
     RenderChunkDirectIndexData const*  mDirectIndexData{};
     RenderChunkDirectVertexData const* mDirectVertexData{};
@@ -52,16 +49,10 @@ struct NativePerChunkData {
 };
 
 
-
-
-
 struct NativeChunkTextures {
     std::array<ResolvedTexturePointer, 3> mArray{};
     std::size_t                           mSize = 3;
 };
-
-
-
 
 
 struct NativeChunkFog {
@@ -69,11 +60,6 @@ struct NativeChunkFog {
     glm::vec2 mControl{};
     float     mRenderDistance{};
 };
-
-
-
-
-
 
 
 struct NativeChunkGeometryDescription {
@@ -101,70 +87,63 @@ constexpr std::size_t    kGeometryFlagRangeQueryIndex =
     static_cast<std::size_t>(::RenderChunkGeometry::Bit::BlendCanRenderAsOpaque);
 
 
-
-
-
 struct TerrainLayerEntry {
     ::TerrainLayer const& (*get)();
     std::string_view name;
 };
 
 TerrainLayerEntry const kTerrainLayerSequence[] = {
+    {  +
+
+
+  []() -> ::TerrainLayer const& { return ::TerrainLayers::OpaqueSeasons(); },
+     "OpaqueSeasons"  },
+    {         +
+
+
+         []() -> ::TerrainLayer const& { return ::TerrainLayers::Opaque(); },
+     "Opaque"         },
+    {      +
+
+
+      []() -> ::TerrainLayer const& { return ::TerrainLayers::EndPortal(); },
+     "EndPortal"      },
+    {        +
+
+
+        []() -> ::TerrainLayer const& { return ::TerrainLayers::Barrier(); },
+     "Barrier"        },
+    {  +
+
+
+  []() -> ::TerrainLayer const& { return ::TerrainLayers::StructureVoid(); },
+     "StructureVoid"  },
+    {     +
+
+
+     []() -> ::TerrainLayer const& { return ::TerrainLayers::DoubleSide(); },
+     "DoubleSide"     },
+    {          +
+
+
+          []() -> ::TerrainLayer const& { return ::TerrainLayers::Alpha(); },
+     "Alpha"          },
     {+
-    
 
 
-    []() -> ::TerrainLayer const& { return ::TerrainLayers::OpaqueSeasons(); },   "OpaqueSeasons"  },
-    {+
-    
+[]() -> ::TerrainLayer const& { return ::TerrainLayers::AlphaSingleSide(); },
+     "AlphaSingleSide"},
+    {   +
 
 
-    []() -> ::TerrainLayer const& { return ::TerrainLayers::Opaque(); },          "Opaque"         },
-    {+
-    
+   []() -> ::TerrainLayer const& { return ::TerrainLayers::AlphaSeasons(); },
+     "AlphaSeasons"   },
+    {          +
 
 
-    []() -> ::TerrainLayer const& { return ::TerrainLayers::EndPortal(); },       "EndPortal"      },
-    {+
-    
-
-
-    []() -> ::TerrainLayer const& { return ::TerrainLayers::Barrier(); },         "Barrier"        },
-    {+
-    
-
-
-    []() -> ::TerrainLayer const& { return ::TerrainLayers::StructureVoid(); },   "StructureVoid"  },
-    {+
-    
-
-
-    []() -> ::TerrainLayer const& { return ::TerrainLayers::DoubleSide(); },      "DoubleSide"     },
-    {+
-    
-
-
-    []() -> ::TerrainLayer const& { return ::TerrainLayers::Alpha(); },           "Alpha"          },
-    {+
-    
-
-
-    []() -> ::TerrainLayer const& { return ::TerrainLayers::AlphaSingleSide(); }, "AlphaSingleSide"},
-    {+
-    
-
-
-    []() -> ::TerrainLayer const& { return ::TerrainLayers::AlphaSeasons(); },    "AlphaSeasons"   },
-    {+
-    
-
-
-    []() -> ::TerrainLayer const& { return ::TerrainLayers::Blend(); },           "Blend"          },
+          []() -> ::TerrainLayer const& { return ::TerrainLayers::Blend(); },
+     "Blend"          },
 };
-
-
-
-
 
 
 [[nodiscard]] SchematicRangeIndices const*
@@ -176,18 +155,12 @@ selectRanges(SchematicRenderChunkInstanced const& instanced, RenderChunkGeometry
 }
 
 
-
-
-
 void logUnavailable(char const* reason) {
     static std::string_view last;
     if (last == reason) return;
     last = reason;
     LeviSchematic::getInstance().getSelf().getLogger().warn("SchematicChunkLayerSubmit unavailable: {}", reason);
 }
-
-
-
 
 
 void logOriginWriteSkipped(char const* reason) {
@@ -201,10 +174,6 @@ void logOriginWriteSkipped(char const* reason) {
 }
 
 
-
-
-
-
 template <typename T>
 bool readShaderConstant(void const* constant, T& value) {
     if (constant == nullptr) return false;
@@ -213,16 +182,6 @@ bool readShaderConstant(void const* constant, T& value) {
     value = *data;
     return true;
 }
-
-
-
-
-
-
-
-
-
-
 
 
 bool submitChunkLayer(
@@ -253,8 +212,7 @@ bool submitChunkLayer(
     auto frameBuilder = ServiceLocator<mce::framebuilder::FrameBuilder>::get();
     if (!frameBuilder || !frameBuilder.get()->enabled()) return false;
 
-    
-    
+
     NativePerChunkData chunk;
     chunk.mDirectIndexData  = indexData;
     chunk.mDirectVertexData = vertexVariant->get();
@@ -281,7 +239,7 @@ bool submitChunkLayer(
         return false;
     }
 
-    
+
     bool const endPortal = layer.id == TerrainLayers::EndPortal().id;
     if (textures.size() < 5) return false;
     description.mTextures.mArray = {

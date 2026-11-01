@@ -3,11 +3,11 @@
 #include "levischematic/schematic/placement/PlacementModel.h"
 
 #include <filesystem>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <mutex>
 
 namespace levischematic::placement {
 struct PatchOp;
@@ -16,149 +16,85 @@ struct PatchOp;
 namespace levischematic::placement {
 
 
-
-
-
 struct PlacementState {
     std::unordered_map<PlacementId, PlacementInstance> placements;
     std::vector<PlacementId>                           order;
     std::optional<PlacementId>                         selectedId;
-    uint64_t                                           revision = 0;
+    uint64_t                                           revision        = 0;
     PlacementId                                        nextPlacementId = 1;
     mutable std::recursive_mutex                       mutex;
 };
 
 
-
-
-
 class PlacementStore {
 public:
-    
-
-
-
     explicit PlacementStore(PlacementState& state) : mState(state) {}
 
-    
 
-
-    PlacementState&       state() { return mState; }
-    
+    PlacementState& state() { return mState; }
 
 
     PlacementState const& state() const { return mState; }
 
-    
-
-
-
-
-
-
 
     PlacementId createPlacement(
-        std::shared_ptr<const SchematicAsset> asset,
+        std::shared_ptr<SchematicAsset const> asset,
         BlockPos                              origin,
         int                                   dimensionId,
         std::string                           name,
         std::filesystem::path                 filePath
     );
 
-    
 
-
-
-    PlacementInstance*       get(PlacementId id);
-    
-
+    PlacementInstance* get(PlacementId id);
 
 
     PlacementInstance const* get(PlacementId id) const;
-    
 
 
-    PlacementInstance*       selected();
-    
+    PlacementInstance* selected();
 
 
     PlacementInstance const* selected() const;
 
-    
-
-
 
     [[nodiscard]] bool remove(PlacementId id);
-    
 
 
-    void               clear();
-    
-
+    void clear();
 
 
     [[nodiscard]] bool select(PlacementId id);
-    
 
 
-    void               selectLast();
-
-    
-
-
-
-
+    void selectLast();
 
 
     [[nodiscard]] bool move(PlacementId id, int dx, int dy, int dz);
-    
-
-
 
 
     [[nodiscard]] bool setOrigin(PlacementId id, BlockPos origin);
-    
-
-
 
 
     [[nodiscard]] bool rotate(PlacementId id, PlacementInstance::Rotation delta);
-    
-
-
 
 
     [[nodiscard]] bool setMirror(PlacementId id, PlacementInstance::Mirror mirror);
-    
-
 
 
     [[nodiscard]] bool resetTransform(PlacementId id);
-    
-
 
 
     [[nodiscard]] bool toggleEnabled(PlacementId id);
-    
-
 
 
     [[nodiscard]] bool toggleRender(PlacementId id);
-    
-
-
-
 
 
     [[nodiscard]] bool patchBlock(PlacementId id, BlockPos worldPos, placement::PatchOp const& op);
 
 private:
-    
-
-
     void touchState();
-    
-
 
 
     void touchPlacement(PlacementInstance& placement, bool contentChanged = true);

@@ -33,23 +33,13 @@ namespace {
 bool gSelectionHooksRegistered = false;
 
 
-
-
-auto& getLogger() {
-    return levischematic::LeviSchematic::getInstance().getSelf().getLogger();
-}
-
-
-
+auto& getLogger() { return levischematic::LeviSchematic::getInstance().getSelf().getLogger(); }
 
 
 struct WireframeQuad {
     std::array<Vec3, 4> quad;
     int                 color;
 };
-
-
-
 
 
 struct Wireframe {
@@ -59,72 +49,51 @@ struct Wireframe {
 };
 
 
+std::array<WireframeQuad, 24> GenerateStructureBlockWireframe(BlockPos const& size) {
+    float const E = 0.005f;
+    float const C = 0.015f;
 
+    float const x0 = -E;
+    float const x1 = size.x + E;
+    float const y0 = -E;
+    float const y1 = size.y + E;
+    float const z0 = -E;
+    float const z1 = size.z + E;
 
-
-std::array<WireframeQuad, 24> GenerateStructureBlockWireframe(const BlockPos& size) {
-    const float E = 0.005f;
-    const float C = 0.015f;
-
-    const float x0 = -E;
-    const float x1 = size.x + E;
-    const float y0 = -E;
-    const float y1 = size.y + E;
-    const float z0 = -E;
-    const float z1 = size.z + E;
-
-    const float xn = size.x - C;
-    const float yn = size.y - C;
-    const float zn = size.z - C;
+    float const xn = size.x - C;
+    float const yn = size.y - C;
+    float const zn = size.z - C;
 
     using V3 = Vec3;
     std::array<WireframeQuad, 24> quadList;
     int                           i = 0;
 
     auto makeY =
-    
 
 
-
-
-
-
-
-    [&](float x, float z, float wx, float wz, int col) {
-        quadList[i++] = {{{V3{x, y0, z}, V3{x, y1, z}, V3{wx, yn, z}, V3{wx, C, z}}}, col};
-        quadList[i++] = {{{V3{x, y0, z}, V3{x, y1, z}, V3{x, yn, wz}, V3{x, C, wz}}}, col};
-    };
+        [&](float x, float z, float wx, float wz, int col) {
+            quadList[i++] = {{{V3{x, y0, z}, V3{x, y1, z}, V3{wx, yn, z}, V3{wx, C, z}}}, col};
+            quadList[i++] = {{{V3{x, y0, z}, V3{x, y1, z}, V3{x, yn, wz}, V3{x, C, wz}}}, col};
+        };
     auto makeX =
-    
 
 
-
-
-
-
-
-    [&](float y, float z, float wy, float wz, int col) {
-        quadList[i++] = {{{V3{x0, y, z}, V3{x1, y, z}, V3{xn, wy, z}, V3{C, wy, z}}}, col};
-        quadList[i++] = {{{V3{x0, y, z}, V3{x1, y, z}, V3{xn, y, wz}, V3{C, y, wz}}}, col};
-    };
+        [&](float y, float z, float wy, float wz, int col) {
+            quadList[i++] = {{{V3{x0, y, z}, V3{x1, y, z}, V3{xn, wy, z}, V3{C, wy, z}}}, col};
+            quadList[i++] = {{{V3{x0, y, z}, V3{x1, y, z}, V3{xn, y, wz}, V3{C, y, wz}}}, col};
+        };
     auto makeZ =
-    
 
 
+        [&](float x, float y, float wx, float wy, int col) {
+            quadList[i++] = {{{V3{x, y, z0}, V3{x, y, z1}, V3{wx, y, zn}, V3{wx, y, C}}}, col};
+            quadList[i++] = {{{V3{x, y, z0}, V3{x, y, z1}, V3{x, wy, zn}, V3{x, wy, C}}}, col};
+        };
 
-
-
-
-
-    [&](float x, float y, float wx, float wy, int col) {
-        quadList[i++] = {{{V3{x, y, z0}, V3{x, y, z1}, V3{wx, y, zn}, V3{wx, y, C}}}, col};
-        quadList[i++] = {{{V3{x, y, z0}, V3{x, y, z1}, V3{x, wy, zn}, V3{x, wy, C}}}, col};
-    };
-
-    const uint32_t colR = 0xFFFF0000;
-    const uint32_t colG = 0xFF00FF00;
-    const uint32_t colB = 0xFF0000FF;
-    const uint32_t colW = 0xFFFFFFFF;
+    uint32_t const colR = 0xFFFF0000;
+    uint32_t const colG = 0xFF00FF00;
+    uint32_t const colB = 0xFF0000FF;
+    uint32_t const colW = 0xFFFFFFFF;
 
     makeY(-E, -E, C, C, colG);
     makeY(x1, -E, xn, C, colW);
@@ -145,11 +114,7 @@ std::array<WireframeQuad, 24> GenerateStructureBlockWireframe(const BlockPos& si
 }
 
 
-
-
-
-
-void tessellateWireBox(Tessellator& tess, AABB const & bb){
+void tessellateWireBox(Tessellator& tess, AABB const& bb) {
     tess.begin({}, (mce::PrimitiveMode)4, 0, false);
     tess.vertex(bb.max.x, bb.min.y, bb.min.z);
     tess.vertex(bb.min.x, bb.min.y, bb.min.z);
@@ -178,27 +143,20 @@ void tessellateWireBox(Tessellator& tess, AABB const & bb){
 }
 
 
-
-
-
-
-
-
-
 void DrawAxisLines(
     ScreenContext&          screenCtx,
     Tessellator&            tess,
-    const mce::MaterialPtr& material,
-    const Wireframe&        wf,
-    const glm::vec3&        cameraPos
+    mce::MaterialPtr const& material,
+    Wireframe const&        wf,
+    glm::vec3 const&        cameraPos
 ) {
     auto currentMat            = screenCtx.camera.worldMatrixStack->push(false);
     currentMat.stack->_isDirty = true;
 
-    auto* mat = currentMat.mat;
-    mat->_m   = glm::translate(mat->_m.get(), -cameraPos);
+    auto* mat                  = currentMat.mat;
+    mat->_m                    = glm::translate(mat->_m.get(), -cameraPos);
     currentMat.stack->_isDirty = true;
-    mat->_m   = glm::translate(mat->_m.get(), {wf.origin.x, wf.origin.y, wf.origin.z});
+    mat->_m                    = glm::translate(mat->_m.get(), {wf.origin.x, wf.origin.y, wf.origin.z});
 
     tess.begin({}, mce::PrimitiveMode::QuadList, 96, false);
     for (auto& quad : wf.quadList) {
@@ -223,21 +181,17 @@ void DrawAxisLines(
 }
 
 
-
-
-
-
-
-
-
 void DrawPosLine(
     ScreenContext&          screenCtx,
     Tessellator&            tess,
-    const mce::MaterialPtr& material,
-    const BlockPos&         pos,
-    const Vec3&             cameraPos
+    mce::MaterialPtr const& material,
+    BlockPos const&         pos,
+    Vec3 const&             cameraPos
 ) {
-    AABB box{Vec3{(float)pos.x, (float)pos.y, (float)pos.z}, Vec3{pos.x + 1.0f, pos.y + 1.0f, pos.z + 1.0f}};
+    AABB box{
+        Vec3{(float)pos.x, (float)pos.y, (float)pos.z},
+        Vec3{pos.x + 1.0f, pos.y + 1.0f, pos.z + 1.0f}
+    };
 
     tess.mPostTransformOffset->x = -cameraPos.x;
     tess.mPostTransformOffset->y = -cameraPos.y;
@@ -256,12 +210,6 @@ void DrawPosLine(
 } 
 
 
-
-
-
-
-
-
 LL_TYPE_INSTANCE_HOOK(
     SelectionRenderWireframeHook,
     ll::memory::HookPriority::Normal,
@@ -270,7 +218,7 @@ LL_TYPE_INSTANCE_HOOK(
     void,
     BaseActorRenderContext& renderContext,
     ViewRenderObject const& renderObj,
-    IClientInstance&  clientInstance
+    IClientInstance&        clientInstance
 ) {
     origin(renderContext, renderObj, clientInstance);
 
@@ -302,11 +250,7 @@ LL_TYPE_INSTANCE_HOOK(
     }
 
     if (overlay.origin && overlay.size) {
-        Wireframe wireframe{
-            *overlay.origin,
-            *overlay.size,
-            GenerateStructureBlockWireframe(*overlay.size)
-        };
+        Wireframe wireframe{*overlay.origin, *overlay.size, GenerateStructureBlockWireframe(*overlay.size)};
         DrawAxisLines(
             renderContext.mScreenContext,
             renderContext.mScreenContext.tessellator,
@@ -316,16 +260,6 @@ LL_TYPE_INSTANCE_HOOK(
         );
     }
 }
-
-
-
-
-
-
-
-
-
-
 
 
 LL_TYPE_INSTANCE_HOOK(
@@ -348,22 +282,15 @@ LL_TYPE_INSTANCE_HOOK(
     }
 
     auto& selectionService = session->selection();
-    if (isFirstEvent
-        && selectionService.isSelectionModeEnabled()
+    if (isFirstEvent && selectionService.isSelectionModeEnabled()
         && item.isInstance(VanillaItemNames::Stick(), false)) {
         selectionService.setSelectionCorner2(at);
         getLogger().debug("Selection pos2: {}", at.toString());
-        return InteractionResult{true,false};
+        return InteractionResult{true, false};
     }
     session.reset();
     return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
 }
-
-
-
-
-
-
 
 
 LL_TYPE_INSTANCE_HOOK(
@@ -373,8 +300,8 @@ LL_TYPE_INSTANCE_HOOK(
     &GameMode::$startDestroyBlock,
     bool,
     BlockPos const& pos,
-    uchar face,
-    bool& hasDestroyedBlock
+    uchar           face,
+    bool&           hasDestroyedBlock
 ) {
     auto session = app::accessSession();
     if (!session) {
@@ -382,8 +309,7 @@ LL_TYPE_INSTANCE_HOOK(
     }
 
     auto& selectionService = session->selection();
-    auto& item =
-        this->mPlayer.mInventory->mInventory->getItem(this->mPlayer.mInventory->mSelected);
+    auto& item             = this->mPlayer.mInventory->mInventory->getItem(this->mPlayer.mInventory->mSelected);
 
     if (selectionService.isSelectionModeEnabled() && item.isInstance(VanillaItemNames::Stick(), false)) {
         selectionService.setSelectionCorner1(pos);
@@ -394,10 +320,8 @@ LL_TYPE_INSTANCE_HOOK(
     return origin(pos, face, hasDestroyedBlock);
 }
 
-using selectionHook = ll::memory::HookRegistrar<
-    SelectionRenderWireframeHook,
-    SelectionClickPos2Hook,
-    SelectionClickPos1Hook>;
+using selectionHook =
+    ll::memory::HookRegistrar<SelectionRenderWireframeHook, SelectionClickPos2Hook, SelectionClickPos1Hook>;
 
 void registerSelectionHooks() {
     if (gSelectionHooksRegistered) {
