@@ -19,50 +19,6 @@ std::string PlacementInstance::describeTransform() const {
          + " Mir:" + kMirrorNames[static_cast<int>(mirror)];
 }
 
-PlacementInstance::Rotation rotateBy(
-    PlacementInstance::Rotation base,
-    PlacementInstance::Rotation delta
-) {
-    return static_cast<PlacementInstance::Rotation>(
-        (static_cast<int>(base) + static_cast<int>(delta)) % 4
-    );
-}
-
-BlockPos transformLocalPos(
-    BlockPos const&             pos,
-    BlockPos const&             size,
-    PlacementInstance::Mirror   mirror,
-    PlacementInstance::Rotation rot
-) {
-    int x = pos.x;
-    int y = pos.y;
-    int z = pos.z;
-
-    switch (mirror) {
-    case PlacementInstance::Mirror::MIRROR_X:
-        x = size.x - 1 - x;
-        break;
-    case PlacementInstance::Mirror::MIRROR_Z:
-        z = size.z - 1 - z;
-        break;
-    case PlacementInstance::Mirror::NONE:
-        break;
-    }
-
-    switch (rot) {
-    case PlacementInstance::Rotation::CW_90:
-        return {size.z - 1 - z, y, x};
-    case PlacementInstance::Rotation::CW_180:
-        return {size.x - 1 - x, y, size.z - 1 - z};
-    case PlacementInstance::Rotation::CCW_90:
-        return {z, y, size.x - 1 - x};
-    case PlacementInstance::Rotation::NONE:
-        return {x, y, z};
-    }
-
-    return {x, y, z};
-}
-
 std::pair<BlockPos, BlockPos> computeEnclosingBox(PlacementInstance const& placement) {
     if (!placement.asset || placement.asset->localBlocks.empty()) {
         return {placement.origin, placement.origin};
@@ -71,7 +27,12 @@ std::pair<BlockPos, BlockPos> computeEnclosingBox(PlacementInstance const& place
     std::unordered_map<uint64_t, BlockPos> resolvedPositions;
     resolvedPositions.reserve(placement.asset->localBlocks.size() + placement.overrides.size());
 
-    auto applyResolvedPos = [&](BlockPos const& worldPos) {
+    auto applyResolvedPos =
+    
+
+
+
+    [&](BlockPos const& worldPos) {
         resolvedPositions[util::encodePosKey(worldPos)] = worldPos;
     };
 
@@ -131,4 +92,4 @@ std::pair<BlockPos, BlockPos> computeEnclosingBox(PlacementInstance const& place
     return {minPos, maxPos};
 }
 
-} // namespace levischematic::placement
+} 

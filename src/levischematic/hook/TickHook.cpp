@@ -1,25 +1,16 @@
 #include "TickHook.h"
 
-#include "levischematic/app/AppKernel.h"
-#include "levischematic/app/ProjectionRefresh.h"
 #include "levischematic/LeviSchematic.h"
+#include "levischematic/app/AppKernel.h"
 
 #include "ll/api/memory/Hook.h"
 #include "ll/api/service/TargetedBedrock.h"
 
 #include "mc/client/game/ClientInstance.h"
-#include "mc/client/gui/Font.h"
-#include "mc/client/gui/FontHandle.h"
-#include "mc/client/gui/GuiData.h"
-#include "mc/client/gui/screens/InGamePlayScreen.h"
-#include "mc/client/gui/screens/ScreenContext.h"
+#include "mc/client/game/MinecraftGame.h"
 #include "mc/client/player/LocalPlayer.h"
-#include "mc/scripting/ServerScriptManager.h"
-#include "mc/server/ServerInstance.h"
-#include "mc/client/gui/screens/ScreenView.h"
-#include "mc/client/renderer/screen/MinecraftUIRenderContext.h"
+#include "mc/world/GameCallbacks.h"
 
-#include <vector>
 
 namespace levischematic::hook {
 
@@ -27,89 +18,50 @@ namespace {
 
 bool gTickHooksRegistered = false;
 
-    auto& getLogger() {
-    return levischematic::LeviSchematic::getInstance().getSelf().getLogger();
-}
+} 
 
-} // namespace
 
-LL_AUTO_TYPE_INSTANCE_HOOK(
-    ServerStartCommandRegistration,
-    HookPriority::Highest,
-    ServerScriptManager,
-    &ServerScriptManager::$onServerThreadStarted,
-    EventResult,
-    ::ServerInstance& ins
-) {
-    auto res = origin(ins);
-    if(!app::hasAppKernel()) {
-        app::load();
-    }
-    app::start();
 
-    if (app::hasAppKernel()) {
-        app::getAppKernel().onServerThreadStarted();
-    }
 
-    return res;
-}
 
-LL_AUTO_TYPE_INSTANCE_HOOK(
-    ServerStop,
-    HookPriority::Highest,
-    ServerInstance,
-    &ServerInstance::startLeaveGame,
-    void
-) {
-    origin();
-    app::stop();
-}
+
+
 
 LL_TYPE_INSTANCE_HOOK(
-    RenderLevelHook,
+    ClientStartLeaveGameHook,
     HookPriority::Highest,
-    ScreenView,
-    &ScreenView::render,
-    void,
-    ::UIRenderContext& uiRenderContext
+    ClientInstance,
+    &ClientInstance::_startLeaveGame,
+    void
 ) {
-    origin(uiRenderContext);
-    MinecraftUIRenderContext& screenContext = reinterpret_cast<MinecraftUIRenderContext&>(uiRenderContext);
-
-    auto client = ll::service::getClientInstance();
-    if (!client) {
-        return;
-    }
-
-    auto* player = client->getLocalPlayer();
-    if (!player || !app::hasAppKernel()) {
-        return;
-    }
-
-    auto overlayView = app::getAppKernel().infoOverlay().buildView(*player);
-    if (!overlayView) {
-        return;
-    }
-
-    auto& guiData      = screenContext.mScreenContext.guiData;
-    float screenHeight = guiData->mScreenSizeData->clientScreenSize->y / guiData->getGuiScale();
-
-    constexpr float margin     = 4.0f;
-    constexpr float lineHeight = 9.0f;
-
-    for (size_t i = 0; i < overlayView->lines.size(); ++i) {
-        client->getFontHandle().mDefaultFont->drawShadow(
-            screenContext.mScreenContext,
-            overlayView->lines[i],
-            margin,
-            screenHeight - lineHeight - margin - (lineHeight * i),
-            mce::Color::WHITE(),
-            false,
-            nullptr,
-            1.0f
-        );
-    }
+    
+    app::clientLeaving(*this);
+    origin();
 }
+
+
+
+
+
+LL_TYPE_INSTANCE_HOOK(
+    ClientLevelExitHook,
+    HookPriority::Highest,
+    ClientInstance,
+    &ClientInstance::$onLevelExit,
+    void
+) {
+    
+    
+    
+    
+    
+    app::clientLeaving(*thisFor<GameCallbacks>());
+    origin();
+}
+
+
+
+
 
 LL_TYPE_INSTANCE_HOOK(
     LocalPlayerFireDimensionChangedHook,
@@ -118,18 +70,72 @@ LL_TYPE_INSTANCE_HOOK(
     &LocalPlayer::$_fireDimensionChanged,
     void
 ) {
+    app::invalidateRuntime();
     origin();
+}
 
-    if (app::hasAppKernel()) {
-        app::getAppKernel().verifier().handleDimensionChanged();
-        (void)app::refreshCurrentClientProjectionState();
-    }
+
+
+
+
+
+
+LL_TYPE_INSTANCE_HOOK(
+    BeginResourceReloadHook,
+    HookPriority::Highest,
+    MinecraftGame,
+    &MinecraftGame::_beginReloadingResources,
+    void
+) {
+    app::beginResourceReload();
+    origin();
+}
+
+
+
+
+
+
+
+
+LL_TYPE_INSTANCE_HOOK(
+    QueueResourceReloadHook,
+    HookPriority::Highest,
+    MinecraftGame,
+    &MinecraftGame::_finishReloadingResources,
+    void,
+    ResourcePackManager& manager,
+    bool                 fullVanillaPackOnStack
+) {
+    origin(manager, fullVanillaPackOnStack);
+    app::resourceReloadQueued();
+}
+
+
+
+
+
+
+
+LL_TYPE_INSTANCE_HOOK(
+    CleanReloadMaterialsHook,
+    HookPriority::Highest,
+    MinecraftGame,
+    &MinecraftGame::cleanReloadMaterials,
+    void
+) {
+    app::beginResourceReload();
+    origin();
+    app::resourceReloadQueued();
 }
 
 using TickHookRegistrar = ll::memory::HookRegistrar<
-    ServerStartCommandRegistration,
-    RenderLevelHook,
-    LocalPlayerFireDimensionChangedHook>;
+    ClientStartLeaveGameHook,
+    ClientLevelExitHook,
+    LocalPlayerFireDimensionChangedHook,
+    BeginResourceReloadHook,
+    QueueResourceReloadHook,
+    CleanReloadMaterialsHook>;
 
 void registerTickHooks() {
     if (gTickHooksRegistered) {
@@ -149,4 +155,4 @@ void unregisterTickHooks() {
     gTickHooksRegistered = false;
 }
 
-} // namespace levischematic::hook
+} 

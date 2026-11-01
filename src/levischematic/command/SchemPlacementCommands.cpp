@@ -1,6 +1,6 @@
 #include "levischematic/command/CommandShared.h"
 
-#include "levischematic/render/ProjectionRenderer.h"
+#include "levischematic/schematic/placement/PatchOp.h"
 #include "levischematic/schematic/placement/PlacementModel.h"
 
 #include "mc/server/commands/Command.h"
@@ -9,16 +9,24 @@
 namespace levischematic::command {
 
 void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
-    schemCmd.overload().text("list").execute([&](CommandOrigin const&, CommandOutput& output) {
-        auto& placementService = app::getAppKernel().placement();
+    schemCmd.overload().text("list").execute(
+    
+
+
+
+
+    [&](CommandOrigin const&, CommandOutput& output) {
+        auto session = acquireSession(output);
+        if (!session) return;
+        auto& placementService = session->placement();
         auto  placements       = placementService.orderedPlacements();
         if (placements.empty()) {
             output.success("No placements loaded.");
             return;
         }
 
-        std::string msg = "Loaded placements (" + std::to_string(placements.size()) + "):\n";
-        auto selectedId = placementService.selectedPlacementId();
+        std::string msg        = "Loaded placements (" + std::to_string(placements.size()) + "):\n";
+        auto        selectedId = placementService.selectedPlacementId();
         for (auto const& placementRef : placements) {
             auto const& placement = placementRef.get();
             auto const& pos       = placement.origin;
@@ -27,9 +35,7 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
             msg += current ? "-> " : "   ";
             msg += "[" + std::to_string(placement.id) + "] ";
             msg += "'" + placement.name + "' ";
-            msg += "at (" + std::to_string(pos.x) + ", "
-                + std::to_string(pos.y) + ", "
-                + std::to_string(pos.z) + ") ";
+            msg += "at (" + std::to_string(pos.x) + ", " + std::to_string(pos.y) + ", " + std::to_string(pos.z) + ") ";
             msg += placement.describeTransform();
             msg += placement.enabled ? "" : " [DISABLED]";
             msg += placement.renderEnabled ? "" : " [HIDDEN]";
@@ -39,44 +45,78 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
         output.success(msg);
     });
 
-    schemCmd.overload<SchemRemoveParam>()
-        .text("remove")
-        .required("id")
-        .execute([&](CommandOrigin const& origin,
-                     CommandOutput&      output,
-                     SchemRemoveParam const& param) {
-            auto& placementService = app::getAppKernel().placement();
+    schemCmd.overload<SchemRemoveParam>().text("remove").required("id").execute(
+    
+
+
+
+
+
+    [&](CommandOrigin const& origin, CommandOutput& output, SchemRemoveParam const& param) {
+            auto session = acquireSession(output);
+            if (!session) return;
+            auto& placementService = session->placement();
             auto  result           = placementService.removePlacement(static_cast<placement::PlacementId>(param.id));
             if (!result) {
                 replyPlacementError(output, "command.removePlacement", result.error());
                 return;
             }
 
-            flushPlacementRefreshAndReply(origin, output, [&](CommandOutput& out) {
+            flushPlacementRefreshAndReply(*session, origin, output,
+            
+
+
+
+            [&](CommandOutput& out) {
                 out.success("Removed placement '{}' [ID: {}]", result.value().name, result.value().id);
             });
-        });
+        }
+    );
 
-    schemCmd.overload().text("remove").execute([&](CommandOrigin const& origin, CommandOutput& output) {
-        auto& placementService = app::getAppKernel().placement();
-        withSelectedPlacement(placementService, output, [&](placement::PlacementInstance const& selected) {
+    schemCmd.overload().text("remove").execute(
+    
+
+
+
+
+    [&](CommandOrigin const& origin, CommandOutput& output) {
+        auto session = acquireSession(output);
+        if (!session) return;
+        auto& placementService = session->placement();
+        withSelectedPlacement(placementService, output,
+        
+
+
+
+        [&](placement::PlacementInstance const& selected) {
             auto result = placementService.removePlacement(selected.id);
             if (!result) {
                 replyPlacementError(output, "command.removePlacement", result.error());
                 return;
             }
 
-            flushPlacementRefreshAndReply(origin, output, [&](CommandOutput& out) {
+            flushPlacementRefreshAndReply(*session, origin, output,
+            
+
+
+
+            [&](CommandOutput& out) {
                 out.success("Removed placement '{}' [ID: {}]", result.value().name, result.value().id);
             });
         });
     });
 
-    schemCmd.overload<SchemSelectParam>()
-        .text("select")
-        .required("id")
-        .execute([&](CommandOrigin const&, CommandOutput& output, SchemSelectParam const& param) {
-            auto& placementService = app::getAppKernel().placement();
+    schemCmd.overload<SchemSelectParam>().text("select").required("id").execute(
+    
+
+
+
+
+
+    [&](CommandOrigin const&, CommandOutput& output, SchemSelectParam const& param) {
+            auto session = acquireSession(output);
+            if (!session) return;
+            auto& placementService = session->placement();
             auto  selected         = placementService.requirePlacement(static_cast<placement::PlacementId>(param.id));
             if (!selected) {
                 replyPlacementError(output, "command.selectPlacement", selected.error());
@@ -90,39 +130,74 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
             }
 
             output.success("Selected placement '{}' [ID: {}]", selected.value()->name, param.id);
-        });
-
-    schemCmd.overload().text("toggle").text("render").execute(
-        [&](CommandOrigin const& origin, CommandOutput& output) {
-            auto& placementService = app::getAppKernel().placement();
-            withSelectedPlacement(placementService, output, [&](placement::PlacementInstance const& selected) {
-                auto updated = placementService.togglePlacementRender(selected.id);
-                if (!updated) {
-                    replyPlacementError(output, "command.togglePlacementRender", updated.error());
-                    return;
-                }
-
-                flushPlacementRefreshAndReply(origin, output, [&](CommandOutput& out) {
-                    out.success(
-                        "Render for '{}': {}",
-                        selected.name,
-                        updated.value() && updated.value()->renderEnabled ? "ON" : "OFF"
-                    );
-                });
-            });
         }
     );
 
-    schemCmd.overload().text("toggle").execute([&](CommandOrigin const& origin, CommandOutput& output) {
-        auto& placementService = app::getAppKernel().placement();
-        withSelectedPlacement(placementService, output, [&](placement::PlacementInstance const& selected) {
+    schemCmd.overload().text("toggle").text("render").execute(
+    
+
+
+
+
+    [&](CommandOrigin const& origin, CommandOutput& output) {
+        auto session = acquireSession(output);
+        if (!session) return;
+        auto& placementService = session->placement();
+        withSelectedPlacement(placementService, output,
+        
+
+
+
+        [&](placement::PlacementInstance const& selected) {
+            auto updated = placementService.togglePlacementRender(selected.id);
+            if (!updated) {
+                replyPlacementError(output, "command.togglePlacementRender", updated.error());
+                return;
+            }
+
+            flushPlacementRefreshAndReply(*session, origin, output,
+            
+
+
+
+            [&](CommandOutput& out) {
+                out.success(
+                    "Render for '{}': {}",
+                    selected.name,
+                    updated.value() && updated.value()->renderEnabled ? "ON" : "OFF"
+                );
+            });
+        });
+    });
+
+    schemCmd.overload().text("toggle").execute(
+    
+
+
+
+
+    [&](CommandOrigin const& origin, CommandOutput& output) {
+        auto session = acquireSession(output);
+        if (!session) return;
+        auto& placementService = session->placement();
+        withSelectedPlacement(placementService, output,
+        
+
+
+
+        [&](placement::PlacementInstance const& selected) {
             auto updated = placementService.togglePlacementEnabled(selected.id);
             if (!updated) {
                 replyPlacementError(output, "command.togglePlacementEnabled", updated.error());
                 return;
             }
 
-            flushPlacementRefreshAndReply(origin, output, [&](CommandOutput& out) {
+            flushPlacementRefreshAndReply(*session, origin, output,
+            
+
+
+
+            [&](CommandOutput& out) {
                 out.success(
                     "Placement '{}': {}",
                     selected.name,
@@ -132,28 +207,42 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
         });
     });
 
-    schemCmd.overload<SchemBlockPosParam>()
-        .text("block")
-        .text("hide")
-        .required("pos")
-        .execute([&](CommandOrigin const& origin,
-                     CommandOutput&      output,
-                     SchemBlockPosParam const& param,
-                     Command const&      cmd) {
-            auto& placementService = app::getAppKernel().placement();
-            withSelectedPlacement(placementService, output, [&](placement::PlacementInstance const& selected) {
+    schemCmd.overload<SchemBlockPosParam>().text("block").text("hide").required("pos").execute(
+    
+
+
+
+
+
+
+    [&](CommandOrigin const& origin, CommandOutput& output, SchemBlockPosParam const& param, Command const& cmd) {
+            auto session = acquireSession(output);
+            if (!session) return;
+            auto& placementService = session->placement();
+            withSelectedPlacement(placementService, output,
+            
+
+
+
+            [&](placement::PlacementInstance const& selected) {
                 auto worldPos = BlockPos(origin.getExecutePosition(cmd.mVersion, param.pos));
-                auto updated  = placementService.patchPlacementBlock(selected.id, worldPos, render::PatchOp::remove());
+                auto updated  = placementService.patchPlacementBlock(selected.id, worldPos, placement::PatchOp::remove());
                 if (!updated) {
                     replyPlacementError(output, "command.patchPlacementBlock", updated.error());
                     return;
                 }
 
-                flushPlacementRefreshAndReply(origin, output, [&](CommandOutput& out) {
+                flushPlacementRefreshAndReply(*session, origin, output,
+                
+
+
+
+                [&](CommandOutput& out) {
                     out.success("Hidden block at ({}) for '{}'.", worldPos.toString(), selected.name);
                 });
             });
-        });
+        }
+    );
 
     schemCmd.overload<SchemBlockSetParam>()
         .text("block")
@@ -161,12 +250,27 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
         .required("pos")
         .required("blockName")
         .required("title_date")
-        .execute([&](CommandOrigin const& origin,
-                     CommandOutput&      output,
+        .execute(
+        
+
+
+
+
+
+
+        [&](CommandOrigin const&      origin,
+                     CommandOutput&            output,
                      SchemBlockSetParam const& param,
-                     Command const&      cmd) {
-            auto& placementService = app::getAppKernel().placement();
-            withSelectedPlacement(placementService, output, [&](placement::PlacementInstance const& selected) {
+                     Command const&            cmd) {
+            auto session = acquireSession(output);
+            if (!session) return;
+            auto& placementService = session->placement();
+            withSelectedPlacement(placementService, output,
+            
+
+
+
+            [&](placement::PlacementInstance const& selected) {
                 auto worldPos    = BlockPos(origin.getExecutePosition(cmd.mVersion, param.pos));
                 auto blockResult = param.blockName.resolveBlock(param.title_date);
                 if (!blockResult.mBlock) {
@@ -177,14 +281,19 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
                 auto updated = placementService.patchPlacementBlock(
                     selected.id,
                     worldPos,
-                    render::PatchOp::setBlock(blockResult.mBlock, render::kDefaultProjectionColor)
+                    placement::PatchOp::setBlock(blockResult.mBlock)
                 );
                 if (!updated) {
                     replyPlacementError(output, "command.patchPlacementBlock", updated.error());
                     return;
                 }
 
-                flushPlacementRefreshAndReply(origin, output, [&](CommandOutput& out) {
+                flushPlacementRefreshAndReply(*session, origin, output,
+                
+
+
+
+                [&](CommandOutput& out) {
                     out.success(
                         "Set block at ({}) for '{}' to '{}'.",
                         worldPos.toString(),
@@ -200,12 +309,27 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
         .text("set")
         .required("pos")
         .required("blockName")
-        .execute([&](CommandOrigin const& origin,
-                     CommandOutput&      output,
+        .execute(
+        
+
+
+
+
+
+
+        [&](CommandOrigin const&            origin,
+                     CommandOutput&                  output,
                      SchemBlockSetSimpleParam const& param,
-                     Command const&      cmd) {
-            auto& placementService = app::getAppKernel().placement();
-            withSelectedPlacement(placementService, output, [&](placement::PlacementInstance const& selected) {
+                     Command const&                  cmd) {
+            auto session = acquireSession(output);
+            if (!session) return;
+            auto& placementService = session->placement();
+            withSelectedPlacement(placementService, output,
+            
+
+
+
+            [&](placement::PlacementInstance const& selected) {
                 auto worldPos    = BlockPos(origin.getExecutePosition(cmd.mVersion, param.pos));
                 auto blockResult = param.blockName.resolveBlock(0);
                 if (!blockResult.mBlock) {
@@ -216,14 +340,19 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
                 auto updated = placementService.patchPlacementBlock(
                     selected.id,
                     worldPos,
-                    render::PatchOp::setBlock(blockResult.mBlock, render::kDefaultProjectionColor)
+                    placement::PatchOp::setBlock(blockResult.mBlock)
                 );
                 if (!updated) {
                     replyPlacementError(output, "command.patchPlacementBlock", updated.error());
                     return;
                 }
 
-                flushPlacementRefreshAndReply(origin, output, [&](CommandOutput& out) {
+                flushPlacementRefreshAndReply(*session, origin, output,
+                
+
+
+
+                [&](CommandOutput& out) {
                     out.success(
                         "Set block at ({}) for '{}' to '{}'.",
                         worldPos.toString(),
@@ -234,97 +363,149 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
             });
         });
 
-    schemCmd.overload<SchemBlockPosParam>()
-        .text("block")
-        .text("clear")
-        .required("pos")
-        .execute([&](CommandOrigin const& origin,
-                     CommandOutput&      output,
-                     SchemBlockPosParam const& param,
-                     Command const&      cmd) {
-            auto& placementService = app::getAppKernel().placement();
-            withSelectedPlacement(placementService, output, [&](placement::PlacementInstance const& selected) {
+    schemCmd.overload<SchemBlockPosParam>().text("block").text("clear").required("pos").execute(
+    
+
+
+
+
+
+
+    [&](CommandOrigin const& origin, CommandOutput& output, SchemBlockPosParam const& param, Command const& cmd) {
+            auto session = acquireSession(output);
+            if (!session) return;
+            auto& placementService = session->placement();
+            withSelectedPlacement(placementService, output,
+            
+
+
+
+            [&](placement::PlacementInstance const& selected) {
                 auto worldPos = BlockPos(origin.getExecutePosition(cmd.mVersion, param.pos));
-                auto updated  = placementService.patchPlacementBlock(selected.id, worldPos, render::PatchOp::clearOverride());
+                auto updated =
+                    placementService.patchPlacementBlock(selected.id, worldPos, placement::PatchOp::clearOverride());
                 if (!updated) {
                     replyPlacementError(output, "command.patchPlacementBlock", updated.error());
                     return;
                 }
 
-                flushPlacementRefreshAndReply(origin, output, [&](CommandOutput& out) {
+                flushPlacementRefreshAndReply(*session, origin, output,
+                
+
+
+
+                [&](CommandOutput& out) {
                     out.success("Cleared block override at ({}) for '{}'.", worldPos.toString(), selected.name);
                 });
             });
-        });
+        }
+    );
 
-    schemCmd.overload().text("info").execute([&](CommandOrigin const&, CommandOutput& output) {
-        auto& placementService = app::getAppKernel().placement();
-        withSelectedPlacement(placementService, output, [&](placement::PlacementInstance const& selected) {
+    schemCmd.overload().text("info").execute(
+    
+
+
+
+
+    [&](CommandOrigin const&, CommandOutput& output) {
+        auto session = acquireSession(output);
+        if (!session) return;
+        auto& placementService = session->placement();
+        withSelectedPlacement(placementService, output,
+        
+
+
+
+        [&](placement::PlacementInstance const& selected) {
             auto pos              = selected.origin;
             auto [minBox, maxBox] = placement::computeEnclosingBox(selected);
 
-            std::string msg = "Placement Info:\n";
-            msg += "  Name: " + selected.name + "\n";
-            msg += "  ID: " + std::to_string(selected.id) + "\n";
-            msg += "  Origin: (" + std::to_string(pos.x) + ", "
-                + std::to_string(pos.y) + ", "
-                + std::to_string(pos.z) + ")\n";
+            std::string msg  = "Placement Info:\n";
+            msg             += "  Name: " + selected.name + "\n";
+            msg             += "  ID: " + std::to_string(selected.id) + "\n";
+            msg += "  Origin: (" + std::to_string(pos.x) + ", " + std::to_string(pos.y) + ", " + std::to_string(pos.z)
+                 + ")\n";
             msg += "  Transform: " + selected.describeTransform() + "\n";
             msg += "  Enabled: " + std::string(selected.enabled ? "Yes" : "No") + "\n";
             msg += "  Render: " + std::string(selected.renderEnabled ? "Yes" : "No") + "\n";
             msg += "  Non-air blocks: " + std::to_string(selected.totalNonAirBlocks()) + "\n";
-            msg += "  Bounding box: (" + std::to_string(minBox.x) + ","
-                + std::to_string(minBox.y) + ","
-                + std::to_string(minBox.z) + ") to ("
-                + std::to_string(maxBox.x) + ","
-                + std::to_string(maxBox.y) + ","
-                + std::to_string(maxBox.z) + ")\n";
+            msg += "  Bounding box: (" + std::to_string(minBox.x) + "," + std::to_string(minBox.y) + ","
+                 + std::to_string(minBox.z) + ") to (" + std::to_string(maxBox.x) + "," + std::to_string(maxBox.y) + ","
+                 + std::to_string(maxBox.z) + ")\n";
 
             output.success(msg);
         });
     });
 
-    schemCmd.overload().text("clear").execute([&](CommandOrigin const& origin, CommandOutput& output) {
-        auto& placementService = app::getAppKernel().placement();
+    schemCmd.overload().text("clear").execute(
+    
+
+
+
+
+    [&](CommandOrigin const& origin, CommandOutput& output) {
+        auto session = acquireSession(output);
+        if (!session) return;
+        auto& placementService = session->placement();
         auto  count            = placementService.orderedPlacements().size();
+        session->loads().cancelAll();
         placementService.clearPlacements();
-        flushPlacementRefreshAndReply(origin, output, [&](CommandOutput& out) {
+        flushPlacementRefreshAndReply(*session, origin, output,
+        
+
+
+
+        [&](CommandOutput& out) {
             out.success("Cleared {} placement(s).", count);
         });
     });
 
-    schemCmd.overload().execute([&](CommandOrigin const&, CommandOutput& output) {
-        std::string help = "LeviSchematic Commands:\n";
-        help += "  /schem load <file> [x y z] - Load schematic\n";
-        help += "  /schem move <dx> <dy> <dz> - Move placement\n";
-        help += "  /schem origin <x> <y> <z> - Set origin\n";
-        help += "  /schem rotate <cw90|ccw90|r180> - Rotate\n";
-        help += "  /schem mirror <x|z|none> - Mirror\n";
-        help += "  /schem list - List placements\n";
-        help += "  /schem select <id> - Select placement\n";
-        help += "  /schem remove [id] - Remove placement\n";
-        help += "  /schem toggle [render] - Toggle placement state\n";
-        help += "  /schem info - Show placement info\n";
-        help += "  /schem block hide <x y z> - Hide a projected block\n";
-        help += "  /schem block set <x y z> <block> - Override one projected block\n";
-        help += "  /schem block clear <x y z> - Clear one block override\n";
-        help += "  /schem files - List available files\n";
-        help += "  /schem reset - Reset transform\n";
-        help += "  /schem clear - Clear all\n";
-        help += "  /schem pos1 [x y z] - Set selection corner 1\n";
-        help += "  /schem pos2 [x y z] - Set selection corner 2\n";
-        help += "  /schem save <name> - Save selection as .mcstructure\n";
-        help += "  /schem selection clear - Clear selection\n";
-        help += "  /schem selection mode - Toggle selection mode\n";
-        help += "  /schem selection info - Show selection info\n";
-        help += "  /schem view y min <value> - Set minimum visible Y and enable filtering\n";
-        help += "  /schem view y max <value> - Set maximum visible Y and enable filtering\n";
-        help += "  /schem view y range <min> <max> - Set visible Y range and enable filtering\n";
-        help += "  /schem view y enable - Enable Y range filtering\n";
-        help += "  /schem view y disable - Disable Y range filtering\n";
-        help += "  /schem view y info - Show Y range filter state\n";
+    schemCmd.overload().execute(
+    
+
+
+
+
+    [&](CommandOrigin const&, CommandOutput& output) {
+        std::string help  = "LeviSchematic Commands:\n";
+        help += "  /schem ui - Open projection UI\n";
+        help += "  /schem ui status - Show UI creation and lifecycle diagnostics\n";
+        help             += "  /schem load <file> [x y z] - Queue schematic load\n";
+        help += "  /schem load status <taskId> - Show load progress\n";
+        help += "  /schem load cancel <taskId> - Cancel an unfinished load\n";
+        help += "  /schem config reload - Validate and apply config.json on next tick\n";
+        help += "  /schem config save - Save effective/pending configuration\n";
+        help             += "  /schem move <dx> <dy> <dz> - Move placement\n";
+        help             += "  /schem origin <x> <y> <z> - Set origin\n";
+        help             += "  /schem rotate <cw90|ccw90|r180> - Rotate\n";
+        help             += "  /schem mirror <x|z|none> - Mirror\n";
+        help             += "  /schem list - List placements\n";
+        help             += "  /schem select <id> - Select placement\n";
+        help             += "  /schem remove [id] - Remove placement\n";
+        help             += "  /schem toggle [render] - Toggle placement state\n";
+        help             += "  /schem info - Show placement info\n";
+        help             += "  /schem block hide <x y z> - Hide a projected block\n";
+        help             += "  /schem block set <x y z> <block> - Override one projected block\n";
+        help             += "  /schem block clear <x y z> - Clear one block override\n";
+        help             += "  /schem files - List available files\n";
+        help             += "  /schem reset - Reset transform\n";
+        help             += "  /schem clear - Clear placements and cancel unfinished loads\n";
+        help             += "  /schem pos1 [x y z] - Set selection corner 1\n";
+        help             += "  /schem pos2 [x y z] - Set selection corner 2\n";
+        help             += "  /schem save <name> - Save selection as .mcstructure\n";
+        help             += "  /schem selection clear - Clear selection\n";
+        help             += "  /schem selection mode - Toggle selection mode\n";
+        help             += "  /schem selection info - Show selection info\n";
+        help             += "  /schem view y min <value> - Set minimum visible Y and enable filtering\n";
+        help             += "  /schem view y max <value> - Set maximum visible Y and enable filtering\n";
+        help             += "  /schem view y range <min> <max> - Set visible Y range and enable filtering\n";
+        help             += "  /schem view y enable - Enable Y range filtering\n";
+        help             += "  /schem view y disable - Disable Y range filtering\n";
+        help             += "  /schem view y info - Show Y range filter state\n";
+        help             += "  /schem renderer stats - Show editor preview renderer state\n";
+        help += "  /schem renderer reset - Release preview resources; keep placements and rebuild next frame\n";
         output.success(help);
     });
 }
 
-} // namespace levischematic::command
+} 

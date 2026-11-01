@@ -1,16 +1,20 @@
 #include "PlacementService.h"
 
-#include "levischematic/render/ProjectionRenderer.h"
+#include "levischematic/schematic/placement/PatchOp.h"
 
 namespace levischematic::app {
 
 namespace {
 
+
+
+
+
 PlacementMutationResult successMutation(placement::PlacementInstance const* placement) {
     return PlacementMutationResult::success(placement);
 }
 
-} // namespace
+} 
 
 std::string PlacementError::describe() const {
     switch (code) {
@@ -41,45 +45,17 @@ std::string PlacementError::describe() const {
 PlacementService::PlacementService(
     editor::EditorState&        state,
     RuntimeContext&             runtime,
-    placement::PlacementStore&  placementStore,
-    placement::SchematicLoader& schematicLoader
+    placement::PlacementStore&  placementStore
 )
     : mState(state)
     , mRuntime(runtime)
-    , mPlacementStore(placementStore)
-    , mSchematicLoader(schematicLoader) {}
+    , mPlacementStore(placementStore) {}
 
-Result<PlacementLoadInfo, PlacementError> PlacementService::loadSchematic(
-    std::string const& filename,
-    BlockPos           origin,
-    int                dimensionId,
-    std::string const& explicitName
-) {
-    auto resolvedPath = mRuntime.resolveSchematicPath(filename);
-    auto assetResult  = mSchematicLoader.loadMcstructureAsset(resolvedPath);
-    if (!assetResult) {
-        return Result<PlacementLoadInfo, PlacementError>::failure({
-            .code      = PlacementError::Code::LoadFailed,
-            .path      = resolvedPath,
-            .loadError = assetResult.error(),
-        });
-    }
-
-    auto displayName = explicitName.empty() ? assetResult.value()->defaultName : explicitName;
-    auto placementId = mPlacementStore.createPlacement(
-        assetResult.value(),
-        origin,
-        dimensionId,
-        displayName,
-        resolvedPath
-    );
-
-    auto const* placement = mPlacementStore.get(placementId);
-    return Result<PlacementLoadInfo, PlacementError>::success({
-        .id           = placementId,
-        .resolvedPath = resolvedPath,
-        .name         = placement ? placement->name : displayName,
-    });
+PlacementLoadInfo PlacementService::adoptAsset(std::shared_ptr<const placement::SchematicAsset> asset,
+                                              std::filesystem::path const& path, BlockPos origin, int dimensionId) {
+    PlacementLoadInfo result{.resolvedPath = path, .name = asset->defaultName};
+    result.id = mPlacementStore.createPlacement(std::move(asset), origin, dimensionId, result.name, path);
+    return result;
 }
 
 placement::PlacementInstance const* PlacementService::findPlacement(placement::PlacementId id) const {
@@ -226,14 +202,14 @@ PlacementMutationResult PlacementService::resetPlacementTransform(placement::Pla
 PlacementMutationResult PlacementService::patchPlacementBlock(
     placement::PlacementId id,
     BlockPos               worldPos,
-    render::PatchOp const& op
+    placement::PatchOp const& op
 ) {
     auto placement = requirePlacement(id);
     if (!placement) {
         return PlacementMutationResult::failure(placement.error());
     }
 
-    if (op.kind == render::PatchOp::Kind::SetBlock && op.block == nullptr) {
+    if (op.kind == placement::PatchOp::Kind::SetBlock && op.block == nullptr) {
         return PlacementMutationResult::failure({
             .code        = PlacementError::Code::InvalidBlockOverride,
             .placementId = id,
@@ -243,11 +219,11 @@ PlacementMutationResult PlacementService::patchPlacementBlock(
 
     if (!(mPlacementStore.patchBlock(id, worldPos, op))) {
         return PlacementMutationResult::failure({
-            .code        = op.kind == render::PatchOp::Kind::ClearOverride
+            .code        = op.kind == placement::PatchOp::Kind::ClearOverride
                 ? PlacementError::Code::OverrideNotFound
                 : PlacementError::Code::InvalidBlockOverride,
             .placementId = id,
-            .detail      = op.kind == render::PatchOp::Kind::ClearOverride
+            .detail      = op.kind == placement::PatchOp::Kind::ClearOverride
                 ? "No block override found at the requested position."
                 : "Failed to apply the block override.",
         });
@@ -267,4 +243,4 @@ PlacementError PlacementService::makeNotFoundError(
     };
 }
 
-} // namespace levischematic::app
+} 

@@ -29,4 +29,4 @@ std::string LoadPlacementError::describe(std::string_view target) const {
     return "Unknown schematic load error: " + std::string(target);
 }
 
-} // namespace levischematic::placement
+} 

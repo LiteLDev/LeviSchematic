@@ -1,15 +1,28 @@
 #pragma once
 
-#include "levischematic/verifier/VerifierService.h"
+#include <memory>
 
 #include "mc/world/level/LevelListener.h"
 
 namespace levischematic::verifier_block_listener {
 
-class VerifierBlockListener : public LevelListener {
+
+
+
+
+class VerifierBlockListener : public LevelListener, public std::enable_shared_from_this<VerifierBlockListener> {
 public:
-    explicit VerifierBlockListener(levischematic::verifier::VerifierService& verifierService)
-        : mVerifierService(verifierService) {}
+    
+
+
+
+
+
+
+
+
+
+
 
     virtual void onBlockChanged(
         ::BlockSource&                 source,
@@ -22,9 +35,11 @@ public:
         ::BlockChangedEventTarget      eventTarget,
         ::Actor*                       blockChangeSource
     );
+    
 
-private:
-    levischematic::verifier::VerifierService& mVerifierService;
+
+
+    virtual void onSourceDestroyed(::BlockSource& source);
 };
 
-} // namespace levischematic::verifier_block_listener
+} 

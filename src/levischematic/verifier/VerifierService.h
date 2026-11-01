@@ -1,71 +1,71 @@
 #pragma once
-
+#include "VerificationPollSchedule.h"
 #include "levischematic/editor/EditorState.h"
-#include "levischematic/render/ProjectionRenderer.h"
-#include "levischematic/schematic/placement/PlacementProjectionCache.h"
-#include "levischematic/schematic/placement/PlacementStore.h"
-#include "levischematic/verifier/VerifierTypes.h"
-
-#include "ll/api/event/ListenerBase.h"
-
-#include <memory>
-#include <unordered_map>
-
-class RenderChunkCoordinator;
-class BlockSource;
-class Block;
-
+#include "levischematic/util/WorkBudget.h"
+#include <deque>
+#include <unordered_set>
 namespace levischematic::verifier_block_listener {
 class VerifierBlockListener;
 }
-
+class BlockSource;
+class ClientInstance;
 namespace levischematic::verifier {
 
 class VerifierService {
 public:
-    VerifierService(
-        VerifierState&                   state,
-        placement::PlacementState const& placementState,
-        editor::ViewState const&         viewState,
-        render::ProjectionProjector&     projector
-    );
+    
+    VerifierService(VerifierState&, placement::PlacementState const&, editor::ViewState const&);
+    
     ~VerifierService();
-
-    void handleBlockChanged(BlockSource& source, BlockPos const& pos, Block const& block);
+    
+    void handleBlockChanged(BlockSource&, BlockPos const&, Block const&);
+    
     void refresh();
-    void refresh(BlockSource& source);
-    void handleJoinLevel();
+    
+    void refresh(BlockSource&);
+    
+    void tick(util::WorkBudget const& budget);
+    
+    void handleJoinLevel(ClientInstance& client);
+    
     void handleExitLevel();
-    void handleDimensionChanged();
-    void ensureRuntimeBindings();
+    
+    void ensureRuntimeBindings(ClientInstance& client);
+    
     void clear();
-    void attachToRuntime();
+    
+    void attachToRuntime(ClientInstance& client);
+    
     void detachFromRuntime();
-
-    [[nodiscard]] VerifierState const& state() const { return mState; }
+    
+    void handleSourceDestroyed(BlockSource&);
+    
+    bool ownsListener(verifier_block_listener::VerifierBlockListener const& listener) const {
+        return mListener.get() == &listener;
+    }
+    
+    VerifierState const& state() const { return mState; }
 
 private:
-    [[nodiscard]] VerificationStatus evaluateBlock(
-        ExpectedBlockSnapshot const& expected,
-        BlockSource&                 source,
-        Block const&                 block
-    ) const;
-    void syncExpectedBlocks();
-    void clearStatuses();
-    void updateStatus(int dimensionId, BlockPos const& pos, VerificationStatus status);
-    [[nodiscard]] std::shared_ptr<RenderChunkCoordinator> resolveCoordinator(BlockSource const& source) const;
-    [[nodiscard]] BlockSource* resolveCurrentBlockSource() const;
-
-    VerifierState&                   mState;
-    placement::PlacementState const& mPlacementState;
-    editor::ViewState const&         mViewState;
-    render::ProjectionProjector&     mProjector;
-    std::unique_ptr<levischematic::verifier_block_listener::VerifierBlockListener> mListener;
-    std::unique_ptr<placement::PlacementProjectionCache>                         mPlacementCache;
-    std::unordered_map<util::WorldBlockKey, ExpectedBlockSnapshot, util::WorldBlockKeyHash> mExpectedBlocksByKey;
-    std::unordered_map<int, BlockSource*>                                        mSourcesByDimension;
-    uint64_t                                                                     mExpectedPlacementsRevision = 0;
-    uint64_t                                                                     mExpectedViewRevision       = 0;
+    
+    bool evaluate(int dimension, BlockPos const& pos, VerificationCell& cell);
+    VerificationStatus compare(Block const& expected, Block const& actual);
+    
+    void insert(placement::PlacementInstance const&, BlockPos, Block const*);
+    
+    void                                                             update(util::WorldBlockKey);
+    VerifierState&                                                   mState;
+    placement::PlacementState const&                                 mPlacements;
+    std::shared_ptr<verifier_block_listener::VerifierBlockListener>  mListener;
+    std::unordered_map<int, BlockSource*>                            mSources;
+    std::unordered_map<Block const*, BlockCompareSpec>               mSpecs;
+    std::deque<util::WorldBlockKey>                                  mKeys;
+    std::deque<util::WorldBlockKey>                                  mDirty;
+    std::unordered_set<util::WorldBlockKey, util::WorldBlockKeyHash> mDirtySet;
+    uint64_t                                                         mRevision = 0;
+    VerificationPollSchedule mPolling;
+    size_t mBuildPlacement = 0, mBlockCursor = 0;
+    bool   mBuilding = false, mRefreshRequested = false, mOverrideStarted = false;
+    std::unordered_map<uint64_t, placement::OverrideEntry>::const_iterator mOverride;
 };
-
-} // namespace levischematic::verifier
+} 

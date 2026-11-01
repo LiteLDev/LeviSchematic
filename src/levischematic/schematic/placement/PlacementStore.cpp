@@ -1,6 +1,6 @@
 #include "PlacementStore.h"
 
-#include "levischematic/render/ProjectionRenderer.h"
+#include "levischematic/schematic/placement/PatchOp.h"
 #include "levischematic/util/PositionUtils.h"
 
 #include <algorithm>
@@ -14,8 +14,9 @@ PlacementId PlacementStore::createPlacement(
     std::string                           name,
     std::filesystem::path                 filePath
 ) {
+    std::scoped_lock lock(mState.mutex);
     PlacementInstance placement;
-    placement.id       = mState.nextPlacementId++;
+    placement.id       = mState.nextPlacementId;
     placement.asset    = std::move(asset);
     placement.name     = name.empty() && placement.asset ? placement.asset->defaultName : std::move(name);
     placement.filePath = std::move(filePath);
@@ -23,8 +24,10 @@ PlacementId PlacementStore::createPlacement(
     placement.origin   = origin;
 
     auto id = placement.id;
-    mState.order.push_back(id);
     mState.placements.emplace(id, std::move(placement));
+    try { mState.order.push_back(id); }
+    catch (...) { mState.placements.erase(id); throw; }
+    ++mState.nextPlacementId;
     mState.selectedId = id;
     touchState();
     return id;
@@ -49,6 +52,7 @@ PlacementInstance const* PlacementStore::selected() const {
 }
 
 bool PlacementStore::remove(PlacementId id) {
+    std::scoped_lock lock(mState.mutex);
     if (mState.placements.erase(id) == 0) {
         return false;
     }
@@ -67,6 +71,7 @@ bool PlacementStore::remove(PlacementId id) {
 }
 
 void PlacementStore::clear() {
+    std::scoped_lock lock(mState.mutex);
     mState.placements.clear();
     mState.order.clear();
     mState.selectedId.reset();
@@ -74,6 +79,7 @@ void PlacementStore::clear() {
 }
 
 bool PlacementStore::select(PlacementId id) {
+    std::scoped_lock lock(mState.mutex);
     if (!get(id)) {
         return false;
     }
@@ -89,6 +95,7 @@ void PlacementStore::selectLast() {
 }
 
 bool PlacementStore::move(PlacementId id, int dx, int dy, int dz) {
+    std::scoped_lock lock(mState.mutex);
     auto* placement = get(id);
     if (!placement) {
         return false;
@@ -97,22 +104,24 @@ bool PlacementStore::move(PlacementId id, int dx, int dy, int dz) {
     placement->origin.x += dx;
     placement->origin.y += dy;
     placement->origin.z += dz;
-    touchPlacement(*placement);
+    touchPlacement(*placement, !placement->overrides.empty());
     return true;
 }
 
 bool PlacementStore::setOrigin(PlacementId id, BlockPos origin) {
+    std::scoped_lock lock(mState.mutex);
     auto* placement = get(id);
     if (!placement) {
         return false;
     }
 
     placement->origin = origin;
-    touchPlacement(*placement);
+    touchPlacement(*placement, !placement->overrides.empty());
     return true;
 }
 
 bool PlacementStore::rotate(PlacementId id, PlacementInstance::Rotation delta) {
+    std::scoped_lock lock(mState.mutex);
     auto* placement = get(id);
     if (!placement) {
         return false;
@@ -124,6 +133,7 @@ bool PlacementStore::rotate(PlacementId id, PlacementInstance::Rotation delta) {
 }
 
 bool PlacementStore::setMirror(PlacementId id, PlacementInstance::Mirror mirror) {
+    std::scoped_lock lock(mState.mutex);
     auto* placement = get(id);
     if (!placement) {
         return false;
@@ -135,6 +145,7 @@ bool PlacementStore::setMirror(PlacementId id, PlacementInstance::Mirror mirror)
 }
 
 bool PlacementStore::resetTransform(PlacementId id) {
+    std::scoped_lock lock(mState.mutex);
     auto* placement = get(id);
     if (!placement) {
         return false;
@@ -147,6 +158,7 @@ bool PlacementStore::resetTransform(PlacementId id) {
 }
 
 bool PlacementStore::toggleEnabled(PlacementId id) {
+    std::scoped_lock lock(mState.mutex);
     auto* placement = get(id);
     if (!placement) {
         return false;
@@ -158,6 +170,7 @@ bool PlacementStore::toggleEnabled(PlacementId id) {
 }
 
 bool PlacementStore::toggleRender(PlacementId id) {
+    std::scoped_lock lock(mState.mutex);
     auto* placement = get(id);
     if (!placement) {
         return false;
@@ -168,7 +181,8 @@ bool PlacementStore::toggleRender(PlacementId id) {
     return true;
 }
 
-bool PlacementStore::patchBlock(PlacementId id, BlockPos worldPos, render::PatchOp const& op) {
+bool PlacementStore::patchBlock(PlacementId id, BlockPos worldPos, placement::PatchOp const& op) {
+    std::scoped_lock lock(mState.mutex);
     auto* placement = get(id);
     if (!placement) {
         return false;
@@ -176,16 +190,16 @@ bool PlacementStore::patchBlock(PlacementId id, BlockPos worldPos, render::Patch
 
     auto posKey = util::encodePosKey(worldPos);
     switch (op.kind) {
-    case render::PatchOp::Kind::Remove:
+    case placement::PatchOp::Kind::Remove:
         placement->overrides[posKey] = OverrideEntry{OverrideEntry::Kind::Remove, nullptr};
         break;
-    case render::PatchOp::Kind::SetBlock:
+    case placement::PatchOp::Kind::SetBlock:
         if (!op.block) {
             return false;
         }
         placement->overrides[posKey] = OverrideEntry{OverrideEntry::Kind::SetBlock, op.block};
         break;
-    case render::PatchOp::Kind::ClearOverride:
+    case placement::PatchOp::Kind::ClearOverride:
         if (placement->overrides.erase(posKey) == 0) {
             return false;
         }
@@ -200,9 +214,10 @@ void PlacementStore::touchState() {
     ++mState.revision;
 }
 
-void PlacementStore::touchPlacement(PlacementInstance& placement) {
+void PlacementStore::touchPlacement(PlacementInstance& placement, bool contentChanged) {
     ++placement.revision;
+    if (contentChanged) ++placement.contentRevision;
     touchState();
 }
 
-} // namespace levischematic::placement
+} 

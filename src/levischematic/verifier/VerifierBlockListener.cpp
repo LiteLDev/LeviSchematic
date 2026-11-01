@@ -7,26 +7,34 @@
 
 namespace levischematic::verifier_block_listener {
 
-    auto& getLogger() {
-    return levischematic::LeviSchematic::getInstance().getSelf().getLogger();
-}
+
+
+
+auto& getLogger() { return levischematic::LeviSchematic::getInstance().getSelf().getLogger(); }
 
 void VerifierBlockListener::onBlockChanged(
-    ::BlockSource&                 source,
-    ::BlockPos const&              pos,
-    uint                           /*layer*/,
-    ::Block const&                 block,
-    ::Block const&                 /*oldBlock*/,
-    int                            /*updateFlags*/,
-    ::ActorBlockSyncMessage const* /*syncMsg*/,
-    ::BlockChangedEventTarget      /*eventTarget*/,
-    ::Actor*                       /*blockChangeSource*/
+    ::BlockSource&    source,
+    ::BlockPos const& pos,
+    uint ,
+    ::Block const& block,
+    ::Block const& ,
+    int ,
+    ::ActorBlockSyncMessage const* ,
+    ::BlockChangedEventTarget ,
+    ::Actor* 
 ) {
-    mVerifierService.handleBlockChanged(source, pos, block);
-    if (levischematic::app::hasAppKernel()) {
-        levischematic::app::getAppKernel().blockActorVerifier().handleBlockChanged(source, pos, block);
+    auto keepAlive = shared_from_this();
+    auto session = app::accessSession();
+    if (!session || !session->verifier().ownsListener(*this)) {
+        return;
     }
-    // getLogger().debug("Block change");
+    session->verifier().handleBlockChanged(source, pos, block);
+    
 }
 
-} // namespace levischematic::verifier_block_listener
+void VerifierBlockListener::onSourceDestroyed(::BlockSource& source) {
+    auto keepAlive = shared_from_this();
+    app::sourceDestroyed(*this, source);
+}
+
+} 

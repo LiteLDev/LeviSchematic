@@ -6,6 +6,7 @@
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/block/Block.h"
 #include "mc/world/level/block/actor/BlockActorRendererId.h"
+#include "mc/world/Direction.h"
 
 #include <cstdint>
 #include <memory>
@@ -18,50 +19,26 @@ class BlockActor;
 
 namespace levischematic::verifier {
 
+
+
+
+
 struct BlockStateSnapshot {
-    uint64_t    stateId = 0;
-    int         value   = 0;
+    uint64_t    stateId  = 0;
+    int         value    = 0;
     uint64_t    nameHash = 0;
     std::string name;
 };
 
-struct ContainerSlotSnapshot {
-    int      slot          = 0;
-    uint64_t itemNameHash  = 0;
-    int      count         = 0;
-};
 
-struct ContainerSnapshot {
-    std::vector<ContainerSlotSnapshot> slots;
-};
 
-struct BlockEntitySnapshot {
-    std::optional<ContainerSnapshot> container;
-};
+
 
 struct BlockCompareSpec {
-    uint64_t                        nameHash          = 0;
+    uint64_t                        nameHash = 0;
     std::vector<BlockStateSnapshot> exactStates;
-    bool                            compareContainer = false;
-};
-
-struct ExpectedBlockSnapshot {
-    int                              dimensionId = 0;
-    BlockPos                         pos;
-    const Block*                     renderBlock = nullptr;
-    BlockCompareSpec                 compareSpec;
-    std::optional<BlockEntitySnapshot> blockEntity;
-    uint32_t                         placementId = 0;
-};
-
-struct BlockActorExpectedSnapshot {
-    int                              dimensionId = 0;
-    BlockPos                         pos;
-    const Block*                     renderBlock = nullptr;
-    std::shared_ptr<BlockActor>       blockActor;
-    std::optional<BlockEntitySnapshot> blockEntity;
-    BlockActorRendererId              rendererId = BlockActorRendererId::Default;
-    uint32_t                         placementId = 0;
+    std::optional<Direction::Type>   bedDirection;
+    bool                            complete = true;
 };
 
 enum class VerificationStatus : uint8_t {
@@ -72,20 +49,57 @@ enum class VerificationStatus : uint8_t {
     BlockMismatch,
 };
 
+
+
+
+
 [[nodiscard]] BlockCompareSpec buildCompareSpecFromBlock(Block const& block);
+[[nodiscard]] std::optional<Direction::Type> readBedDirection(Block const& block);
+
+
+struct VerificationCell {
+    Block const*       expected    = nullptr;
+    uint32_t           placementId = 0;
+    VerificationStatus status      = VerificationStatus::Unknown;
+    Block const*       observed    = nullptr;
+
+    template <class Compare>
+    bool observe(Block const* actual, Compare&& compare) {
+        if (actual && actual == observed) return false;
+        auto nextStatus = VerificationStatus::Unknown;
+        if (actual && expected)
+            nextStatus = actual == expected ? VerificationStatus::Matched : compare(expected, actual);
+        bool changed = nextStatus != status;
+        observed     = actual;
+        status       = nextStatus;
+        return changed;
+    }
+};
+
+struct VerificationChunk {
+    std::unordered_map<uint64_t, VerificationCell> cells;
+    uint64_t                                       revision = 0;
+};
 
 struct VerifierState {
-    std::unordered_map<util::WorldBlockKey, VerificationStatus, util::WorldBlockKeyHash> statusByKey;
-    uint64_t                                                                      revision = 0;
+    std::unordered_map<util::WorldBlockKey, VerificationChunk, util::WorldBlockKeyHash> chunks;
+    uint64_t                                                                            revision = 0;
+    uint64_t                                                                            epoch    = 0;
+    bool                                                                                clearing = false;
+    
+    [[nodiscard]] VerificationCell const* find(int dimension, BlockPos const& pos) const {
+        if (clearing) return nullptr;
+        auto it = chunks.find({dimension, util::subChunkKeyFromWorldPos(pos.x, pos.y, pos.z)});
+        if (it == chunks.end()) return nullptr;
+        auto cell = it->second.cells.find(util::encodePosKey(pos));
+        return cell == it->second.cells.end() ? nullptr : &cell->second;
+    }
+    
+    [[nodiscard]] bool showsProjection(int dimension, BlockPos const& pos, uint32_t placementId) const {
+        auto* cell = find(dimension, pos);
+        return !cell
+            || (cell->placementId == placementId
+                && (cell->status == VerificationStatus::Unknown || cell->status == VerificationStatus::MissingBlock));
+    }
 };
-
-struct BlockActorVerifierState {
-    std::unordered_map<util::WorldBlockKey, VerificationStatus, util::WorldBlockKeyHash> statusByKey;
-    uint64_t revision = 0;
-};
-
-inline constexpr bool isHiddenStatus(VerificationStatus status) {
-    return status == VerificationStatus::Matched;
-}
-
-} // namespace levischematic::verifier
+} 

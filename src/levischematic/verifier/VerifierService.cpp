@@ -1,197 +1,202 @@
 #include "VerifierService.h"
-
-#include "levischematic/LeviSchematic.h"
-#include "levischematic/util/PositionUtils.h"
-#include "levischematic/verifier/VerifierBlockListener.h"
-
-#include "ll/api/service/Bedrock.h"
-#include "ll/api/service/TargetedBedrock.h"
-
+#include "VerifierBlockListener.h"
+#include "levischematic/schematic/FakeWorld.h"
 #include "mc/client/game/ClientInstance.h"
-#include "mc/client/player/LocalPlayer.h"
-#include "mc/client/renderer/game/LevelRenderer.h"
-#include "mc/world/Container.h"
-#include "mc/world/item/ItemStack.h"
+#include "mc/client/multiplayer/ClientLevel.h"
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/Level.h"
-#include "mc/world/level/block/Block.h"
-#include "mc/world/level/block/actor/BlockActor.h"
+#include "mc/world/level/block/states/VanillaBlockStateTransformUtils.h"
+#include "mc/world/level/chunk/LevelChunk.h"
 #include "mc/world/level/dimension/Dimension.h"
+#include <thread>
 
 namespace levischematic::verifier {
-namespace {
-
-auto& getLogger() {
-    return levischematic::LeviSchematic::getInstance().getSelf().getLogger();
-}
-
-bool matchesContainerSnapshot(
-    BlockEntitySnapshot const& expected,
-    BlockSource&               source,
-    BlockPos const&            pos
-) {
-    if (!expected.container.has_value()) {
-        return true;
-    }
-
-    auto* blockActor = source.getBlockEntity(pos);
-    if (!blockActor) {
-        return false;
-    }
-
-    auto* container = blockActor->getContainer();
-    if (!container) {
-        return false;
-    }
-
-    auto slots = container->getSlots();
-    std::unordered_map<int, ContainerSlotSnapshot const*> expectedSlots;
-    expectedSlots.reserve(expected.container->slots.size());
-    for (auto const& expectedSlot : expected.container->slots) {
-        if (expectedSlot.slot < 0 || expectedSlot.slot >= static_cast<int>(slots.size())) {
-            return false;
-        }
-
-        expectedSlots[expectedSlot.slot] = &expectedSlot;
-
-        auto const* item = slots[expectedSlot.slot];
-        if (!item || item->isNull()) {
-            return false;
-        }
-
-        if (item->getFullNameHash().getHash() != expectedSlot.itemNameHash) {
-            return false;
-        }
-
-        if (static_cast<int>(item->mCount) != expectedSlot.count) {
-            return false;
-        }
-    }
-
-    for (int slot = 0; slot < static_cast<int>(slots.size()); ++slot) {
-        auto const* item = slots[slot];
-        if (!item || item->isNull()) {
-            continue;
-        }
-
-        if (!expectedSlots.contains(slot)) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-} // namespace
-
 VerifierService::VerifierService(
     VerifierState&                   state,
-    placement::PlacementState const& placementState,
-    editor::ViewState const&         viewState,
-    render::ProjectionProjector&     projector
+    placement::PlacementState const& placements,
+    editor::ViewState const&
 )
-    : mState(state)
-    , mPlacementState(placementState)
-    , mViewState(viewState)
-    , mProjector(projector)
-    , mPlacementCache(std::make_unique<placement::PlacementProjectionCache>()) {}
-
-VerifierService::~VerifierService() {
-    detachFromRuntime();
+: mState(state),
+  mPlacements(placements) {}
+VerifierService::~VerifierService() { detachFromRuntime(); }
+void VerifierService::handleJoinLevel(ClientInstance& client) {
+    attachToRuntime(client);
+    mRefreshRequested = true;
 }
-
-void VerifierService::handleBlockChanged(BlockSource& source, BlockPos const& pos, Block const& block) {
-    syncExpectedBlocks();
-
-    auto dimensionId = static_cast<int>(source.getDimensionId());
-    auto expectedIt  = mExpectedBlocksByKey.find(util::makeWorldBlockKey(dimensionId, pos));
-    if (expectedIt == mExpectedBlocksByKey.end()) {
-        return;
-    }
-
-    updateStatus(dimensionId, pos, evaluateBlock(expectedIt->second, source, block));
-    mProjector.rebuild(mPlacementState, mState, mViewState);
-    mProjector.triggerRebuildForPosition(dimensionId, pos, resolveCoordinator(source));
-}
-
-void VerifierService::refresh() {
-    syncExpectedBlocks();
-    clearStatuses();
-    mProjector.rebuild(mPlacementState, mState, mViewState);
-}
-
-void VerifierService::refresh(BlockSource& source) {
-    syncExpectedBlocks();
-
-    auto dimensionId = static_cast<int>(source.getDimensionId());
-    bool removedAny  = false;
-    for (auto it = mState.statusByKey.begin(); it != mState.statusByKey.end();) {
-        if (it->first.dimensionId == dimensionId) {
-            it = mState.statusByKey.erase(it);
-            removedAny = true;
-            continue;
-        }
-        ++it;
-    }
-    if (removedAny) {
-        ++mState.revision;
-    }
-
-    for (auto const& [worldKey, expected] : mExpectedBlocksByKey) {
-        if (worldKey.dimensionId != dimensionId) {
-            continue;
-        }
-
-        auto const& block = source.getBlock(expected.pos);
-        updateStatus(dimensionId, expected.pos, evaluateBlock(expected, source, block));
-    }
-
-    mProjector.rebuildAndRefresh(mPlacementState, mState, mViewState, resolveCoordinator(source));
-}
-
-void VerifierService::handleJoinLevel() {
-    attachToRuntime();
-    if (auto* source = resolveCurrentBlockSource()) {
-        refresh(*source);
-    } else {
-        refresh();
-    }
-}
-
 void VerifierService::handleExitLevel() {
     detachFromRuntime();
-    clearStatuses();
+    clear();
 }
-
-void VerifierService::handleDimensionChanged() {
-    ensureRuntimeBindings();
-    if (auto* source = resolveCurrentBlockSource()) {
-        refresh(*source);
-    } else {
-        refresh();
+void VerifierService::ensureRuntimeBindings(ClientInstance& client) { attachToRuntime(client); }
+void VerifierService::clear() {
+    mState.chunks.clear();
+    ++mState.epoch;
+    ++mState.revision;
+    mState.clearing = false;
+    mKeys.clear();
+    mDirty.clear();
+    mDirtySet.clear();
+    mSpecs.clear();
+    mBuildPlacement = 0;
+    mRevision       = 0;
+    mBuilding       = false;
+    mPolling.reset();
+}
+void VerifierService::refresh() {
+    if (mRevision != mPlacements.revision) mRefreshRequested = true;
+}
+void VerifierService::refresh(BlockSource&) { refresh(); }
+void VerifierService::handleBlockChanged(BlockSource& source, BlockPos const& pos, Block const&) {
+    auto key = util::makeWorldBlockKey(static_cast<int>(source.getDimensionId()), pos);
+    if (mState.find(key.dimensionId, pos) && mDirtySet.insert(key).second) mDirty.push_back(key);
+}
+bool VerifierService::evaluate(int dimension, BlockPos const& pos, VerificationCell& cell) {
+    Block const* actual = nullptr;
+    auto         source = mSources.find(dimension);
+    if (source != mSources.end() && source->second->mOwnerThreadID.get() == std::this_thread::get_id()
+        && source->second->hasChunksAt(pos, 0, false))
+        actual = &source->second->getBlock(pos);
+    return cell.observe(actual, [this](Block const* expected, Block const* current) {
+        return compare(*expected, *current);
+    });
+}
+VerificationStatus VerifierService::compare(Block const& expected, Block const& actual) {
+    if (actual.isAir()) return VerificationStatus::MissingBlock;
+    auto [it, inserted] = mSpecs.try_emplace(&expected);
+    if (inserted) it->second = buildCompareSpecFromBlock(expected);
+    auto const& spec = it->second;
+    if (actual.getBlockType().mNameInfo->mFullName->getHash() != spec.nameHash)
+        return VerificationStatus::BlockMismatch;
+    if (!spec.complete) return VerificationStatus::Unknown;
+    if (spec.bedDirection) {
+        auto direction = readBedDirection(actual);
+        if (!direction) return VerificationStatus::Unknown;
+        if (*direction != *spec.bedDirection) return VerificationStatus::PropertyMismatch;
+    }
+    for (auto const& state : spec.exactStates) {
+        auto value = actual.getState<int>(state.stateId);
+        if (!value || *value != state.value) return VerificationStatus::PropertyMismatch;
+    }
+    return VerificationStatus::Matched;
+}
+void VerifierService::insert(placement::PlacementInstance const& placement, BlockPos pos, Block const* block) {
+    if (!block || block->isAir()) return;
+    auto  key           = util::makeWorldBlockKey(placement.dimensionId, pos);
+    auto& chunk         = mState.chunks[{key.dimensionId, util::subChunkKeyFromWorldPos(pos.x, pos.y, pos.z)}];
+    auto [it, inserted] = chunk.cells.try_emplace(key.posKey, VerificationCell{block, placement.id});
+    if (!inserted) return; 
+    evaluate(key.dimensionId, pos, it->second);
+    chunk.revision    = ++mState.revision;
+    mKeys.push_back(key);
+}
+void VerifierService::update(util::WorldBlockKey key) {
+    auto pos = util::decodePosKey(key.posKey);
+    auto it  = mState.chunks.find({key.dimensionId, util::subChunkKeyFromWorldPos(pos.x, pos.y, pos.z)});
+    if (it == mState.chunks.end()) return;
+    auto cell = it->second.cells.find(key.posKey);
+    if (cell == it->second.cells.end()) return;
+    if (!evaluate(key.dimensionId, pos, cell->second)) return;
+    it->second.revision = ++mState.revision;
+}
+void VerifierService::tick(util::WorkBudget const& budget) {
+    if (mRevision != mPlacements.revision || mRefreshRequested) {
+        mRevision         = mPlacements.revision;
+        mRefreshRequested = false;
+        mState.clearing   = true;
+        ++mState.epoch;
+        ++mState.revision;
+        mBuildPlacement  = mPlacements.order.size();
+        mBlockCursor     = 0;
+        mOverrideStarted = false;
+        mBuilding        = true;
+        mPolling.reset();
+    }
+    
+    while (mState.clearing && budget.available()) {
+        if (!mState.chunks.empty()) {
+            auto it = mState.chunks.begin();
+            if (!it->second.cells.empty()) it->second.cells.erase(it->second.cells.begin());
+            else mState.chunks.erase(it);
+        } else if (!mKeys.empty()) mKeys.pop_back();
+        else if (!mDirty.empty()) {
+            mDirtySet.erase(mDirty.front());
+            mDirty.pop_front();
+        } else mState.clearing = false;
+    }
+    while (!mState.clearing && mBuilding && budget.available()) {
+        if (mBuildPlacement == 0) {
+            mBuilding = false;
+            mPolling.reset();
+            break;
+        }
+        auto found = mPlacements.placements.find(mPlacements.order[mBuildPlacement - 1]);
+        if (found == mPlacements.placements.end() || !found->second.enabled || !found->second.renderEnabled
+            || !found->second.asset) {
+            --mBuildPlacement;
+            mBlockCursor     = 0;
+            mOverrideStarted = false;
+            continue;
+        }
+        auto const& placement = found->second;
+        if (!mOverrideStarted) {
+            mOverride        = placement.overrides.begin();
+            mOverrideStarted = true;
+        }
+        if (mOverride != placement.overrides.end()) {
+            auto const& [key, value] = *mOverride++;
+            if (value.kind == placement::OverrideEntry::Kind::SetBlock)
+                insert(placement, util::decodePosKey(key), value.block);
+            continue;
+        }
+        if (mBlockCursor < placement.asset->localBlocks.size()) {
+            auto const& local       = placement.asset->localBlocks[mBlockCursor++];
+            auto        transformed = placement::transformLocalPos(
+                local.localPos,
+                placement.asset->size,
+                placement.mirror,
+                placement.rotation
+            );
+            BlockPos pos{
+                placement.origin.x + transformed.x,
+                placement.origin.y + transformed.y,
+                placement.origin.z + transformed.z
+            };
+            if (placement.overrides.contains(util::encodePosKey(pos))) continue;
+            auto* block = VanillaBlockStateTransformUtils::transformBlock(
+                *local.renderBlock,
+                render::toMinecraftRotation(placement.rotation),
+                render::toMinecraftMirror(placement.mirror)
+            );
+            insert(placement, pos, block);
+            continue;
+        }
+        --mBuildPlacement;
+        mBlockCursor     = 0;
+        mOverrideStarted = false;
+    }
+    while (!mState.clearing && !mDirty.empty() && budget.available()) {
+        auto key = mDirty.front();
+        mDirty.pop_front();
+        mDirtySet.erase(key);
+        update(key);
+    }
+    
+    auto   pollTime = VerificationPollSchedule::Clock::now();
+    size_t count    = 0;
+    while (!mState.clearing && !mBuilding && count++ < 512 && budget.available()) {
+        auto index = mPolling.next(mKeys.size(), pollTime);
+        if (!index) break;
+        update(mKeys[*index]);
     }
 }
-
-void VerifierService::ensureRuntimeBindings() {
-    attachToRuntime();
-}
-
-void VerifierService::clear() {
-    clearStatuses();
-    mExpectedBlocksByKey.clear();
-    mExpectedPlacementsRevision = 0;
-    mExpectedViewRevision       = 0;
-    mPlacementCache->clear();
-}
-
-void VerifierService::attachToRuntime() {
-    auto level = ll::service::getLevel();
+void VerifierService::attachToRuntime(ClientInstance& client) {
+    auto* level = client.getLevel();
     if (!level) {
         return;
     }
 
     if (!mListener) {
-        mListener = std::make_unique<levischematic::verifier_block_listener::VerifierBlockListener>(*this);
+        mListener = std::make_shared<levischematic::verifier_block_listener::VerifierBlockListener>();
     }
 
     for (int dimId : {0, 1, 2}) {
@@ -202,7 +207,8 @@ void VerifierService::attachToRuntime() {
         }
 
         auto& source = dimension->getBlockSourceFromMainChunkSource();
-        if (auto existing = mSourcesByDimension.find(dimId); existing != mSourcesByDimension.end()) {
+        if (source.mOwnerThreadID.get() != std::this_thread::get_id()) continue;
+        if (auto existing = mSources.find(dimId); existing != mSources.end()) {
             if (existing->second == &source) {
                 continue;
             }
@@ -212,13 +218,14 @@ void VerifierService::attachToRuntime() {
         }
 
         source.addListener(*mListener);
-        mSourcesByDimension[dimId] = &source;
+        mSources[dimId]   = &source;
+        mRefreshRequested = true;
     }
 }
 
 void VerifierService::detachFromRuntime() {
     if (mListener) {
-        for (auto const& [dimId, source] : mSourcesByDimension) {
+        for (auto const& [dimId, source] : mSources) {
             (void)dimId;
             if (source) {
                 source->removeListener(*mListener);
@@ -226,135 +233,23 @@ void VerifierService::detachFromRuntime() {
         }
     }
 
-    mSourcesByDimension.clear();
+    mSources.clear();
     mListener.reset();
 }
 
-VerificationStatus VerifierService::evaluateBlock(
-    ExpectedBlockSnapshot const& expected,
-    BlockSource&                 source,
-    Block const&                 block
-) const {
-    if (block.isAir()) {
-        return VerificationStatus::MissingBlock;
-    }
+void VerifierService::handleSourceDestroyed(BlockSource& source) {
+    
+    
+    std::erase_if(
+        mSources,
+        
 
-    auto blockNameHash = block.getBlockType().mNameInfo->mFullName->getHash();
-    if (blockNameHash != expected.compareSpec.nameHash) {
-        return VerificationStatus::BlockMismatch;
-    }
 
-    for (auto const& state : expected.compareSpec.exactStates) {
-        auto value = block.getState<int>(state.stateId);
-        if (!value.has_value() || *value != state.value) {
-            return VerificationStatus::PropertyMismatch;
-        }
-    }
 
-    // 暂时不考虑容器对比，所以先注释，保留代码，以备后续
-    // if (expected.compareSpec.compareContainer && expected.blockEntity.has_value()
-    //     && !matchesContainerSnapshot(*expected.blockEntity, source, expected.pos)) {
-    //     return VerificationStatus::PropertyMismatch;
-    // }
-
-    return VerificationStatus::Matched;
+        [&](auto const& item) { return item.second == &source; }
+    );
+    mRefreshRequested = true;
 }
 
-void VerifierService::syncExpectedBlocks() {
-    if (mExpectedPlacementsRevision == mPlacementState.revision
-        && mExpectedViewRevision == mViewState.revision) {
-        return;
-    }
 
-    mExpectedBlocksByKey.clear();
-    for (auto placementId : mPlacementState.order) {
-        auto placementIt = mPlacementState.placements.find(placementId);
-        if (placementIt == mPlacementState.placements.end()) {
-            continue;
-        }
-
-        auto const& placement = placementIt->second;
-        if (!placement.enabled || !placement.renderEnabled || !placement.asset) {
-            continue;
-        }
-
-        auto projection = mPlacementCache->view(placement);
-        for (auto const& [worldKey, expected] : projection.expectedBlocksByKey) {
-            if (!mViewState.layerRange.contains(expected.pos.y)) {
-                continue;
-            }
-            mExpectedBlocksByKey[worldKey] = expected;
-        }
-    }
-
-    mExpectedPlacementsRevision = mPlacementState.revision;
-    mExpectedViewRevision       = mViewState.revision;
-
-    bool removedAnyStatus = false;
-    for (auto it = mState.statusByKey.begin(); it != mState.statusByKey.end();) {
-        if (!mExpectedBlocksByKey.contains(it->first)) {
-            it = mState.statusByKey.erase(it);
-            removedAnyStatus = true;
-            continue;
-        }
-        ++it;
-    }
-    if (removedAnyStatus) {
-        ++mState.revision;
-    }
-}
-
-void VerifierService::clearStatuses() {
-    if (mState.statusByKey.empty()) {
-        return;
-    }
-
-    mState.statusByKey.clear();
-    ++mState.revision;
-}
-
-std::shared_ptr<RenderChunkCoordinator> VerifierService::resolveCoordinator(BlockSource const& source) const {
-    auto client = ll::service::getClientInstance();
-    if (!client || !client->getLevelRenderer()) {
-        return nullptr;
-    }
-
-    auto dimId = static_cast<int>(source.getDimensionId());
-    return client->getLevelRenderer()->mRenderChunkCoordinators->at(dimId);
-}
-
-BlockSource* VerifierService::resolveCurrentBlockSource() const {
-    auto client = ll::service::getClientInstance();
-    if (!client) {
-        return nullptr;
-    }
-
-    auto* player = client->getLocalPlayer();
-    if (!player) {
-        return nullptr;
-    }
-
-    auto dimId = static_cast<int>(player->getDimensionId());
-    auto it    = mSourcesByDimension.find(dimId);
-    return it == mSourcesByDimension.end() ? nullptr : it->second;
-}
-
-void VerifierService::updateStatus(int dimensionId, BlockPos const& pos, VerificationStatus status) {
-    auto key = util::makeWorldBlockKey(dimensionId, pos);
-    if (status == VerificationStatus::Unknown) {
-        if (mState.statusByKey.erase(key) > 0) {
-            ++mState.revision;
-        }
-        return;
-    }
-
-    auto it = mState.statusByKey.find(key);
-    if (it != mState.statusByKey.end() && it->second == status) {
-        return;
-    }
-
-    mState.statusByKey[key] = status;
-    ++mState.revision;
-}
-
-} // namespace levischematic::verifier
+} 

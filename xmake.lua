@@ -2,22 +2,19 @@ add_rules("mode.debug", "mode.release")
 
 add_repositories("levimc-repo https://github.com/LiteLDev/xmake-repo.git")
 
-option("target_type")
-    set_default("server")
-    set_showmenu(true)
-    set_values("server", "client")
-option_end()
-
--- add_requires("levilamina x.x.x") for a specific version
--- add_requires("levilamina develop") to use develop version
--- please note that you should add bdslibrary yourself if using dev version
-add_requires("levilamina v26.20.1", {configs = {target_type = get_config("target_type")}})
+add_requires("levilamina 26.51.*", {configs = {target_type = get_config("target_type")}})
 
 add_requires("levibuildscript")
 
 if not has_config("vs_runtime") then
     set_runtimes("MD")
 end
+
+option("target_type")
+    set_default("client")
+    set_showmenu(true)
+    set_values("client")
+option_end()
 
 target("LeviSchematic") -- Change this to your mod name.
     add_rules("@levibuildscript/linkrule")
@@ -57,3 +54,24 @@ target("LeviSchematic") -- Change this to your mod name.
     --  add_includedirs("src-client")
     --  add_files("src-client/**.cpp")
     end
+
+-- 独立回归目标：显式构建/运行，不改变正式 DLL 的完整源码范围。
+for _, name in ipairs({"SessionGateTests", "ChunkCpuTaskTests", "SchematicRenderAlgorithmsTests", "NativeTextureVariantTests", "RefactorStateTests", "ProjectionStateTests", "UiModelTests"}) do
+    target(name)
+        set_default(false)
+        set_kind("binary")
+        set_languages("c++20")
+        set_toolchains("clang-cl")
+        add_cxflags("/EHsc", "/utf-8", "/UNDEBUG")
+        add_defines("NOMINMAX", "UNICODE")
+        add_includedirs("src")
+        add_packages("levilamina")
+        add_files("src-test/" .. name .. ".cpp")
+        if name == "UiModelTests" then
+            add_files("src/levischematic/ui/Ui.cpp")
+            add_files("src/levischematic/ui/UiLayout.cpp")
+        end
+        if name == "ProjectionStateTests" then
+            add_files("src/levischematic/schematic/placement/PlacementStore.cpp")
+        end
+end

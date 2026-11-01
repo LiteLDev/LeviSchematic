@@ -105,4 +105,4 @@ void SelectionService::touchSelectionState() {
     ++mState.selection.revision;
 }
 
-} // namespace levischematic::app
+} 

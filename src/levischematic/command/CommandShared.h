@@ -21,14 +21,41 @@ class RenderChunkCoordinator;
 
 namespace levischematic::command {
 
+
+
+
+
+
+
+
+inline app::SessionAccess acquireSession(CommandOutput& output) {
+    auto session = app::accessSession();
+    if (!session) {
+        output.error("LeviSchematic is unavailable outside an active world session.");
+    }
+    return session;
+}
+
+
+
+
+
 struct SchemLoadParam {
     std::string          filename;
     CommandPositionFloat pos;
 };
 
+
+
+
+
 struct SchemNamedParam {
     std::string filename;
 };
+
+
+
+
 
 struct SchemMoveParam {
     int dx;
@@ -36,29 +63,57 @@ struct SchemMoveParam {
     int dz;
 };
 
+
+
+
+
 struct SchemRotateParam {
     enum class direction { cw90, ccw90, r180 } dir;
 };
+
+
+
+
 
 struct SchemMirrorParam {
     enum class axis { x, z, none } axis_;
 };
 
+
+
+
+
 struct SchemRemoveParam {
     int id;
 };
+
+
+
+
 
 struct SchemSelectParam {
     int id;
 };
 
+
+
+
+
 struct SchemOriginParam {
     CommandPositionFloat pos;
 };
 
+
+
+
+
 struct SchemBlockPosParam {
     CommandPositionFloat pos;
 };
+
+
+
+
 
 struct SchemBlockSetParam {
     CommandPositionFloat pos;
@@ -66,40 +121,91 @@ struct SchemBlockSetParam {
     int                  title_date;
 };
 
+
+
+
+
 struct SchemBlockSetSimpleParam {
     CommandPositionFloat pos;
     CommandBlockName     blockName;
 };
 
+
+
+
+
 struct SchemViewYValueParam {
     int value;
 };
+
+
+
+
+
+struct SchemRendererIsolateParam {
+    enum class mode { on, off } value;
+};
+
+
+
+
 
 struct SchemViewYRangeParam {
     int minY;
     int maxY;
 };
 
-std::shared_ptr<RenderChunkCoordinator> getCoordinator(const CommandOrigin& origin);
-ll::command::CommandHandle&             getOrCreateSchemCommand(bool isClient);
-void                                    refreshProjectionStateForOrigin(const CommandOrigin& origin);
-void                                    logPlacementCommandFailure(
-                                       std::string_view                      operation,
-                                       const std::filesystem::path&          file,
-                                       std::optional<placement::PlacementId> placementId,
-                                       std::string_view                      detail
-                                   );
-void                                    replyPlacementError(
-                                       CommandOutput&             output,
-                                       std::string_view           operation,
-                                       app::PlacementError const& error
-                                   );
-void                                    replySelectionError(
-                                       CommandOutput&             output,
-                                       std::string_view           operation,
-                                       std::string_view           target,
-                                       app::SelectionError const& error
-                                   );
+
+
+
+
+ll::command::CommandHandle& getOrCreateSchemCommand(bool isClient);
+
+
+
+
+
+void                        refreshProjectionStateForOrigin(app::AppKernel& session, const CommandOrigin& origin);
+
+
+
+
+
+
+
+void                        logPlacementCommandFailure(
+    std::string_view                      operation,
+    const std::filesystem::path&          file,
+    std::optional<placement::PlacementId> placementId,
+    std::string_view                      detail
+);
+
+
+
+
+
+
+void replyPlacementError(CommandOutput& output, std::string_view operation, app::PlacementError const& error);
+
+
+
+
+
+
+
+void replySelectionError(
+    CommandOutput&             output,
+    std::string_view           operation,
+    std::string_view           target,
+    app::SelectionError const& error
+);
+
+
+
+
+
+
+
 
 template <typename Fn>
 void withSelectedPlacement(
@@ -121,20 +227,58 @@ void withSelectedPlacement(
     fn(*selected.value());
 }
 
+
+
+
+
+
+
+
 template <typename ReplyFn>
 void flushPlacementRefreshAndReply(
+    app::AppKernel&      session,
     const CommandOrigin& origin,
     CommandOutput&       output,
     ReplyFn&&            reply
 ) {
-    refreshProjectionStateForOrigin(origin);
+    refreshProjectionStateForOrigin(session, origin);
     reply(output);
 }
 
+
+
+
+
 void registerSchemLoadCommands(ll::command::CommandHandle& schemCmd);
+
+
+
+
 void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd);
+
+
+
+
 void registerSchemSelectionCommands(ll::command::CommandHandle& schemCmd);
+
+
+
+
 void registerSchemTransformCommands(ll::command::CommandHandle& schemCmd);
+
+
+
+
 void registerSchemViewCommands(ll::command::CommandHandle& schemCmd);
 
-} // namespace levischematic::command
+
+
+
+void registerSchemConfigCommands(ll::command::CommandHandle& schemCmd);
+
+
+
+
+void registerSchemRendererCommands(ll::command::CommandHandle& schemCmd);
+
+} 

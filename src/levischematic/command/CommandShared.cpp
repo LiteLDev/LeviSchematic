@@ -9,28 +9,22 @@
 namespace levischematic::command {
 namespace {
 
+
+
+
 auto& getLogger() {
     return levischematic::LeviSchematic::getInstance().getSelf().getLogger();
 }
 
-} // namespace
-
-std::shared_ptr<RenderChunkCoordinator> getCoordinator(const CommandOrigin& origin) {
-    auto* dimension = origin.getDimension();
-    if (!dimension) {
-        return nullptr;
-    }
-
-    return app::resolveCoordinatorForDimension(dimension->getDimensionId());
-}
+} 
 
 ll::command::CommandHandle& getOrCreateSchemCommand(bool isClient) {
     return ll::command::CommandRegistrar::getInstance(isClient)
         .getOrCreateCommand("schem", "LeviSchematic commands");
 }
 
-void refreshProjectionStateForOrigin(const CommandOrigin& origin) {
-    (void)app::refreshProjectionStateForDimension(origin.getDimension());
+void refreshProjectionStateForOrigin(app::AppKernel& session, const CommandOrigin& origin) {
+    app::refreshProjectionStateForDimension(session, origin.getDimension());
 }
 
 void logPlacementCommandFailure(
@@ -67,4 +61,4 @@ void replySelectionError(
     output.error(error.describe(target));
 }
 
-} // namespace levischematic::command
+} 

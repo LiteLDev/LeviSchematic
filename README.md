@@ -32,7 +32,9 @@ It lets players load saved structures into the world as translucent projections,
 - Supports a global visible Y range filter for projection display
 - Tracks expected blocks from loaded placements
 - Compares projected blocks with actual world blocks
-- Uses different projection colors for mismatched block types and mismatched block properties
+- Matched blocks are hidden; missing/unknown blocks use the normal projection; type/property errors use separate Hull batches
+- Applies Y filtering to projected blocks, block entities and Hull
+- Removes the custom text HUD; command feedback and selection wireframes remain
 
 ### Selection And Export
 
@@ -57,7 +59,7 @@ All commands use the `/schem` prefix.
 | Command | Purpose | Usage Notes |
 |------|------|------|
 | `/schem load <filename>` | Loads a schematic at the player's current position. | `filename` can be given with or without the `.mcstructure` extension. |
-| `/schem load <filename> <x> <y> <z>` | Loads a schematic at the specified world position. | This creates a new placement and prints its placement ID. |
+| `/schem load <filename> <x> <y> <z>` | Loads a schematic at the specified world position. | Returns a queued task ID immediately; completion reports the new placement ID on a client tick. |
 
 Examples:
 
@@ -65,6 +67,15 @@ Examples:
 /schem load house
 /schem load tower 100 64 -32
 ```
+
+Loads use one background file/NBT worker (four unfinished requests by default), then budgeted foreground preparation. A completed load means the placement has been published; verification, fake-world preparation and geometry become available progressively. Cancelling a task does not remove an already published placement.
+
+| Command | Purpose |
+|---|---|
+| `/schem load status <taskId>` | Shows phase, processed block indices and completion/error details. |
+| `/schem load cancel <taskId>` | Cancels an unfinished load in the current session. |
+| `/schem config reload` | Validates `config.json` and queues application on the next client tick. |
+| `/schem config save` | Saves the most recent valid submitted/applied configuration. |
 
 ### Placement Management
 
@@ -77,7 +88,7 @@ Examples:
 | `/schem toggle` | Toggles whether the selected placement is enabled. | Disabled placements are excluded from normal projection behavior. |
 | `/schem toggle render` | Toggles whether the selected placement is visually rendered. | Hides or shows the projection without deleting the placement. |
 | `/schem info` | Shows detailed information about the selected placement. | Includes origin, transform, render state, non-air block count, and bounding box. |
-| `/schem clear` | Removes all loaded placements. | Clears the full placement list at once. |
+| `/schem clear` | Removes all loaded placements. | Also cancels unfinished loads so old results cannot recreate placements. |
 
 Examples:
 
@@ -87,6 +98,15 @@ Examples:
 /schem toggle render
 /schem info
 ```
+
+### Preview Renderer
+
+| Command | Purpose | Usage Notes |
+|------|------|------|
+| `/schem renderer stats` | Shows preview cache and geometry statistics. | Includes per-placement chunk and submitted layer counts. |
+| `/schem renderer reset` | Releases preview runtime resources. | Preserves placements, transforms and overrides; rebuilds on the next valid render frame. |
+
+Dimension changes release preview caches and keep placements. Leaving a world clears placements and selections; rejoin starts a new session. Actual block entities remain on the existing native display path; visibility follows verification and Y filtering. They are not dispatched while a CPU mesh job owns their fake world.
 
 ### Transform Commands
 
@@ -177,6 +197,7 @@ When selection mode is enabled, the source code also supports in-world corner pi
 ## Notes
 
 - The project works with `.mcstructure` files only.
-- The runtime creates and uses a `schematics` directory for loading and saving structure files.
+- The runtime creates and uses a `schematics` directory for loading and saving structure files. When no local world path is available, schematic file operations remain unavailable until the path can be resolved.
 - The Y range filter is global to the current projection view, not per placement.
 - Many commands require a currently selected placement. If nothing is selected, load a schematic first or use `/schem select <id>`.
+

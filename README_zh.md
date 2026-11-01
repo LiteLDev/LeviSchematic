@@ -32,7 +32,7 @@ LeviShematic 是一个面向 Bedrock 客户端的结构投影模组，核心围�
 - 支持使用全局 Y 范围过滤控制投影显示层
 - 根据已加载 placement 生成期望方块集合
 - 将投影期望方块与世界中的实际方块进行比较
-- 对方块类型不匹配和属性不匹配使用不同颜色进行提示
+- 对方块类型不匹配和属性不匹配分别显示 Hull
 
 ### 选区与导出
 
@@ -57,7 +57,7 @@ LeviShematic 是一个面向 Bedrock 客户端的结构投影模组，核心围�
 | 指令 | 作用 | 使用说明 |
 |------|------|------|
 | `/schem load <filename>` | 在玩家当前位置加载结构。 | `filename` 可以带 `.mcstructure` 后缀，也可以不带。 |
-| `/schem load <filename> <x> <y> <z>` | 在指定坐标加载结构。 | 会创建一个新的 placement，并返回对应 ID。 |
+| `/schem load <filename> <x> <y> <z>` | 在指定坐标加载结构。 | 立即返回排队任务编号；前台完成后反馈 placement ID。 |
 
 示例：
 
@@ -77,7 +77,7 @@ LeviShematic 是一个面向 Bedrock 客户端的结构投影模组，核心围�
 | `/schem toggle` | 切换当前 placement 的启用状态。 | 被禁用的 placement 不再按正常投影逻辑参与处理。 |
 | `/schem toggle render` | 切换当前 placement 的渲染显示状态。 | 仅隐藏或显示投影，不会删除 placement。 |
 | `/schem info` | 查看当前 placement 的详细信息。 | 会显示原点、变换、渲染状态、非空气方块数和包围盒。 |
-| `/schem clear` | 清空全部 placement。 | 一次性移除当前全部已加载结构。 |
+| `/schem clear` | 清空全部 placement。 | 同时取消未完成加载，防止旧任务在清空后重新创建 placement。 |
 
 示例：
 
@@ -174,9 +174,18 @@ LeviShematic 是一个面向 Bedrock 客户端的结构投影模组，核心围�
 - 手持木棍左键方块，设置 `pos1`
 - 手持木棍右键方块，设置 `pos2`
 
+### 预览渲染器
+
+| 指令 | 作用 | 说明 |
+|------|------|------|
+| `/schem renderer stats` | 查看预览缓存与几何统计。 | 包含各 placement 的区块数和上一帧图层提交数。 |
+| `/schem renderer reset` | 释放预览运行时资源。 | 保留 placement、变换和覆写，下个有效渲染帧重建。 |
+
+切换维度时释放预览缓存并保留 placement；退出世界时清空 placement 和选区，重进后开始新会话。保留实际方块实体显示链；实体遵循校验和 Y 范围过滤，CPU 网格任务独占假世界期间暂不分发实体绘制。
+
 ## 说明
 
 - 项目当前只围绕 `.mcstructure` 文件工作。
-- 运行时会使用 `schematics` 目录来加载和保存结构文件。
+- 运行时会使用 `schematics` 目录来加载和保存结构文件；没有可用的本地世界路径时，结构文件操作保持不可用，等待后续取得世界路径。
 - Y 范围过滤是当前投影视图的全局设置，不是单个 placement 的独立设置。
 - 很多指令依赖当前已选中的 placement。如果没有选中项，请先使用 `/schem load` 或 `/schem select <id>`。

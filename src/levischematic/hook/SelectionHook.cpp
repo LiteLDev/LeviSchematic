@@ -14,6 +14,7 @@
 #include "mc/common/Globals.h"
 #include "mc/common/client/renderer/helpers/MeshHelpers.h"
 #include "mc/deps/minecraft_renderer/objects/ViewRenderObject.h"
+#include "mc/deps/minecraft_renderer/resources/OffscreenCaptureDescription.h"
 #include "mc/deps/renderer/ShaderColor.h"
 #include "mc/world/actor/player/Inventory.h"
 #include "mc/world/actor/player/Player.h"
@@ -25,27 +26,41 @@
 #include "mc/world/level/BlockPos.h"
 
 #include <array>
-#include <variant>
 
 namespace levischematic::hook {
 namespace {
 
 bool gSelectionHooksRegistered = false;
 
+
+
+
 auto& getLogger() {
     return levischematic::LeviSchematic::getInstance().getSelf().getLogger();
 }
+
+
+
+
 
 struct WireframeQuad {
     std::array<Vec3, 4> quad;
     int                 color;
 };
 
+
+
+
+
 struct Wireframe {
     BlockPos                      origin;
     BlockPos                      size;
     std::array<WireframeQuad, 24> quadList;
 };
+
+
+
+
 
 std::array<WireframeQuad, 24> GenerateStructureBlockWireframe(const BlockPos& size) {
     const float E = 0.005f;
@@ -66,15 +81,42 @@ std::array<WireframeQuad, 24> GenerateStructureBlockWireframe(const BlockPos& si
     std::array<WireframeQuad, 24> quadList;
     int                           i = 0;
 
-    auto makeY = [&](float x, float z, float wx, float wz, int col) {
+    auto makeY =
+    
+
+
+
+
+
+
+
+    [&](float x, float z, float wx, float wz, int col) {
         quadList[i++] = {{{V3{x, y0, z}, V3{x, y1, z}, V3{wx, yn, z}, V3{wx, C, z}}}, col};
         quadList[i++] = {{{V3{x, y0, z}, V3{x, y1, z}, V3{x, yn, wz}, V3{x, C, wz}}}, col};
     };
-    auto makeX = [&](float y, float z, float wy, float wz, int col) {
+    auto makeX =
+    
+
+
+
+
+
+
+
+    [&](float y, float z, float wy, float wz, int col) {
         quadList[i++] = {{{V3{x0, y, z}, V3{x1, y, z}, V3{xn, wy, z}, V3{C, wy, z}}}, col};
         quadList[i++] = {{{V3{x0, y, z}, V3{x1, y, z}, V3{xn, y, wz}, V3{C, y, wz}}}, col};
     };
-    auto makeZ = [&](float x, float y, float wx, float wy, int col) {
+    auto makeZ =
+    
+
+
+
+
+
+
+
+    [&](float x, float y, float wx, float wy, int col) {
         quadList[i++] = {{{V3{x, y, z0}, V3{x, y, z1}, V3{wx, y, zn}, V3{wx, y, C}}}, col};
         quadList[i++] = {{{V3{x, y, z0}, V3{x, y, z1}, V3{x, wy, zn}, V3{x, wy, C}}}, col};
     };
@@ -102,6 +144,47 @@ std::array<WireframeQuad, 24> GenerateStructureBlockWireframe(const BlockPos& si
     return quadList;
 }
 
+
+
+
+
+
+void tessellateWireBox(Tessellator& tess, AABB const & bb){
+    tess.begin({}, (mce::PrimitiveMode)4, 0, false);
+    tess.vertex(bb.max.x, bb.min.y, bb.min.z);
+    tess.vertex(bb.min.x, bb.min.y, bb.min.z);
+    tess.vertex(bb.min.x, bb.max.y, bb.min.z);
+    tess.vertex(bb.max.x, bb.max.y, bb.min.z);
+    tess.vertex(bb.min.x, bb.min.y, bb.max.z);
+    tess.vertex(bb.max.x, bb.min.y, bb.max.z);
+    tess.vertex(bb.min.x, bb.max.y, bb.max.z);
+    tess.vertex(bb.max.x, bb.max.y, bb.max.z);
+    tess.vertex(bb.min.x, bb.min.y, bb.min.z);
+    tess.vertex(bb.min.x, bb.min.y, bb.max.z);
+    tess.vertex(bb.max.x, bb.min.y, bb.min.z);
+    tess.vertex(bb.max.x, bb.min.y, bb.max.z);
+    tess.vertex(bb.min.x, bb.max.y, bb.min.z);
+    tess.vertex(bb.min.x, bb.max.y, bb.max.z);
+    tess.vertex(bb.max.x, bb.max.y, bb.min.z);
+    tess.vertex(bb.max.x, bb.max.y, bb.max.z);
+    tess.vertex(bb.min.x, bb.min.y, bb.min.z);
+    tess.vertex(bb.min.x, bb.max.y, bb.min.z);
+    tess.vertex(bb.max.x, bb.min.y, bb.min.z);
+    tess.vertex(bb.max.x, bb.max.y, bb.min.z);
+    tess.vertex(bb.min.x, bb.min.y, bb.max.z);
+    tess.vertex(bb.min.x, bb.max.y, bb.max.z);
+    tess.vertex(bb.max.x, bb.min.y, bb.max.z);
+    tess.vertex(bb.max.x, bb.max.y, bb.max.z);
+}
+
+
+
+
+
+
+
+
+
 void DrawAxisLines(
     ScreenContext&          screenCtx,
     Tessellator&            tess,
@@ -126,13 +209,7 @@ void DrawAxisLines(
         tess.vertex(quad.quad[3].x, quad.quad[3].y, quad.quad[3].z);
     }
 
-    std::variant<
-        std::monostate,
-        UIActorOffscreenCaptureDescription,
-        UIThumbnailMeshOffscreenCaptureDescription,
-        UIMeshOffscreenCaptureDescription,
-        UIStructureVolumeOffscreenCaptureDescription>
-        captureDesc;
+    OffscreenCaptureDescription captureDesc{};
     MeshHelpers::renderMeshImmediately(screenCtx, tess, material, captureDesc);
 
     currentMat.stack->_isDirty = true;
@@ -144,6 +221,14 @@ void DrawAxisLines(
     currentMat.mat   = nullptr;
     currentMat.stack = nullptr;
 }
+
+
+
+
+
+
+
+
 
 void DrawPosLine(
     ScreenContext&          screenCtx,
@@ -163,36 +248,38 @@ void DrawPosLine(
     screenCtx.currentShaderColor.color = mce::Color::YELLOW();
     screenCtx.currentShaderColor.dirty = true;
 
-    std::variant<
-        std::monostate,
-        UIActorOffscreenCaptureDescription,
-        UIThumbnailMeshOffscreenCaptureDescription,
-        UIMeshOffscreenCaptureDescription,
-        UIStructureVolumeOffscreenCaptureDescription>
-        captureDesc{};
+    OffscreenCaptureDescription captureDesc{};
 
     MeshHelpers::renderMeshImmediately(screenCtx, tess, material, captureDesc);
 }
 
-} // namespace
+} 
+
+
+
+
+
+
+
 
 LL_TYPE_INSTANCE_HOOK(
     SelectionRenderWireframeHook,
     ll::memory::HookPriority::Normal,
     LevelRendererCamera,
-    &LevelRendererCamera::renderStructureWireframes,
+    &LevelRendererCamera::$render,
     void,
     BaseActorRenderContext& renderContext,
-    IClientInstance const&  clientInstance,
-    ViewRenderObject const& renderObj
+    ViewRenderObject const& renderObj,
+    IClientInstance&  clientInstance
 ) {
-    origin(renderContext, clientInstance, renderObj);
+    origin(renderContext, renderObj, clientInstance);
 
-    if (!app::hasAppKernel()) {
+    auto session = app::tryAccessSession();
+    if (!session) {
         return;
     }
 
-    auto overlay = app::getAppKernel().selection().overlay();
+    auto overlay = session->selection().overlay();
     if (overlay.selectionMode) {
         if (overlay.corner1) {
             DrawPosLine(
@@ -230,23 +317,37 @@ LL_TYPE_INSTANCE_HOOK(
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
 LL_TYPE_INSTANCE_HOOK(
     SelectionClickPos2Hook,
-    HookPriority::Normal,
+    ll::memory::HookPriority::Normal,
     GameMode,
-    &GameMode::_sendUseItemOnEvents,
+    &GameMode::$useItemOn,
     InteractionResult,
     ItemStack&        item,
     ::BlockPos const& at,
     uchar             face,
     ::Vec3 const&     hit,
+    ::HandSlot        handSlot,
+    Block const*      targetBlock,
     bool              isFirstEvent
 ) {
-    if (!app::hasAppKernel()) {
-        return origin(item, at, face, hit, isFirstEvent);
+    auto session = app::accessSession();
+    if (!session) {
+        return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
     }
 
-    auto& selectionService = app::getAppKernel().selection();
+    auto& selectionService = session->selection();
     if (isFirstEvent
         && selectionService.isSelectionModeEnabled()
         && item.isInstance(VanillaItemNames::Stick(), false)) {
@@ -254,8 +355,16 @@ LL_TYPE_INSTANCE_HOOK(
         getLogger().debug("Selection pos2: {}", at.toString());
         return InteractionResult{true,false};
     }
-    return origin(item, at, face, hit, isFirstEvent);
+    session.reset();
+    return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
 }
+
+
+
+
+
+
+
 
 LL_TYPE_INSTANCE_HOOK(
     SelectionClickPos1Hook,
@@ -267,11 +376,12 @@ LL_TYPE_INSTANCE_HOOK(
     uchar face,
     bool& hasDestroyedBlock
 ) {
-    if (!app::hasAppKernel()) {
+    auto session = app::accessSession();
+    if (!session) {
         return origin(pos, face, hasDestroyedBlock);
     }
 
-    auto& selectionService = app::getAppKernel().selection();
+    auto& selectionService = session->selection();
     auto& item =
         this->mPlayer.mInventory->mInventory->getItem(this->mPlayer.mInventory->mSelected);
 
@@ -280,6 +390,7 @@ LL_TYPE_INSTANCE_HOOK(
         getLogger().debug("Selection pos1: {}", pos.toString());
         return false;
     }
+    session.reset();
     return origin(pos, face, hasDestroyedBlock);
 }
 
@@ -304,4 +415,4 @@ void unregisterSelectionHooks() {
     gSelectionHooksRegistered = false;
 }
 
-} // namespace levischematic::hook
+} 

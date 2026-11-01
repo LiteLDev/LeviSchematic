@@ -7,12 +7,17 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <mutex>
 
-namespace levischematic::render {
+namespace levischematic::placement {
 struct PatchOp;
 }
 
 namespace levischematic::placement {
+
+
+
+
 
 struct PlacementState {
     std::unordered_map<PlacementId, PlacementInstance> placements;
@@ -20,14 +25,37 @@ struct PlacementState {
     std::optional<PlacementId>                         selectedId;
     uint64_t                                           revision = 0;
     PlacementId                                        nextPlacementId = 1;
+    mutable std::recursive_mutex                       mutex;
 };
+
+
+
+
 
 class PlacementStore {
 public:
+    
+
+
+
     explicit PlacementStore(PlacementState& state) : mState(state) {}
 
+    
+
+
     PlacementState&       state() { return mState; }
+    
+
+
     PlacementState const& state() const { return mState; }
+
+    
+
+
+
+
+
+
 
     PlacementId createPlacement(
         std::shared_ptr<const SchematicAsset> asset,
@@ -37,30 +65,105 @@ public:
         std::filesystem::path                 filePath
     );
 
+    
+
+
+
     PlacementInstance*       get(PlacementId id);
+    
+
+
+
     PlacementInstance const* get(PlacementId id) const;
+    
+
+
     PlacementInstance*       selected();
+    
+
+
     PlacementInstance const* selected() const;
 
+    
+
+
+
     [[nodiscard]] bool remove(PlacementId id);
+    
+
+
     void               clear();
+    
+
+
+
     [[nodiscard]] bool select(PlacementId id);
+    
+
+
     void               selectLast();
 
+    
+
+
+
+
+
+
     [[nodiscard]] bool move(PlacementId id, int dx, int dy, int dz);
+    
+
+
+
+
     [[nodiscard]] bool setOrigin(PlacementId id, BlockPos origin);
+    
+
+
+
+
     [[nodiscard]] bool rotate(PlacementId id, PlacementInstance::Rotation delta);
+    
+
+
+
+
     [[nodiscard]] bool setMirror(PlacementId id, PlacementInstance::Mirror mirror);
+    
+
+
+
     [[nodiscard]] bool resetTransform(PlacementId id);
+    
+
+
+
     [[nodiscard]] bool toggleEnabled(PlacementId id);
+    
+
+
+
     [[nodiscard]] bool toggleRender(PlacementId id);
-    [[nodiscard]] bool patchBlock(PlacementId id, BlockPos worldPos, render::PatchOp const& op);
+    
+
+
+
+
+
+    [[nodiscard]] bool patchBlock(PlacementId id, BlockPos worldPos, placement::PatchOp const& op);
 
 private:
+    
+
+
     void touchState();
-    void touchPlacement(PlacementInstance& placement);
+    
+
+
+
+    void touchPlacement(PlacementInstance& placement, bool contentChanged = true);
 
     PlacementState& mState;
 };
 
-} // namespace levischematic::placement
+} 

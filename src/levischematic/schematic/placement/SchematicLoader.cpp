@@ -1,234 +1,101 @@
 #include "SchematicLoader.h"
-
-#include "levischematic/LeviSchematic.h"
-
-#include "ll/api/memory/Memory.h"
 #include "ll/api/service/Bedrock.h"
-
-
-#include "mc/dataloadhelper/StructureDataLoadHelper.h"
 #include "mc/deps/nbt/CompoundTag.h"
-#include "mc/deps/nbt/CompoundTagVariant.h"
-#include "mc/deps/nbt/ListTag.h"
 #include "mc/world/level/Level.h"
-#include "mc/world/level/block/actor/BlockActor.h"
 #include "mc/world/level/levelgen/structure/StructureBlockPalette.h"
 #include "mc/world/level/levelgen/structure/StructureTemplate.h"
-
+#include <fstream>
+#include <limits>
+#include <stdexcept>
 
 namespace levischematic::placement {
-namespace {
-
-auto& getLogger() { return levischematic::LeviSchematic::getInstance().getSelf().getLogger(); }
-
-void logFailure(std::string_view operation, std::filesystem::path const& file, LoadPlacementError const& error) {
-    getLogger().warn(
-        "Placement operation failed [operation={}, file={}]: {}",
-        operation,
-        file.string(),
-        error.describe(file.string())
-    );
-}
-
-std::optional<verifier::ContainerSlotSnapshot> tryParseContainerSlot(CompoundTag const& tag) {
-    if (!tag.contains("Slot") || !tag.contains("Count")) {
-        return std::nullopt;
-    }
-
-    uint64_t nameHash = 0;
-    if (tag.contains("Name")) {
-        nameHash = HashedString(static_cast<std::string_view>(tag["Name"])).getHash();
-    } else if (tag.contains("id")) {
-        nameHash = HashedString(static_cast<std::string_view>(tag["id"])).getHash();
-    }
-
-    if (nameHash == 0) {
-        return std::nullopt;
-    }
-
-    return verifier::ContainerSlotSnapshot{
-        .slot         = static_cast<int>(tag["Slot"]),
-        .itemNameHash = nameHash,
-        .count        = static_cast<int>(tag["Count"]),
-    };
-}
-
-std::optional<verifier::BlockEntitySnapshot> parseBlockEntitySnapshot(CompoundTag const& tag) {
-    verifier::BlockEntitySnapshot snapshot;
-    bool                          sawContainerTag = false;
-
-    if (tag.contains("Items", Tag::List)) {
-        sawContainerTag = true;
-        verifier::ContainerSnapshot container;
-        auto const&                 items = tag["Items"].get<ListTag>();
-        container.slots.reserve(items.size());
-        for (auto const& entry : items) {
-            if (!entry || !entry.hold(Tag::Compound)) {
-                continue;
-            }
-            auto parsedSlot = tryParseContainerSlot(entry.get<CompoundTag>());
-            if (parsedSlot) {
-                container.slots.push_back(*parsedSlot);
-            }
-        }
-
-        snapshot.container = std::move(container);
-    }
-
-    if (!sawContainerTag) {
-        return std::nullopt;
-    }
-    return snapshot;
-}
-
-std::optional<verifier::BlockEntitySnapshot> getBlockEntitySnapshot(StructureTemplateData const& data, int flatIndex) {
-    auto const* palette = data.getPalette(StructureTemplateData::DEFAULT_PALETTE_NAME());
-    if (!palette) {
-        return std::nullopt;
-    }
-
-    auto const* positionData = palette->getBlockPositionData(static_cast<uint64_t>(flatIndex));
-    if (!positionData || !positionData->mBlockEntityData) {
-        return std::nullopt;
-    }
-
-    return parseBlockEntitySnapshot(*positionData->mBlockEntityData);
-}
-
-std::shared_ptr<BlockActor> getBlockActor(StructureTemplateData const& data, int flatIndex, DataLoadHelper& helper) {
-    auto const* palette = data.getPalette(StructureTemplateData::DEFAULT_PALETTE_NAME());
-    if (!palette) {
-        return nullptr;
-    }
-    auto const* positionData = palette->getBlockPositionData(static_cast<uint64_t>(flatIndex));
-    if (positionData && positionData->mBlockEntityData) {
-        return BlockActor::loadStatic(ll::service::getLevel(), *positionData->mBlockEntityData, helper);
-    }
-    return nullptr;
-}
-
-int getFlatIndex(BlockPos const& pos, BlockPos const& size) { return pos.z + size.z * (pos.y + size.y * pos.x); }
-
-} // namespace
-
-LoadAssetResult SchematicLoader::loadMcstructureAsset(std::filesystem::path const& path) const {
-    namespace fs = std::filesystem;
-
-    auto fail = [&](LoadPlacementError error) -> LoadAssetResult {
-        logFailure("loader.loadMcstructureAsset", path, error);
-        return LoadAssetResult::failure(std::move(error));
-    };
-
+Expected<AssetPreparation, LoadPlacementError>
+SchematicLoader::read(std::filesystem::path const& path, std::stop_token stop) {
+    using Result = Expected<AssetPreparation, LoadPlacementError>;
     try {
-        std::error_code ec;
-        if (!fs::exists(path, ec) || ec) {
-            return fail({
-                .code = LoadPlacementError::Code::FileNotFound,
-            });
+        std::ifstream input(path, std::ios::binary | std::ios::ate);
+        if (!input) return Result::failure({LoadPlacementError::Code::FileNotFound});
+        auto length = input.tellg();
+        if (length <= 0 || static_cast<uint64_t>(length) > std::string{}.max_size())
+            return Result::failure({LoadPlacementError::Code::FileReadFailed, "invalid file length"});
+        input.seekg(0);
+        std::string bytes;
+        char        buffer[65536];
+        while (input && !stop.stop_requested()) {
+            input.read(buffer, sizeof(buffer));
+            bytes.append(buffer, static_cast<size_t>(input.gcount()));
         }
-
-        std::ifstream file(path, std::ios::binary | std::ios::ate);
-        if (!file.is_open()) {
-            return fail({
-                .code   = LoadPlacementError::Code::FileReadFailed,
-                .detail = "unable to open file",
-            });
+        if (stop.stop_requested()) return Result::failure({LoadPlacementError::Code::FileReadFailed, "cancelled"});
+        if (input.bad() || bytes.size() != static_cast<uint64_t>(length))
+            return Result::failure({LoadPlacementError::Code::FileReadFailed, "incomplete read"});
+        auto tag = CompoundTag::fromBinaryNbt(bytes, true);
+        if (!tag) return Result::failure({LoadPlacementError::Code::NbtParseFailed});
+        
+        auto structure = std::make_shared<StructureTemplate>(
+            path.stem().string(),
+            Bedrock::NonOwnerPointer<IUnknownBlockTypeRegistry>{}
+        );
+        if (!structure->load(*tag)) return Result::failure({LoadPlacementError::Code::TemplateLoadFailed});
+        auto size = structure->rawSize();
+        if (size.x <= 0 || size.y <= 0 || size.z <= 0)
+            return Result::failure({LoadPlacementError::Code::EmptyStructure});
+        uint64_t volume = static_cast<uint64_t>(size.x) * static_cast<uint64_t>(size.y);
+        if (volume > static_cast<uint64_t>(std::numeric_limits<int>::max()) / static_cast<uint64_t>(size.z))
+            return Result::failure(
+                {LoadPlacementError::Code::TemplateLoadFailed, "structure volume exceeds supported index range"}
+            );
+        volume *= size.z;
+        if (structure->mStructureTemplateData->mBlockIndices->size() != volume)
+            return Result::failure(
+                {LoadPlacementError::Code::TemplateLoadFailed, "block index count does not match size"}
+            );
+        auto const* palette =
+            structure->mStructureTemplateData->getPalette(StructureTemplateData::DEFAULT_PALETTE_NAME());
+        if (!palette)
+            return Result::failure({LoadPlacementError::Code::TemplateLoadFailed, "default palette is missing"});
+        auto count = palette->mStructurePaletteIdToSerializationId->size();
+        for (int index : structure->mStructureTemplateData->mBlockIndices.get()) {
+            if (stop.stop_requested()) return Result::failure({LoadPlacementError::Code::FileReadFailed, "cancelled"});
+            if (index < -1 || (index >= 0 && static_cast<size_t>(index) >= count))
+                return Result::failure({LoadPlacementError::Code::TemplateLoadFailed, "invalid palette index"});
         }
-
-        auto fileSize = static_cast<size_t>(file.tellg());
-        file.seekg(0, std::ios::beg);
-
-        std::string rawData(fileSize, '\0');
-        if (!file.read(rawData.data(), static_cast<std::streamsize>(fileSize))) {
-            return fail({
-                .code   = LoadPlacementError::Code::FileReadFailed,
-                .detail = "read returned incomplete data",
-            });
-        }
-
-        auto tagResult = CompoundTag::fromBinaryNbt(rawData, true);
-        if (!tagResult) {
-            return fail({
-                .code = LoadPlacementError::Code::NbtParseFailed,
-            });
-        }
-
-        auto level = ll::service::getLevel();
-        if (!level) {
-            return fail({
-                .code   = LoadPlacementError::Code::RegistryError,
-                .detail = "level service is unavailable",
-            });
-        }
-
-        auto              registry = level->getUnknownBlockTypeRegistry();
-        StructureTemplate structureTemplate(path.filename().string(), registry);
-        if (!structureTemplate.load(*tagResult)) {
-            return fail({
-                .code = LoadPlacementError::Code::TemplateLoadFailed,
-            });
-        }
-
-        auto size = structureTemplate.rawSize();
-        if (size.x <= 0 || size.y <= 0 || size.z <= 0) {
-            return fail({
-                .code = LoadPlacementError::Code::EmptyStructure,
-            });
-        }
-
-        auto asset         = std::make_shared<SchematicAsset>();
-        asset->size        = size;
-        asset->defaultName = path.stem().string();
-        asset->localBlocks.reserve(static_cast<size_t>(size.x) * size.y * size.z);
-
-        auto const& data = structureTemplate.mStructureTemplateData;
-
-        // auto datehelper = StructureDataLoadHelper(
-        //     {0, 0, 0},
-        //     data->mStructureWorldOrigin,
-        //     {0, 0, 0},
-        //     ActorUniqueID::INVALID_ID(),
-        //     Rotation::None,
-        //     Mirror::None,
-        //     level
-        // );
-        // auto datahelper = makeStructureDataLoadHelper(data->mStructureWorldOrigin, level);
-        for (int x = 0; x < size.x; ++x) {
-            for (int y = 0; y < size.y; ++y) {
-                for (int z = 0; z < size.z; ++z) {
-                    BlockPos localPos{x, y, z};
-                    auto*    block = StructureTemplate::tryGetBlockAtPos(localPos, data, registry);
-                    if (!block || block->isAir()) {
-                        continue;
-                    }
-                    // getLogger().debug("Pos:{}",localPos.toString().c_str());
-                    auto dataloadhelp = StructureDataLoadHelper(
-                        localPos,
-                        data->mStructureWorldOrigin,
-                        {0, 0, 0},
-                        ActorUniqueID::INVALID_ID(),
-                        Rotation::None,
-                        Mirror::None,
-                        level
-                    );
-                    asset->localBlocks.push_back({
-                        .localPos    = localPos,
-                        .renderBlock = block,
-                        .blockActor  = getBlockActor(data, getFlatIndex(localPos, size), dataloadhelp),
-                        .compareSpec = verifier::buildCompareSpecFromBlock(*block),
-                        .blockEntity = getBlockEntitySnapshot(data, getFlatIndex(localPos, size)),
-                    });
-                }
-            }
-        }
-
-        return LoadAssetResult::success(std::move(asset));
+        AssetPreparation result;
+        result.asset              = std::make_shared<SchematicAsset>();
+        result.asset->size        = size;
+        result.asset->defaultName = path.stem().string();
+        result.asset->structure   = std::move(structure);
+        result.palette.resize(count);
+        return Result::success(std::move(result));
     } catch (std::exception const& e) {
-        return fail({
-            .code   = LoadPlacementError::Code::FileReadFailed,
-            .detail = e.what(),
-        });
+        return Result::failure({LoadPlacementError::Code::FileReadFailed, e.what()});
     }
 }
 
-} // namespace levischematic::placement
+bool SchematicLoader::advance(AssetPreparation& pending, util::WorkBudget const& budget) {
+    auto level = ll::service::getLevel();
+    if (!level) throw std::runtime_error("World registry is unavailable.");
+    auto        registry = level->getUnknownBlockTypeRegistry();
+    auto const& data     = pending.asset->structure->mStructureTemplateData.get();
+    auto const* palette  = data.getPalette(StructureTemplateData::DEFAULT_PALETTE_NAME());
+    while (pending.paletteCursor < pending.palette.size() && budget.available()) {
+        auto i             = pending.paletteCursor++;
+        pending.palette[i] = palette->tryGetBlock(i, registry);
+    }
+    if (pending.paletteCursor < pending.palette.size()) return false;
+    auto const& indices = data.mBlockIndices.get();
+    auto        size    = pending.asset->size;
+    while (pending.blockCursor < indices.size() && budget.available()) {
+        auto  flat  = pending.blockCursor++;
+        auto  index = indices[flat];
+        auto* block = index >= 0 ? pending.palette[static_cast<size_t>(index)] : nullptr;
+        if (!block || block->isAir()) continue;
+        BlockPos pos{
+            static_cast<int>(flat / (static_cast<size_t>(size.y) * size.z)),
+            static_cast<int>((flat / size.z) % size.y),
+            static_cast<int>(flat % size.z)
+        };
+        pending.asset->localBlocks.push_back({pos, block});
+    }
+    return pending.blockCursor == indices.size();
+}
+} 

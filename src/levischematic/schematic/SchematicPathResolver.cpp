@@ -9,16 +9,29 @@ namespace {
 
 namespace fs = std::filesystem;
 
+
+
+
+
 bool pathExists(const fs::path& path) {
     std::error_code ec;
     return fs::exists(path, ec) && !ec;
 }
+
+
+
+
 
 fs::path makeAbsoluteIfPossible(const fs::path& path) {
     std::error_code ec;
     auto            absolute = fs::absolute(path, ec);
     return ec ? path : absolute;
 }
+
+
+
+
+
 
 void appendUnique(std::vector<fs::path>& candidates, fs::path candidate) {
     candidate = candidate.lexically_normal();
@@ -27,7 +40,7 @@ void appendUnique(std::vector<fs::path>& candidates, fs::path candidate) {
     }
 }
 
-} // namespace
+} 
 
 SchematicPathResolver::SchematicPathResolver(std::filesystem::path schematicDirectory)
 : mSchematicDirectory(std::move(schematicDirectory)) {
@@ -86,4 +99,4 @@ std::filesystem::path SchematicPathResolver::resolveExistingPath(const std::file
     return makeAbsoluteIfPossible(withMcstructureExtension(path));
 }
 
-} // namespace levischematic::schematic
+} 

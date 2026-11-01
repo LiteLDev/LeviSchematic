@@ -19,11 +19,14 @@
 namespace levischematic::selection {
 namespace {
 
+
+
+
 auto& getLogger() {
     return levischematic::LeviSchematic::getInstance().getSelf().getLogger();
 }
 
-} // namespace
+} 
 
 std::string ExportSelectionError::describe(std::string_view target) const {
     switch (code) {
@@ -167,4 +170,4 @@ app::Result<std::filesystem::path, ExportSelectionError> SelectionExporter::save
     }
 }
 
-} // namespace levischematic::selection
+} 

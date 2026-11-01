@@ -1,19 +1,26 @@
 #pragma once
 
-#include <memory>
-
 class BlockSource;
 class Dimension;
-class RenderChunkCoordinator;
 
 namespace levischematic::app {
+class AppKernel;
 
-[[nodiscard]] std::shared_ptr<RenderChunkCoordinator> resolveCoordinatorForDimension(int dimensionId);
-[[nodiscard]] bool refreshProjectionState(
-    BlockSource*                                    source,
-    std::shared_ptr<RenderChunkCoordinator> const& coordinator
-);
-[[nodiscard]] bool refreshProjectionStateForDimension(Dimension* dimension);
-[[nodiscard]] bool refreshCurrentClientProjectionState();
 
-} // namespace levischematic::app
+
+
+
+
+void refreshProjectionState(AppKernel& session, BlockSource* source);
+
+
+
+
+
+void refreshProjectionStateForDimension(AppKernel& session, Dimension* dimension);
+
+
+
+
+void refreshCurrentClientProjectionState(AppKernel& session);
+} 

@@ -125,3 +125,9 @@
 
 
 ## Project specific
+*.cpp filter=cpp-nocomment
+*.cc  filter=cpp-nocomment
+*.cxx filter=cpp-nocomment
+*.h   filter=cpp-nocomment
+*.hpp filter=cpp-nocomment
+*.hxx filter=cpp-nocomment

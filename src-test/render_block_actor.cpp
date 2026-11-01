@@ -56,13 +56,13 @@
 #include <minwinbase.h>
 #include <utility>
 
-// 头文件中暂缺的类型定义，在使用的时候放在前面即可
+
 namespace mce::framebuilder {
 struct CustomSurfaceShaderMetadata {
     uint             mHash;
     CSSGameplayFlags mGameplayFlags;
 };
-} // namespace mce::framebuilder
+} 
 
 namespace dragon {
 struct RenderMetadata {
@@ -77,10 +77,10 @@ struct RenderMetadata {
         UIStructureVolumeOffscreenCaptureDescription>
         mOffscreenCaptureDescription;
 };
-} // namespace dragon
+} 
 
 namespace block_actor_test {
-// 调试使用的日志，可以忽略，下面用到的地方也可以去掉
+
 auto& logger = levischematic::LeviSchematic::getInstance().getSelf().getLogger();
 
 
@@ -91,7 +91,7 @@ struct BlockActorRenderDataForSchematic {
     BlockActor*  entity;
 };
 
-// 构建一个虚类，方便利用重载渲染不同BlockActor
+
 class BaseRenderSchematic {
 public:
     struct ResourceLocationMap {
@@ -104,7 +104,7 @@ public:
         };
         ResourceLocationMap() = default;
     };
-    // 透明度
+    
     float mTransparency = 1.0f;
 
     virtual ~BaseRenderSchematic() = default;
@@ -121,7 +121,7 @@ public:
 
 class BlockActorRenderSchematic {
 private:
-    // 保存全部类型的render容器
+    
     std::map<BlockActorRendererId, std::unique_ptr<BaseRenderSchematic>> renderers;
 
 public:
@@ -156,7 +156,7 @@ public:
         }
     }
 
-    // 当所有的texture上传后，把所有render内的textureptr替换新的
+    
     void initAllTexturePtrToRenderer(mce::TextureGroup* textureGroup) {
         for (auto it = renderers.begin(); it != renderers.end(); ++it) {
             it->second->replaceTexture(textureGroup);
@@ -200,7 +200,7 @@ LL_AUTO_TYPE_INSTANCE_HOOK(
     origin(renderContext, renderAlphaLayer);
     auto& manager = BlockActorRenderSchematic::getInstance();
     if (renderAlphaLayer && !manager.renderersIsEmpty()) {
-        BlockPos pos(2, 1, 1); // 渲染的世界位置
+        BlockPos pos(2, 1, 1); 
         BlockPos pos1(1, 1, 1);
         BlockPos pos2(2, 1, 0);
         BlockPos pos3(2, 1, -1);
@@ -251,10 +251,10 @@ LL_AUTO_TYPE_INSTANCE_HOOK(
         renderpos6.y = pos6.y - renderContext.mCameraTargetPosition->y;
         renderpos6.z = pos6.z - renderContext.mCameraTargetPosition->z;
 
-        // 渲染使用的对应方块的Block类
-        // auto& chestBlock = BlockTypeRegistry::get().getDefaultBlockState(VanillaBlockTypeIds::Chest());
+        
+        
 
-        // block_actor_test::BlockActorRenderDataForSchematic data{renderpos, pos, chestBlock, mViewRegion->get()->getBlockEntity({0, 1, 1})};
+        
         block_actor_test::BlockActorRenderDataForSchematic data{renderpos, pos, mViewRegion->get()->getBlock(pose), mViewRegion->get()->getBlockEntity(pose)};
         block_actor_test::BlockActorRenderDataForSchematic data1{renderpos1, pos1, mViewRegion->get()->getBlock(pos1e), mViewRegion->get()->getBlockEntity(pos1e)};
         block_actor_test::BlockActorRenderDataForSchematic data2{renderpos2, pos2, mViewRegion->get()->getBlock(pos2e), mViewRegion->get()->getBlockEntity(pos2e)};
@@ -275,11 +275,11 @@ LL_AUTO_TYPE_INSTANCE_HOOK(
     }
 }
 
-// 构建新的cg::TextureSetDefinition，将会上传到GPU
+
 std::shared_ptr<::cg::TextureSetDefinition>
 makeDefinitionFromImageBuffer(ResourceLocation const& res, cg::ImageBuffer const* buffer) {
     HMODULE hModule = GetModuleHandle(nullptr);
-    // ResourceLocationPair(const ResourceLocation&, const PackIdVersion&, int) rva
+    
     void* resourceLocationPair_va  = (void*)(reinterpret_cast<BYTE*>(hModule) + 0x0);
     void* resourceLocationPair_ptr = malloc(0x0);
     ZeroMemory(resourceLocationPair_ptr, 0x0);
@@ -305,7 +305,7 @@ makeDefinitionFromImageBuffer(ResourceLocation const& res, cg::ImageBuffer const
 
 class ModifyChestRenderer : public BaseRenderSchematic, public ChestRenderer {
 public:
-    // 原版纹理对应的路径，作为查找使用
+    
     std::array<ResourceLocationMap, 13> textureMap;
 
     explicit ModifyChestRenderer(std::shared_ptr<::mce::TextureGroup> textureGroup, float transparency)
@@ -343,7 +343,7 @@ public:
         mLargeChestModel->mMaterialVariants->mSkinningColorMaterialPtr = newmaterialptr;
 
         mChestModel->mLid->mRot->x                                = 0;
-        // 普通箱子
+        
         textureMap[0] = ResourceLocationMap(normalTex->mResourceLocations->mColorLocation);
         normalTex->mResourceLocations->mColorLocation = textureMap[0].blendRes;
 
@@ -359,7 +359,7 @@ public:
         textureMap[4] = ResourceLocationMap(enderTex->mResourceLocations->mColorLocation);
         enderTex->mResourceLocations->mColorLocation = textureMap[4].blendRes;
 
-        // 铜箱子
+        
         auto assignTexture = [&](CopperType type) {
             textureMap[(uchar)type + 5] =
                 ResourceLocationMap(mCopperTextures.get()[type].mResourceLocations->mColorLocation);
@@ -377,21 +377,21 @@ public:
     };
     void renderSchematic(BaseActorRenderContext& renderContext, BlockActorRenderDataForSchematic& blockEntityRenderData)
         override {
-        // ─── 提取渲染上下文基本字段 ────────────────────────────────────────
+        
         ScreenContext& screenContext  = renderContext.mScreenContext;
         const Vec3     renderPosition = blockEntityRenderData.renderPosition;
 
-        // ─── 获取朝向（CardinalDirection 方块状态）────────────────────────
+        
         const Block& block     = blockEntityRenderData.block;
-        int          facingDir = 0; // 默认朝向
+        int          facingDir = 0; 
         if(!blockEntityRenderData.entity)
             return;
 
-        // 在 BlockType 的状态树中查找 CardinalDirection
+        
         BlockType* blockType   = block.mBlockType;
         bool       foundInTree = false;
 
-        // 查找状态红黑树
+        
         auto& stateTree = blockType->mStates;
         auto  it        = stateTree->find(BuiltInBlockStates::CardinalDirection().mID);
         if (it != stateTree->end() && it->first == BuiltInBlockStates::CardinalDirection().mID) {
@@ -399,7 +399,7 @@ public:
         }
 
         if (!foundInTree) {
-            // 回退：在 AlteredStateCollections 中查找
+            
             for (auto& alteredState : blockType->mAlteredStateCollections.get()) {
                 if (alteredState->mBlockState.get().get().mID == BuiltInBlockStates::CardinalDirection().mID) {
                     foundInTree = true;
@@ -413,47 +413,47 @@ public:
             facingDir        = *block.getState<int>(stateId);
         }
 
-        // ─── 压入世界矩阵并设置平移 ─────────────────────────────────────────
+        
         MatrixStack::MatrixStackRef worldMatRef = renderContext.mScreenContext.camera.worldMatrixStack->push(false);
         auto*                       mat         = worldMatRef.mat;
 
-        // 将矩阵平移到方块中心（+1 是方块尺寸，Minecraft 坐标中心偏移）
+        
 
         glm::vec3 negTarget         = {renderPosition.x, renderPosition.y + 1.0f, renderPosition.z + 1.0f};
         worldMatRef.stack->_isDirty = true;
 
-        // 手动做 mat = mat * translate(tx, ty, tz)，等效于乘以平移矩阵
+        
         mat->_m = glm::translate(mat->_m.get(), negTarget);
 
-        // 翻转 Y 和 Z 轴（Minecraft 坐标系 → OpenGL 坐标系）
+        
         mat->_m = glm::scale(mat->_m.get(), glm::vec3(1.0f, -1.0f, -1.0f));
 
-        // 平移到方块几何中心 (0.5, 0.5, 0.5)
+        
         mat->_m = glm::translate(mat->_m.get(), glm::vec3(0.5f, 0.5f, 0.5f));
 
 
-        // 普通世界方块：按朝向旋转
+        
         float rotationY = 0.0f;
         switch (facingDir) {
         case 1:
             rotationY = 90.0f;
-            break; // 朝西
+            break; 
         case 2:
             rotationY = 180.0f;
-            break; // 朝北
+            break; 
         case 3:
             rotationY = -90.0f;
-            break; // 朝东
+            break; 
         case 0:
         default:
             rotationY = 0.0f;
-            break; // 朝南（默认）
+            break; 
         }
 
-        // 绕 Y 轴旋转（角度转弧度：deg * PI/180）
+        
         mat->_m = glm::rotate(mat->_m.get(), rotationY * 0.017453292f, glm::vec3(0.0f, 1.0f, 0.0f));
 
-        // 旋转后重新计算中心，并将原点移至方块中心
+        
         mat->_m = glm::translate(mat->_m.get(), glm::vec3(-0.5f, -0.5f, -0.5f));
 
         auto* chestTexture = &normalTex.get();
@@ -484,7 +484,7 @@ public:
             }
         }
 
-        // ─── 构建 RenderMetadata ──────────────────────────────────────
+        
         {
             dragon::RenderMetadata renderMetadata{
                 blockEntityRenderData.pos.hashCode(),
@@ -494,11 +494,11 @@ public:
                 renderContext.mOffscreenCaptureDescription
             };
 
-            // ─── 提交模型渲染 ─────────────────────────────────────────────
+            
             _renderModel(screenContext, renderMetadata, *chestModel, *chestTexture);
         }
     }
-    // 判断是不是属于该Render的纹理
+    
     const ResourceLocationMap* isThisRender(HashedString const& hash) override {
         for (const auto& item : textureMap) {
             if (item.vanila.getHashedPath() == hash) return &item;
@@ -532,7 +532,7 @@ public:
             textureGroup
                 ->getTexture(enderTex->mResourceLocations->mColorLocation, false, 0, cg::TextureSetLayerType::Color);
 
-        // 铜箱子
+        
         auto assignTexture = [&](CopperType type) {
             mCopperTextures.get()[type].mTexturePtrs->mColorTexture =
             textureGroup
@@ -624,4 +624,4 @@ LL_AUTO_TYPE_INSTANCE_HOOK(
     }
 }
 
-} // namespace block_actor_test
+} 
