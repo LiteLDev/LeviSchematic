@@ -7,8 +7,10 @@ name = "LeviSchematic"
 description = "LeviSchematic is a Bedrock client-side schematic projection mod built around `.mcstructure` files."
 tags = ["utility"]
 
-# LeviSchematic is a client-only mod. The default variant and the variant "client" (the one
-# LeviLauncher installs first, and the one tooth.json had) hold the same client entry.
+# LeviSchematic is a client-only mod: the default variant has only a client entry.
+# The client entry depends on github.com/LiteLDev/LeviLamina#client because LeviLamina 26.51.* is
+# released with tooth.json only; switch it to bare github.com/LiteLDev/LeviLamina once a lip.toml
+# LeviLamina release is targeted.
 
 [[variants.""]]
 side = "client"
@@ -18,18 +20,6 @@ platform = "win-x64"
 "github.com/LiteLDev/LeviLamina#client" = "26.51.*"
 
 [[variants."".assets]]
-type = "zip"
-urls = ["https://{{id}}/releases/download/v{{version}}/LeviSchematic-client-windows-x64.zip"]
-place = [{ src = "LeviSchematic/", dest = "mods/LeviSchematic/" }]
-
-[[variants.client]]
-side = "client"
-platform = "win-x64"
-
-[variants.client.deps]
-"github.com/LiteLDev/LeviLamina#client" = "26.51.*"
-
-[[variants.client.assets]]
 type = "zip"
 urls = ["https://{{id}}/releases/download/v{{version}}/LeviSchematic-client-windows-x64.zip"]
 place = [{ src = "LeviSchematic/", dest = "mods/LeviSchematic/" }]
