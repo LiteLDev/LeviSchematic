@@ -1,6 +1,5 @@
 #include "SelectionHook.h"
 
-#include "levischematic/LeviSchematic.h"
 #include "levischematic/app/AppKernel.h"
 #include "levischematic/selection/SelectionState.h"
 
@@ -16,13 +15,6 @@
 #include "mc/deps/minecraft_renderer/objects/ViewRenderObject.h"
 #include "mc/deps/minecraft_renderer/resources/OffscreenCaptureDescription.h"
 #include "mc/deps/renderer/ShaderColor.h"
-#include "mc/world/actor/player/Inventory.h"
-#include "mc/world/actor/player/Player.h"
-#include "mc/world/actor/player/PlayerInventory.h"
-#include "mc/world/gamemode/GameMode.h"
-#include "mc/world/gamemode/InteractionResult.h"
-#include "mc/world/item/Item.h"
-#include "mc/world/item/VanillaItemNames.h"
 #include "mc/world/level/BlockPos.h"
 
 #include <array>
@@ -33,13 +25,16 @@ namespace {
 bool gSelectionHooksRegistered = false;
 
 
-auto& getLogger() { return levischematic::LeviSchematic::getInstance().getSelf().getLogger(); }
+
 
 
 struct WireframeQuad {
     std::array<Vec3, 4> quad;
     int                 color;
 };
+
+
+
 
 
 struct Wireframe {
@@ -49,51 +44,72 @@ struct Wireframe {
 };
 
 
-std::array<WireframeQuad, 24> GenerateStructureBlockWireframe(BlockPos const& size) {
-    float const E = 0.005f;
-    float const C = 0.015f;
 
-    float const x0 = -E;
-    float const x1 = size.x + E;
-    float const y0 = -E;
-    float const y1 = size.y + E;
-    float const z0 = -E;
-    float const z1 = size.z + E;
 
-    float const xn = size.x - C;
-    float const yn = size.y - C;
-    float const zn = size.z - C;
+
+std::array<WireframeQuad, 24> GenerateStructureBlockWireframe(const BlockPos& size) {
+    const float E = 0.005f;
+    const float C = 0.015f;
+
+    const float x0 = -E;
+    const float x1 = size.x + E;
+    const float y0 = -E;
+    const float y1 = size.y + E;
+    const float z0 = -E;
+    const float z1 = size.z + E;
+
+    const float xn = size.x - C;
+    const float yn = size.y - C;
+    const float zn = size.z - C;
 
     using V3 = Vec3;
     std::array<WireframeQuad, 24> quadList;
     int                           i = 0;
 
     auto makeY =
+    
 
 
-        [&](float x, float z, float wx, float wz, int col) {
-            quadList[i++] = {{{V3{x, y0, z}, V3{x, y1, z}, V3{wx, yn, z}, V3{wx, C, z}}}, col};
-            quadList[i++] = {{{V3{x, y0, z}, V3{x, y1, z}, V3{x, yn, wz}, V3{x, C, wz}}}, col};
-        };
+
+
+
+
+
+    [&](float x, float z, float wx, float wz, int col) {
+        quadList[i++] = {{{V3{x, y0, z}, V3{x, y1, z}, V3{wx, yn, z}, V3{wx, C, z}}}, col};
+        quadList[i++] = {{{V3{x, y0, z}, V3{x, y1, z}, V3{x, yn, wz}, V3{x, C, wz}}}, col};
+    };
     auto makeX =
+    
 
 
-        [&](float y, float z, float wy, float wz, int col) {
-            quadList[i++] = {{{V3{x0, y, z}, V3{x1, y, z}, V3{xn, wy, z}, V3{C, wy, z}}}, col};
-            quadList[i++] = {{{V3{x0, y, z}, V3{x1, y, z}, V3{xn, y, wz}, V3{C, y, wz}}}, col};
-        };
+
+
+
+
+
+    [&](float y, float z, float wy, float wz, int col) {
+        quadList[i++] = {{{V3{x0, y, z}, V3{x1, y, z}, V3{xn, wy, z}, V3{C, wy, z}}}, col};
+        quadList[i++] = {{{V3{x0, y, z}, V3{x1, y, z}, V3{xn, y, wz}, V3{C, y, wz}}}, col};
+    };
     auto makeZ =
+    
 
 
-        [&](float x, float y, float wx, float wy, int col) {
-            quadList[i++] = {{{V3{x, y, z0}, V3{x, y, z1}, V3{wx, y, zn}, V3{wx, y, C}}}, col};
-            quadList[i++] = {{{V3{x, y, z0}, V3{x, y, z1}, V3{x, wy, zn}, V3{x, wy, C}}}, col};
-        };
 
-    uint32_t const colR = 0xFFFF0000;
-    uint32_t const colG = 0xFF00FF00;
-    uint32_t const colB = 0xFF0000FF;
-    uint32_t const colW = 0xFFFFFFFF;
+
+
+
+
+    [&](float x, float y, float wx, float wy, int col) {
+        quadList[i++] = {{{V3{x, y, z0}, V3{x, y, z1}, V3{wx, y, zn}, V3{wx, y, C}}}, col};
+        quadList[i++] = {{{V3{x, y, z0}, V3{x, y, z1}, V3{x, wy, zn}, V3{x, wy, C}}}, col};
+    };
+
+    const uint32_t colR = 0xFFFF0000;
+    const uint32_t colG = 0xFF00FF00;
+    const uint32_t colB = 0xFF0000FF;
+    const uint32_t colW = 0xFFFFFFFF;
 
     makeY(-E, -E, C, C, colG);
     makeY(x1, -E, xn, C, colW);
@@ -114,7 +130,11 @@ std::array<WireframeQuad, 24> GenerateStructureBlockWireframe(BlockPos const& si
 }
 
 
-void tessellateWireBox(Tessellator& tess, AABB const& bb) {
+
+
+
+
+void tessellateWireBox(Tessellator& tess, AABB const & bb){
     tess.begin({}, (mce::PrimitiveMode)4, 0, false);
     tess.vertex(bb.max.x, bb.min.y, bb.min.z);
     tess.vertex(bb.min.x, bb.min.y, bb.min.z);
@@ -143,24 +163,32 @@ void tessellateWireBox(Tessellator& tess, AABB const& bb) {
 }
 
 
+
+
+
+
+
+
+
 void DrawAxisLines(
     ScreenContext&          screenCtx,
     Tessellator&            tess,
-    mce::MaterialPtr const& material,
-    Wireframe const&        wf,
-    glm::vec3 const&        cameraPos
+    const mce::MaterialPtr& material,
+    const Wireframe&        wf,
+    const glm::vec3&        cameraPos
 ) {
     auto currentMat            = screenCtx.camera.worldMatrixStack->push(false);
     currentMat.stack->_isDirty = true;
 
-    auto* mat                  = currentMat.mat;
-    mat->_m                    = glm::translate(mat->_m.get(), -cameraPos);
+    auto* mat = currentMat.mat;
+    mat->_m   = glm::translate(mat->_m.get(), -cameraPos);
     currentMat.stack->_isDirty = true;
-    mat->_m                    = glm::translate(mat->_m.get(), {wf.origin.x, wf.origin.y, wf.origin.z});
+    mat->_m   = glm::translate(mat->_m.get(), {wf.origin.x, wf.origin.y, wf.origin.z});
 
     tess.begin({}, mce::PrimitiveMode::QuadList, 96, false);
     for (auto& quad : wf.quadList) {
-        tess.color(mce::Color(quad.color));
+        auto const color = mce::Color(quad.color);
+        tess.color(color.r, color.g, color.b, color.a);
         tess.vertex(quad.quad[0].x, quad.quad[0].y, quad.quad[0].z);
         tess.vertex(quad.quad[1].x, quad.quad[1].y, quad.quad[1].z);
         tess.vertex(quad.quad[2].x, quad.quad[2].y, quad.quad[2].z);
@@ -181,17 +209,21 @@ void DrawAxisLines(
 }
 
 
+
+
+
+
+
+
+
 void DrawPosLine(
     ScreenContext&          screenCtx,
     Tessellator&            tess,
-    mce::MaterialPtr const& material,
-    BlockPos const&         pos,
-    Vec3 const&             cameraPos
+    const mce::MaterialPtr& material,
+    const BlockPos&         pos,
+    const Vec3&             cameraPos
 ) {
-    AABB box{
-        Vec3{(float)pos.x, (float)pos.y, (float)pos.z},
-        Vec3{pos.x + 1.0f, pos.y + 1.0f, pos.z + 1.0f}
-    };
+    AABB box{Vec3{(float)pos.x, (float)pos.y, (float)pos.z}, Vec3{pos.x + 1.0f, pos.y + 1.0f, pos.z + 1.0f}};
 
     tess.mPostTransformOffset->x = -cameraPos.x;
     tess.mPostTransformOffset->y = -cameraPos.y;
@@ -210,6 +242,12 @@ void DrawPosLine(
 } 
 
 
+
+
+
+
+
+
 LL_TYPE_INSTANCE_HOOK(
     SelectionRenderWireframeHook,
     ll::memory::HookPriority::Normal,
@@ -218,7 +256,7 @@ LL_TYPE_INSTANCE_HOOK(
     void,
     BaseActorRenderContext& renderContext,
     ViewRenderObject const& renderObj,
-    IClientInstance&        clientInstance
+    IClientInstance&  clientInstance
 ) {
     origin(renderContext, renderObj, clientInstance);
 
@@ -250,7 +288,11 @@ LL_TYPE_INSTANCE_HOOK(
     }
 
     if (overlay.origin && overlay.size) {
-        Wireframe wireframe{*overlay.origin, *overlay.size, GenerateStructureBlockWireframe(*overlay.size)};
+        Wireframe wireframe{
+            *overlay.origin,
+            *overlay.size,
+            GenerateStructureBlockWireframe(*overlay.size)
+        };
         DrawAxisLines(
             renderContext.mScreenContext,
             renderContext.mScreenContext.tessellator,
@@ -259,69 +301,28 @@ LL_TYPE_INSTANCE_HOOK(
             renderObj.mViewData->mCameraTargetPos
         );
     }
+    auto const& state=session->selection().state();
+    if (state.normal) for (auto const& region:state.regions) {
+        if (region.id==state.selectedRegion || !region.corner1 || !region.corner2) continue;
+        selection::Box box{*region.corner1,*region.corner2};
+        auto size=box.getSize();
+        DrawAxisLines(renderContext.mScreenContext,renderContext.mScreenContext.tessellator,this->wireframeMaterial,
+            Wireframe{box.getMin(),size,GenerateStructureBlockWireframe(size)},renderObj.mViewData->mCameraTargetPos);
+    }
+    if (!overlay.selectionMode) {
+        auto selected=session->placement().selectedPlacementId();
+        for (auto const& ref:session->placement().orderedPlacements()) {
+            auto const& p=ref.get();
+            if (!selected || (p.parentId?p.parentId:p.id)!=*selected || !p.enabled || !p.asset) continue;
+            auto size=p.asset->size;
+            if (static_cast<int>(p.rotation)%2) std::swap(size.x,size.z);
+            DrawAxisLines(renderContext.mScreenContext,renderContext.mScreenContext.tessellator,this->wireframeMaterial,
+                Wireframe{p.origin,size,GenerateStructureBlockWireframe(size)},renderObj.mViewData->mCameraTargetPos);
+        }
+    }
 }
 
-
-LL_TYPE_INSTANCE_HOOK(
-    SelectionClickPos2Hook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$useItemOn,
-    InteractionResult,
-    ItemStack&        item,
-    ::BlockPos const& at,
-    uchar             face,
-    ::Vec3 const&     hit,
-    ::HandSlot        handSlot,
-    Block const*      targetBlock,
-    bool              isFirstEvent
-) {
-    auto session = app::accessSession();
-    if (!session) {
-        return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    }
-
-    auto& selectionService = session->selection();
-    if (isFirstEvent && selectionService.isSelectionModeEnabled()
-        && item.isInstance(VanillaItemNames::Stick(), false)) {
-        selectionService.setSelectionCorner2(at);
-        getLogger().debug("Selection pos2: {}", at.toString());
-        return InteractionResult{true, false};
-    }
-    session.reset();
-    return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-}
-
-
-LL_TYPE_INSTANCE_HOOK(
-    SelectionClickPos1Hook,
-    HookPriority::Normal,
-    GameMode,
-    &GameMode::$startDestroyBlock,
-    bool,
-    BlockPos const& pos,
-    uchar           face,
-    bool&           hasDestroyedBlock
-) {
-    auto session = app::accessSession();
-    if (!session) {
-        return origin(pos, face, hasDestroyedBlock);
-    }
-
-    auto& selectionService = session->selection();
-    auto& item             = this->mPlayer.mInventory->mInventory->getItem(this->mPlayer.mInventory->mSelected);
-
-    if (selectionService.isSelectionModeEnabled() && item.isInstance(VanillaItemNames::Stick(), false)) {
-        selectionService.setSelectionCorner1(pos);
-        getLogger().debug("Selection pos1: {}", pos.toString());
-        return false;
-    }
-    session.reset();
-    return origin(pos, face, hasDestroyedBlock);
-}
-
-using selectionHook =
-    ll::memory::HookRegistrar<SelectionRenderWireframeHook, SelectionClickPos2Hook, SelectionClickPos1Hook>;
+using selectionHook = ll::memory::HookRegistrar<SelectionRenderWireframeHook>;
 
 void registerSelectionHooks() {
     if (gSelectionHooksRegistered) {

@@ -7,19 +7,36 @@
 namespace levischematic::selection {
 
 
+
+
+
 struct Box {
     BlockPos pos1;
     BlockPos pos2;
 
+    
+
 
     [[nodiscard]] BlockPos getMin() const {
-        return {std::min(pos1.x, pos2.x), std::min(pos1.y, pos2.y), std::min(pos1.z, pos2.z)};
+        return {
+            std::min(pos1.x, pos2.x),
+            std::min(pos1.y, pos2.y),
+            std::min(pos1.z, pos2.z)
+        };
     }
+
+    
 
 
     [[nodiscard]] BlockPos getMax() const {
-        return {std::max(pos1.x, pos2.x), std::max(pos1.y, pos2.y), std::max(pos1.z, pos2.z)};
+        return {
+            std::max(pos1.x, pos2.x),
+            std::max(pos1.y, pos2.y),
+            std::max(pos1.z, pos2.z)
+        };
     }
+
+    
 
 
     [[nodiscard]] BlockPos getSize() const {

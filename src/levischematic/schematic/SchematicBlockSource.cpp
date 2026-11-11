@@ -1,7 +1,7 @@
 #include "levischematic/schematic/SchematicBlockSource.h"
 
-#include "levischematic/util/PositionUtils.h"
 #include "mc/world/actor/Actor.h"
+#include "levischematic/util/PositionUtils.h"
 #include "mc/world/level/block/Block.h"
 #include <stdexcept>
 
@@ -15,7 +15,7 @@ SchematicBlockSource::SchematicBlockSource(
     ::AABB const&  bounds
 )
 : BlockSource(level, dimension, chunkSource, false, true, false, false) {
-    mBounds  = bounds;
+    mBounds = bounds;
     auto air = Block::tryGetFromRegistry(HashedString{"minecraft:air"});
     if (!air) throw std::runtime_error("Air block unavailable.");
     mAir = &*air;
@@ -42,8 +42,12 @@ bool SchematicBlockSource::projectionVisible(BlockPos const& pos) const {
     return !mHiddenPositions.contains(util::encodePosKey(pos));
 }
 
-gsl::span<::gsl::not_null<::Actor*>>
-SchematicBlockSource::fetchEntities(::ActorType, ::AABB const&, ::Actor const*, ::std::function<bool(::Actor*)>) {
+gsl::span<::gsl::not_null<::Actor*>> SchematicBlockSource::fetchEntities(
+    ::ActorType,
+    ::AABB const&,
+    ::Actor const*,
+    ::std::function<bool(::Actor*)>
+) {
     return {};
 }
 

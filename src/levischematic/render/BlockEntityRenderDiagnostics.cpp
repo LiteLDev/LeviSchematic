@@ -16,6 +16,11 @@ thread_local BlockEntityTrace* activeTrace = nullptr;
 bool                           registered  = false;
 
 
+
+
+
+
+
 LL_TYPE_INSTANCE_HOOK(
     ChestTraceHook,
     HookPriority::Normal,
@@ -37,6 +42,15 @@ using ModelRenderFunction = void (BlockActorRenderer::*)(
     mce::MaterialPtr const&,
     mce::ClientTexture const&
 ) const;
+
+
+
+
+
+
+
+
+
 
 
 LL_TYPE_INSTANCE_HOOK(
@@ -62,6 +76,14 @@ LL_TYPE_INSTANCE_HOOK(
 }
 
 
+
+
+
+
+
+
+
+
 LL_TYPE_INSTANCE_HOOK(
     GroupTraceHook,
     HookPriority::Normal,
@@ -80,6 +102,20 @@ LL_TYPE_INSTANCE_HOOK(
     }
     origin(context, metadata, materials, textures, mers);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 LL_TYPE_INSTANCE_HOOK(

@@ -1,10 +1,13 @@
 #include "SchematicChunkLayerSubmit.h"
+#include "BlockEntityHighlight.h"
 
 #include "levischematic/LeviSchematic.h"
+#include "levischematic/render/NativeChunkGeometryDescription.h"
 #include "levischematic/render/NativeTextureVariant.h"
 #include "levischematic/render/SchematicRenderChunkShared.h"
 
 #include "ll/api/memory/Memory.h"
+#include "ll/api/memory/Symbol.h"
 
 #include "mc/client/gui/screens/ScreenContext.h"
 #include "mc/client/renderer/BaseActorRenderContext.h"
@@ -25,60 +28,17 @@
 #include "mc/deps/minecraft_renderer/resources/OffscreenCaptureDescription.h"
 
 #include <array>
+#include <algorithm>
 #include <cstddef>
+#include <cstring>
 #include <functional>
 #include <glm/glm.hpp>
 #include <gsl/span>
+#include <limits>
 #include <string_view>
 
 namespace levischematic::render {
 namespace {
-
-using ResolvedTexturePointer = mce::ServerResourcePointer<dragon::ResolvedTextureResource>;
-
-
-struct NativePerChunkData {
-    RenderChunkDirectIndexData const*  mDirectIndexData{};
-    RenderChunkDirectVertexData const* mDirectVertexData{};
-    bool                               mUnsorted{};
-    std::uint32_t                      mIndicesOffset{};
-    std::uint32_t                      mIndicesCount{};
-    glm::vec4                          mChunkOriginAndScale{};
-    float                              mRenderChunkFogAlpha{};
-    std::uint32_t                      mVisibleCameraMask{};
-};
-
-
-struct NativeChunkTextures {
-    std::array<ResolvedTexturePointer, 3> mArray{};
-    std::size_t                           mSize = 3;
-};
-
-
-struct NativeChunkFog {
-    glm::vec4 mColor{};
-    glm::vec2 mControl{};
-    float     mRenderDistance{};
-};
-
-
-struct NativeChunkGeometryDescription {
-    NativeChunkTextures                 mTextures;
-    gsl::span<NativePerChunkData const> mChunks;
-    TerrainLayer const*                 mTerrainLayer{};
-    TerrainLayerLOD                     mTerrainLayerLOD = TerrainLayerLOD::High;
-    NativeChunkFog                      mFog;
-    float                               mFarChunkDistance{};
-    float                               mTime{};
-    glm::mat4                           mWorldAdjustmentMatrix{1.0f};
-    bool                                mIsUI = false;
-    OffscreenCaptureDescription         mOffscreenCaptureDescription{};
-    bool                                mIsHighlighted    = true;
-    bool                                mDitheringEnabled = true;
-    std::uint16_t                       mViewId           = 0;
-    glm::vec3                           mCameraPosition{};
-};
-
 
 constexpr std::ptrdiff_t kShaderConstantDataOffset   = 0x40;
 constexpr std::ptrdiff_t kShaderConstantDirtyOffset  = 0x31;
@@ -87,63 +47,106 @@ constexpr std::size_t    kGeometryFlagRangeQueryIndex =
     static_cast<std::size_t>(::RenderChunkGeometry::Bit::BlendCanRenderAsOpaque);
 
 
+
+
+
 struct TerrainLayerEntry {
     ::TerrainLayer const& (*get)();
     std::string_view name;
 };
 
 TerrainLayerEntry const kTerrainLayerSequence[] = {
-    {  +
-
-
-  []() -> ::TerrainLayer const& { return ::TerrainLayers::OpaqueSeasons(); },
-     "OpaqueSeasons"  },
-    {         +
-
-
-         []() -> ::TerrainLayer const& { return ::TerrainLayers::Opaque(); },
-     "Opaque"         },
-    {      +
-
-
-      []() -> ::TerrainLayer const& { return ::TerrainLayers::EndPortal(); },
-     "EndPortal"      },
-    {        +
-
-
-        []() -> ::TerrainLayer const& { return ::TerrainLayers::Barrier(); },
-     "Barrier"        },
-    {  +
-
-
-  []() -> ::TerrainLayer const& { return ::TerrainLayers::StructureVoid(); },
-     "StructureVoid"  },
-    {     +
-
-
-     []() -> ::TerrainLayer const& { return ::TerrainLayers::DoubleSide(); },
-     "DoubleSide"     },
-    {          +
-
-
-          []() -> ::TerrainLayer const& { return ::TerrainLayers::Alpha(); },
-     "Alpha"          },
     {+
+    
 
 
-[]() -> ::TerrainLayer const& { return ::TerrainLayers::AlphaSingleSide(); },
-     "AlphaSingleSide"},
-    {   +
+    []() -> ::TerrainLayer const& { return ::TerrainLayers::OpaqueSeasons(); },   "OpaqueSeasons"  },
+    {+
+    
 
 
-   []() -> ::TerrainLayer const& { return ::TerrainLayers::AlphaSeasons(); },
-     "AlphaSeasons"   },
-    {          +
+    []() -> ::TerrainLayer const& { return ::TerrainLayers::Opaque(); },          "Opaque"         },
+    {+
+    
 
 
-          []() -> ::TerrainLayer const& { return ::TerrainLayers::Blend(); },
-     "Blend"          },
+    []() -> ::TerrainLayer const& { return ::TerrainLayers::EndPortal(); },       "EndPortal"      },
+    {+
+    
+
+
+    []() -> ::TerrainLayer const& { return ::TerrainLayers::Barrier(); },         "Barrier"        },
+    {+
+    
+
+
+    []() -> ::TerrainLayer const& { return ::TerrainLayers::StructureVoid(); },   "StructureVoid"  },
+    {+
+    
+
+
+    []() -> ::TerrainLayer const& { return ::TerrainLayers::DoubleSide(); },      "DoubleSide"     },
+    {+
+    
+
+
+    []() -> ::TerrainLayer const& { return ::TerrainLayers::Alpha(); },           "Alpha"          },
+    {+
+    
+
+
+    []() -> ::TerrainLayer const& { return ::TerrainLayers::AlphaSingleSide(); }, "AlphaSingleSide"},
+    {+
+    
+
+
+    []() -> ::TerrainLayer const& { return ::TerrainLayers::AlphaSeasons(); },    "AlphaSeasons"   },
+    {+
+    
+
+
+    []() -> ::TerrainLayer const& { return ::TerrainLayers::Blend(); },           "Blend"          },
 };
+
+
+
+struct ExtraLayer { char const* symbol; char const* name; };
+constexpr ExtraLayer kExtraLayers[] = {
+    {"?Light@TerrainLayers@@3UTerrainLayer@@B", "Light"},
+    {"?LightSource@TerrainLayers@@3UTerrainLayer@@B", "LightSource"},
+    {"?OpaqueShifts@TerrainLayers@@3UTerrainLayer@@B", "OpaqueShifts"},
+    {"?AlphaShifts@TerrainLayers@@3UTerrainLayer@@B", "AlphaShifts"},
+    {"?AlphaSingleSideShifts@TerrainLayers@@3UTerrainLayer@@B", "AlphaSingleSideShifts"},
+    {"?DeferredWater@TerrainLayers@@3UTerrainLayer@@B", "DeferredWater"},
+    {"?RayTracedWater@TerrainLayers@@3UTerrainLayer@@B", "RayTracedWater"}
+};
+static_assert(std::size(kTerrainLayerSequence) + std::size(kExtraLayers) == kChunkLayerCount);
+
+
+
+
+auto nativeExtraLayers() {
+    std::array<TerrainLayer const*, std::size(kExtraLayers)> result{};
+    auto const instruction = resolveProjectionEntry("",
+        "48 8D 05 ? ? ? ? 49 8B 3C 04");
+    if (!instruction) return result;
+    std::int32_t displacement;
+    std::memcpy(&displacement, reinterpret_cast<void const*>(instruction + 3), sizeof(displacement));
+    auto const* layers = reinterpret_cast<std::array<TerrainLayer const*, 17> const*>(
+        instruction + 7 + displacement);
+    
+    if (std::find(layers->begin(), layers->end(), &TerrainLayers::Opaque()) == layers->end()) return result;
+    constexpr std::string_view names[]{"light", "light_source", "terrain_opaque_shifts", "terrain_alpha_shifts",
+        "terrain_alpha_single_side_shifts", "terrain_deferred_water", "terrain_ray_traced_water"};
+    for (size_t i = 0; i < result.size(); ++i) {
+        for (auto* layer : *layers)
+            if (layer && layer->name.get() == names[i]) result[i] = layer;
+    }
+    return result;
+}
+
+
+
 
 
 [[nodiscard]] SchematicRangeIndices const*
@@ -155,12 +158,18 @@ selectRanges(SchematicRenderChunkInstanced const& instanced, RenderChunkGeometry
 }
 
 
+
+
+
 void logUnavailable(char const* reason) {
     static std::string_view last;
     if (last == reason) return;
     last = reason;
     LeviSchematic::getInstance().getSelf().getLogger().warn("SchematicChunkLayerSubmit unavailable: {}", reason);
 }
+
+
+
 
 
 void logOriginWriteSkipped(char const* reason) {
@@ -174,6 +183,10 @@ void logOriginWriteSkipped(char const* reason) {
 }
 
 
+
+
+
+
 template <typename T>
 bool readShaderConstant(void const* constant, T& value) {
     if (constant == nullptr) return false;
@@ -182,6 +195,16 @@ bool readShaderConstant(void const* constant, T& value) {
     value = *data;
     return true;
 }
+
+
+
+
+
+
+
+
+
+
 
 
 bool submitChunkLayer(
@@ -212,10 +235,21 @@ bool submitChunkLayer(
     auto frameBuilder = ServiceLocator<mce::framebuilder::FrameBuilder>::get();
     if (!frameBuilder || !frameBuilder.get()->enabled()) return false;
 
-
+    
+    
+    auto const& vertexData = **vertexVariant;
+    if (vertexData.mVertexCount > std::numeric_limits<std::uint32_t>::max()) {
+        logUnavailable("vertex count exceeds the native mesh filter limit");
+        return false;
+    }
+    auto const& metadata = vertexData.mRenderMetadata.get();
     NativePerChunkData chunk;
-    chunk.mDirectIndexData  = indexData;
-    chunk.mDirectVertexData = vertexVariant->get();
+    chunk.mBufferData = NativeDirectBuffers{
+        &vertexData,
+        indexData,
+        metadata ? &*metadata : nullptr,
+        vertexData.mVertexCount,
+    };
     chunk.mUnsorted         = fallback;
     chunk.mIndicesOffset    = suppliedRange.mStart;
     chunk.mIndicesCount     = suppliedRange.mCount;
@@ -239,7 +273,27 @@ bool submitChunkLayer(
         return false;
     }
 
+    
+    
+    
+    description.mDitheringEnabled = true;
+    if (frameBuilder.get()->isDeferredEnabled()) {
+        bool const cutout = layer.name.get().find("alpha") != std::string_view::npos
+            || layer.id == TerrainLayers::DoubleSide().id || layer.name.get() == "light"
+            || layer.name.get() == "light_source" || layer.id == TerrainLayers::Barrier().id;
+        if (!cutout) chunk.mRenderChunkFogAlpha = 1.0f;
+        description.mDitheringEnabled = false;
+        
+        
+        
+        
+        
+        if (layer.id == TerrainLayers::Barrier().id || layer.name.get() == "light_source"
+            || layer.name.get() == "light")
+            description.mTerrainLayer = &TerrainLayers::Alpha();
+    }
 
+    
     bool const endPortal = layer.id == TerrainLayers::EndPortal().id;
     if (textures.size() < 5) return false;
     description.mTextures.mArray = {
@@ -257,7 +311,9 @@ bool submitChunkLayer(
 } 
 
 char const* chunkLayerName(std::size_t index) noexcept {
-    return index < std::size(kTerrainLayerSequence) ? kTerrainLayerSequence[index].name.data() : "?";
+    if (index < std::size(kTerrainLayerSequence)) return kTerrainLayerSequence[index].name.data();
+    index -= std::size(kTerrainLayerSequence);
+    return index < std::size(kExtraLayers) ? kExtraLayers[index].name : "?";
 }
 
 void writeChunkOriginAndScale(
@@ -349,9 +405,19 @@ ChunkLayerSubmitStats submitChunkLayers(
     rangeSpan.mEnd            = ranges + kRenderLayerIndexRangeCount;
     bool const rangeQueryFlag = geometry->mFlags.get().test(kGeometryFlagRangeQueryIndex);
     auto const lod            = TerrainLayerLOD::High;
+    static auto const extraLayers = [] {
+        auto result = nativeExtraLayers();
+        for (size_t i = 0; i < result.size(); ++i)
+            if (!result[i])
+                result[i] = static_cast<TerrainLayer const*>(ll::memory::SymbolView{kExtraLayers[i].symbol}.resolve(true));
+        return result;
+    }();
 
     for (std::size_t i = 0; i < kChunkLayerCount; ++i) {
-        auto const& layer = kTerrainLayerSequence[i].get();
+        auto layerPtr = i < std::size(kTerrainLayerSequence) ? &kTerrainLayerSequence[i].get()
+            : extraLayers[i - std::size(kTerrainLayerSequence)];
+        if (!layerPtr) { ++stats.unavailable; continue; }
+        auto const& layer = *layerPtr;
         stats.ranges[i]   = RenderChunkSorter::getRangeIndices(rangeSpan, layer, lod, rangeQueryFlag);
         if (stats.ranges[i].mCount == 0) {
             ++stats.empty;

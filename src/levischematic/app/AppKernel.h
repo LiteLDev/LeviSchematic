@@ -1,11 +1,18 @@
 #pragma once
 
+#include "ProjectService.h"
+#include "SelectionSaveService.h"
+#include "SessionPersistence.h"
+#include "SignService.h"
+#include "SurvivalService.h"
+#include "WorldEditService.h"
 #include "levischematic/app/ConfigStore.h"
 #include "levischematic/app/PlacementService.h"
 #include "levischematic/app/RuntimeContext.h"
 #include "levischematic/app/SchematicLoadService.h"
 #include "levischematic/app/SelectionService.h"
 #include "levischematic/app/SessionGate.h"
+#include "levischematic/app/ToolService.h"
 #include "levischematic/app/ViewService.h"
 #include "levischematic/input/InputHandler.h"
 #include "levischematic/verifier/VerifierService.h"
@@ -17,106 +24,163 @@
 class ClientInstance;
 namespace levischematic::render {
 class SchematicChunkRenderer;
+class ActorProjection;
 }
 
 namespace levischematic::app {
 
 
+
+
+
+
+
 class AppKernel {
 public:
     enum class State { Empty, Starting, Active, Stopping };
+    
 
 
     AppKernel();
+    
 
 
     ~AppKernel();
+    
 
 
-    AppKernel(AppKernel const&) = delete;
+
+    AppKernel(AppKernel const&)            = delete;
+    
+
 
 
     AppKernel& operator=(AppKernel const&) = delete;
 
-
-    void invalidateRuntime(std::optional<int> targetDimension = {});
-
-
-    void resetRenderer();
+    
 
 
-    void invalidateRenderResources();
+
+    void                   invalidateRuntime(std::optional<int> targetDimension = {});
+    
 
 
-    [[nodiscard]] bool hasSession() const noexcept;
+    void                   resetRenderer();
+    
 
 
-    [[nodiscard]] State state() const noexcept { return mState; }
+    void                   invalidateRenderResources();
+    
+
+
+    [[nodiscard]] bool     hasSession() const noexcept;
+    
+
+
+    [[nodiscard]] State    state() const noexcept { return mState; }
+    
 
 
     [[nodiscard]] uint64_t resourceGeneration() const noexcept;
+    
 
 
     [[nodiscard]] uint64_t sessionGeneration() const noexcept { return mGate.generation(); }
+    
 
 
-    [[nodiscard]] bool runtimeReady() const noexcept;
+    [[nodiscard]] bool     runtimeReady() const noexcept;
+    
+    [[nodiscard]] bool     hudReady() const noexcept;
+    
 
 
-    [[nodiscard]] bool usesClientCommands() const noexcept;
+    [[nodiscard]] bool     usesClientCommands() const noexcept;
+
+    
 
 
-    [[nodiscard]] RuntimeContext& runtime();
+    [[nodiscard]] RuntimeContext&                 runtime();
+    
 
 
-    [[nodiscard]] PlacementService& placement();
+    [[nodiscard]] PlacementService&               placement();
+    
 
 
-    [[nodiscard]] SelectionService& selection();
+    [[nodiscard]] SelectionService&               selection();
+    
 
 
-    [[nodiscard]] ViewService& view();
+    [[nodiscard]] ViewService&                    view();
+    
 
 
     [[nodiscard]] render::SchematicChunkRenderer& schematicRenderer();
+    render::ActorProjection& actors();
+    
 
 
-    [[nodiscard]] verifier::VerifierService& verifier();
+    [[nodiscard]] verifier::VerifierService&      verifier();
+    
 
 
-    [[nodiscard]] input::InputHandler& input();
-
+    [[nodiscard]] input::InputHandler&  input();
+    [[nodiscard]] ToolService&          tools();
+    [[nodiscard]] SurvivalService&      survival();
+    [[nodiscard]] WorldEditService&     worldEdit();
+    [[nodiscard]] ProjectService&       projects();
+    [[nodiscard]] SignService&          signs();
+    [[nodiscard]] SessionPersistence&   sessions();
+    [[nodiscard]] SelectionSaveService& saves() { return mSaves; }
+    
     [[nodiscard]] SchematicLoadService& loads() { return mLoads; }
 
 private:
     friend class SessionAccess;
+    
 
 
     friend void start();
+    
+
 
 
     friend void clientReady(ClientInstance&);
+    
+
 
 
     friend void clientTick(ClientInstance&);
+    
 
 
     friend void drainSession() noexcept;
+    
+    
+
 
 
     void startSession(ClientInstance& client);
+    
+
 
 
     void requestSession(ClientInstance& client);
+    
 
 
     void endSession();
+    
+
 
 
     void maintain(ClientInstance& client);
     class WorldSession;
     std::unique_ptr<WorldSession> mSession;
     SchematicLoadService          mLoads;
+    SelectionSaveService          mSaves;
+    uint64_t                      mSaveNotified = 0;
     State                         mState              = State::Empty;
     bool                          mUsesClientCommands = false;
     bool                          mReadyPending       = false;
@@ -125,33 +189,52 @@ private:
 };
 
 
+
+
+
 class SessionAccess {
 public:
+    
+
+
+
     explicit SessionAccess(bool tryOnly = false);
+    
 
 
-    SessionAccess(SessionAccess&&) noexcept = default;
+
+    SessionAccess(SessionAccess&&) noexcept                  = default;
+    
 
 
-    SessionAccess& operator=(SessionAccess&&) noexcept = default;
+
+    SessionAccess& operator=(SessionAccess&&) noexcept       = default;
+    
 
 
-    SessionAccess(SessionAccess const&) = delete;
+
+    SessionAccess(SessionAccess const&)                      = delete;
+    
 
 
-    SessionAccess& operator=(SessionAccess const&) = delete;
+
+    SessionAccess&           operator=(SessionAccess const&) = delete;
+    
 
 
-    void reset() noexcept {
+    void                     reset() noexcept {
         mKernel = nullptr;
         mLock   = {};
     }
+    
 
 
-    [[nodiscard]] explicit operator bool() const noexcept { return mKernel != nullptr && mLock.owns_lock(); }
+    [[nodiscard]] explicit   operator bool() const noexcept { return mKernel != nullptr && mLock.owns_lock(); }
+    
 
 
     [[nodiscard]] AppKernel* operator->() const noexcept { return mKernel; }
+    
 
 
     [[nodiscard]] AppKernel& operator*() const noexcept { return *mKernel; }
@@ -162,43 +245,65 @@ private:
 };
 
 
+
+
 [[nodiscard]] SessionAccess accessSession();
+
 
 
 [[nodiscard]] SessionAccess tryAccessSession();
 
 
-[[nodiscard]] bool hasAppKernel();
+
+[[nodiscard]] bool          hasAppKernel();
 
 
-[[nodiscard]] bool hasActiveSession();
+
+[[nodiscard]] bool          hasActiveSession();
 
 
-void load();
+
+void                        load();
 
 
-void start();
+
+void                        start();
 
 
-void stop();
+
+void                        stop();
 
 
-void clientReady(ClientInstance& client);
 
 
-void clientLeaving(ClientInstance& client);
+void                        clientReady(ClientInstance& client);
 
 
-void clientTick(ClientInstance& client);
 
 
-void invalidateRuntime(std::optional<int> targetDimension = {});
+void                        clientLeaving(ClientInstance& client);
+
+
+
+
+void                        clientTick(ClientInstance& client);
+
+
+
+
+void                        invalidateRuntime(std::optional<int> targetDimension = {});
+
+
 
 
 void beginResourceReload();
 
 
+
 void resourceReloadQueued();
+
+
+
 
 
 void sourceDestroyed(verifier_block_listener::VerifierBlockListener& listener, BlockSource& source);

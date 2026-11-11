@@ -16,13 +16,24 @@ namespace levischematic::render::detail {
 using ResolvedTextureClientPointer = mce::ClientResourcePointer<dragon::ResolvedTextureResource>;
 
 
+
+
+
+
+
 inline constexpr std::size_t kNativeTextureVariantTagOffset = 0x68;
+
+
+
 
 
 struct NativeTextureVariantView {
     std::uint8_t                        tag      = 0xff;
     ResolvedTextureClientPointer const* resolved = nullptr;
 };
+
+
+
 
 
 inline NativeTextureVariantView inspectNativeTextureVariant(void const* storage) {
@@ -32,6 +43,11 @@ inline NativeTextureVariantView inspectNativeTextureVariant(void const* storage)
     auto const tag = ll::memory::dAccess<std::uint8_t const>(storage, kNativeTextureVariantTagOffset);
     return {tag, tag == 2 ? static_cast<ResolvedTextureClientPointer const*>(storage) : nullptr};
 }
+
+
+
+
+
 
 
 inline mce::ServerResourcePointer<dragon::ResolvedTextureResource>

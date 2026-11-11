@@ -18,7 +18,13 @@ namespace {
 
 bool gTickHooksRegistered = false;
 
-}
+} 
+
+
+
+
+
+
 
 
 LL_TYPE_INSTANCE_HOOK(
@@ -28,18 +34,33 @@ LL_TYPE_INSTANCE_HOOK(
     &ClientInstance::_startLeaveGame,
     void
 ) {
-
+    
     app::clientLeaving(*this);
     origin();
 }
 
 
-LL_TYPE_INSTANCE_HOOK(ClientLevelExitHook, HookPriority::Highest, ClientInstance, &ClientInstance::$onLevelExit, void) {
 
 
+
+LL_TYPE_INSTANCE_HOOK(
+    ClientLevelExitHook,
+    HookPriority::Highest,
+    ClientInstance,
+    &ClientInstance::$onLevelExit,
+    void
+) {
+    
+    
+    
+    
+    
     app::clientLeaving(*thisFor<GameCallbacks>());
     origin();
 }
+
+
+
 
 
 LL_TYPE_INSTANCE_HOOK(
@@ -54,6 +75,11 @@ LL_TYPE_INSTANCE_HOOK(
 }
 
 
+
+
+
+
+
 LL_TYPE_INSTANCE_HOOK(
     BeginResourceReloadHook,
     HookPriority::Highest,
@@ -64,6 +90,12 @@ LL_TYPE_INSTANCE_HOOK(
     app::beginResourceReload();
     origin();
 }
+
+
+
+
+
+
 
 
 LL_TYPE_INSTANCE_HOOK(
@@ -78,6 +110,11 @@ LL_TYPE_INSTANCE_HOOK(
     origin(manager, fullVanillaPackOnStack);
     app::resourceReloadQueued();
 }
+
+
+
+
+
 
 
 LL_TYPE_INSTANCE_HOOK(

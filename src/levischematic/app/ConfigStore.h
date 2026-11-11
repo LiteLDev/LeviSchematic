@@ -8,13 +8,19 @@ namespace levischematic::app {
 
 class ConfigStore {
 public:
+    
     std::string initialize(std::filesystem::path path);
-
+    
     [[nodiscard]] Config snapshot() const {
         std::scoped_lock lock(mMutex);
         return mCurrent;
     }
-
+    
+    [[nodiscard]] Config editableSnapshot() const {
+        std::scoped_lock lock(mMutex);
+        return mPending ? *mPending : mCurrent;
+    }
+    
     std::string submit(Config value) {
         auto error = validateConfig(value);
         if (!error.empty()) return error;
@@ -22,11 +28,11 @@ public:
         mPending = std::move(value);
         return {};
     }
-
+    
     std::string reload();
-
+    
     std::string save() const;
-
+    
     std::optional<Config> applyPending() {
         std::scoped_lock lock(mMutex);
         if (!mPending) return {};

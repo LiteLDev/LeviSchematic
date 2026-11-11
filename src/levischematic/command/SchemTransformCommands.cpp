@@ -9,15 +9,21 @@ namespace levischematic::command {
 
 void registerSchemTransformCommands(ll::command::CommandHandle& schemCmd) {
     schemCmd.overload<SchemMoveParam>().text("move").required("dx").required("dy").required("dz").execute(
+    
 
 
-        [&](CommandOrigin const& origin, CommandOutput& output, SchemMoveParam const& param) {
+
+
+
+    [&](CommandOrigin const& origin, CommandOutput& output, SchemMoveParam const& param) {
             auto session = acquireSession(output);
             if (!session) return;
             auto& placementService = session->placement();
             withSelectedPlacement(
                 placementService,
                 output,
+                
+
 
 
                 [&](placement::PlacementInstance const& selected) {
@@ -27,23 +33,21 @@ void registerSchemTransformCommands(ll::command::CommandHandle& schemCmd) {
                         return;
                     }
 
-                    flushPlacementRefreshAndReply(
-                        *session,
-                        origin,
-                        output,
+                    flushPlacementRefreshAndReply(*session, origin, output,
+                    
 
 
-                        [&](CommandOutput& out) {
-                            out.success(
-                                "Moved '{}' by ({},{},{}) -> ({})",
-                                selected.name,
-                                param.dx,
-                                param.dy,
-                                param.dz,
-                                moved.value() ? moved.value()->origin.toString() : selected.origin.toString()
-                            );
-                        }
-                    );
+
+                    [&](CommandOutput& out) {
+                        out.success(
+                            "Moved '{}' by ({},{},{}) -> ({})",
+                            selected.name,
+                            param.dx,
+                            param.dy,
+                            param.dz,
+                            moved.value() ? moved.value()->origin.toString() : selected.origin.toString()
+                        );
+                    });
                 },
                 "No placement selected. Use /schem load or /schem select first."
             );
@@ -51,207 +55,202 @@ void registerSchemTransformCommands(ll::command::CommandHandle& schemCmd) {
     );
 
     schemCmd.overload<SchemOriginParam>().text("origin").required("pos").execute(
+    
 
 
-        [&](CommandOrigin const& origin, CommandOutput& output, SchemOriginParam const& param, Command const& cmd) {
+
+
+
+
+    [&](CommandOrigin const& origin, CommandOutput& output, SchemOriginParam const& param, Command const& cmd) {
             auto session = acquireSession(output);
             if (!session) return;
             auto& placementService = session->placement();
-            withSelectedPlacement(
-                placementService,
-                output,
+            withSelectedPlacement(placementService, output,
+            
 
 
-                [&](placement::PlacementInstance const& selected) {
-                    auto blockPos = BlockPos(origin.getExecutePosition(cmd.mVersion, param.pos));
-                    auto updated  = placementService.setPlacementOrigin(selected.id, blockPos);
-                    if (!updated) {
-                        replyPlacementError(output, "command.setPlacementOrigin", updated.error());
-                        return;
-                    }
 
-                    flushPlacementRefreshAndReply(
-                        *session,
-                        origin,
-                        output,
-
-
-                        [&](CommandOutput& out) {
-                            out.success("Set origin of '{}' to ({})", selected.name, blockPos.toString());
-                        }
-                    );
+            [&](placement::PlacementInstance const& selected) {
+                auto blockPos = BlockPos(origin.getExecutePosition(cmd.mVersion, param.pos));
+                auto updated  = placementService.setPlacementOrigin(selected.id, blockPos);
+                if (!updated) {
+                    replyPlacementError(output, "command.setPlacementOrigin", updated.error());
+                    return;
                 }
-            );
+
+                flushPlacementRefreshAndReply(*session, origin, output,
+                
+
+
+
+                [&](CommandOutput& out) {
+                    out.success("Set origin of '{}' to ({})", selected.name, blockPos.toString());
+                });
+            });
         }
     );
 
     schemCmd.overload<SchemRotateParam>().text("rotate").required("dir").execute(
+    
 
 
-        [&](CommandOrigin const& origin, CommandOutput& output, SchemRotateParam const& param) {
-            auto session = acquireSession(output);
-            if (!session) return;
-            auto& placementService = session->placement();
-            withSelectedPlacement(
-                placementService,
-                output,
 
 
-                [&](placement::PlacementInstance const& selected) {
-                    auto updated =
+
+    [&](CommandOrigin const&    origin,
+                                                                                     CommandOutput&          output,
+                                                                                     SchemRotateParam const& param) {
+        auto session = acquireSession(output);
+        if (!session) return;
+        auto& placementService = session->placement();
+        withSelectedPlacement(placementService, output,
+        
 
 
-                        [&]() {
-                            switch (param.dir) {
-                            case SchemRotateParam::direction::cw90:
-                                return placementService.rotatePlacement(
-                                    selected.id,
-                                    placement::PlacementInstance::Rotation::CW_90
-                                );
-                            case SchemRotateParam::direction::ccw90:
-                                return placementService.rotatePlacement(
-                                    selected.id,
-                                    placement::PlacementInstance::Rotation::CCW_90
-                                );
-                            case SchemRotateParam::direction::r180:
-                                return placementService.rotatePlacement(
-                                    selected.id,
-                                    placement::PlacementInstance::Rotation::CW_180
-                                );
-                            }
 
-                            return placementService.rotatePlacement(
-                                selected.id,
-                                placement::PlacementInstance::Rotation::CW_90
-                            );
-                        }();
-
-                    if (!updated) {
-                        replyPlacementError(output, "command.rotatePlacement", updated.error());
-                        return;
-                    }
-
-                    flushPlacementRefreshAndReply(
-                        *session,
-                        origin,
-                        output,
+        [&](placement::PlacementInstance const& selected) {
+            auto updated =
+            
 
 
-                        [&](CommandOutput& out) {
-                            out.success(
-                                "Rotated '{}' -> {}",
-                                selected.name,
-                                updated.value() ? updated.value()->describeTransform() : selected.describeTransform()
-                            );
-                        }
+            [&]() {
+                switch (param.dir) {
+                case SchemRotateParam::direction::cw90:
+                    return placementService.rotatePlacement(selected.id, placement::PlacementInstance::Rotation::CW_90);
+                case SchemRotateParam::direction::ccw90:
+                    return placementService.rotatePlacement(
+                        selected.id,
+                        placement::PlacementInstance::Rotation::CCW_90
+                    );
+                case SchemRotateParam::direction::r180:
+                    return placementService.rotatePlacement(
+                        selected.id,
+                        placement::PlacementInstance::Rotation::CW_180
                     );
                 }
-            );
-        }
-    );
+
+                return placementService.rotatePlacement(selected.id, placement::PlacementInstance::Rotation::CW_90);
+            }();
+
+            if (!updated) {
+                replyPlacementError(output, "command.rotatePlacement", updated.error());
+                return;
+            }
+
+            flushPlacementRefreshAndReply(*session, origin, output,
+            
+
+
+
+            [&](CommandOutput& out) {
+                out.success(
+                    "Rotated '{}' -> {}",
+                    selected.name,
+                    updated.value() ? updated.value()->describeTransform() : selected.describeTransform()
+                );
+            });
+        });
+    });
 
     schemCmd.overload<SchemMirrorParam>().text("mirror").required("axis_").execute(
+    
 
 
-        [&](CommandOrigin const& origin, CommandOutput& output, SchemMirrorParam const& param) {
-            auto session = acquireSession(output);
-            if (!session) return;
-            auto& placementService = session->placement();
-            withSelectedPlacement(
-                placementService,
-                output,
 
 
-                [&](placement::PlacementInstance const& selected) {
-                    auto updated =
+
+    [&](CommandOrigin const&    origin,
+                                                                                       CommandOutput&          output,
+                                                                                       SchemMirrorParam const& param) {
+        auto session = acquireSession(output);
+        if (!session) return;
+        auto& placementService = session->placement();
+        withSelectedPlacement(placementService, output,
+        
 
 
-                        [&]() {
-                            switch (param.axis_) {
-                            case SchemMirrorParam::axis::x:
-                                return placementService.setPlacementMirror(
-                                    selected.id,
-                                    placement::PlacementInstance::Mirror::MIRROR_X
-                                );
-                            case SchemMirrorParam::axis::z:
-                                return placementService.setPlacementMirror(
-                                    selected.id,
-                                    placement::PlacementInstance::Mirror::MIRROR_Z
-                                );
-                            case SchemMirrorParam::axis::none:
-                                return placementService.setPlacementMirror(
-                                    selected.id,
-                                    placement::PlacementInstance::Mirror::NONE
-                                );
-                            }
 
-                            return placementService.setPlacementMirror(
-                                selected.id,
-                                placement::PlacementInstance::Mirror::NONE
-                            );
-                        }();
-
-                    if (!updated) {
-                        replyPlacementError(output, "command.setPlacementMirror", updated.error());
-                        return;
-                    }
-
-                    flushPlacementRefreshAndReply(
-                        *session,
-                        origin,
-                        output,
+        [&](placement::PlacementInstance const& selected) {
+            auto updated =
+            
 
 
-                        [&](CommandOutput& out) {
-                            out.success(
-                                "Mirror '{}' -> {}",
-                                selected.name,
-                                updated.value() ? updated.value()->describeTransform() : selected.describeTransform()
-                            );
-                        }
+            [&]() {
+                switch (param.axis_) {
+                case SchemMirrorParam::axis::x:
+                    return placementService.setPlacementMirror(
+                        selected.id,
+                        placement::PlacementInstance::Mirror::MIRROR_X
                     );
+                case SchemMirrorParam::axis::z:
+                    return placementService.setPlacementMirror(
+                        selected.id,
+                        placement::PlacementInstance::Mirror::MIRROR_Z
+                    );
+                case SchemMirrorParam::axis::none:
+                    return placementService.setPlacementMirror(selected.id, placement::PlacementInstance::Mirror::NONE);
                 }
-            );
-        }
-    );
+
+                return placementService.setPlacementMirror(selected.id, placement::PlacementInstance::Mirror::NONE);
+            }();
+
+            if (!updated) {
+                replyPlacementError(output, "command.setPlacementMirror", updated.error());
+                return;
+            }
+
+            flushPlacementRefreshAndReply(*session, origin, output,
+            
+
+
+
+            [&](CommandOutput& out) {
+                out.success(
+                    "Mirror '{}' -> {}",
+                    selected.name,
+                    updated.value() ? updated.value()->describeTransform() : selected.describeTransform()
+                );
+            });
+        });
+    });
 
     schemCmd.overload().text("reset").execute(
+    
 
 
-        [&](CommandOrigin const& origin, CommandOutput& output) {
-            auto session = acquireSession(output);
-            if (!session) return;
-            auto& placementService = session->placement();
-            withSelectedPlacement(
-                placementService,
-                output,
 
 
-                [&](placement::PlacementInstance const& selected) {
-                    auto updated = placementService.resetPlacementTransform(selected.id);
-                    if (!updated) {
-                        replyPlacementError(output, "command.resetPlacementTransform", updated.error());
-                        return;
-                    }
-
-                    flushPlacementRefreshAndReply(
-                        *session,
-                        origin,
-                        output,
+    [&](CommandOrigin const& origin, CommandOutput& output) {
+        auto session = acquireSession(output);
+        if (!session) return;
+        auto& placementService = session->placement();
+        withSelectedPlacement(placementService, output,
+        
 
 
-                        [&](CommandOutput& out) {
-                            out.success(
-                                "Reset transform for '{}' -> {}",
-                                selected.name,
-                                updated.value() ? updated.value()->describeTransform() : selected.describeTransform()
-                            );
-                        }
-                    );
-                }
-            );
-        }
-    );
+
+        [&](placement::PlacementInstance const& selected) {
+            auto updated = placementService.resetPlacementTransform(selected.id);
+            if (!updated) {
+                replyPlacementError(output, "command.resetPlacementTransform", updated.error());
+                return;
+            }
+
+            flushPlacementRefreshAndReply(*session, origin, output,
+            
+
+
+
+            [&](CommandOutput& out) {
+                out.success(
+                    "Reset transform for '{}' -> {}",
+                    selected.name,
+                    updated.value() ? updated.value()->describeTransform() : selected.describeTransform()
+                );
+            });
+        });
+    });
 }
 
 } 

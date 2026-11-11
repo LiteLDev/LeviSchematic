@@ -12,6 +12,9 @@ class Dimension;
 namespace levischematic::selection {
 
 
+
+
+
 struct ExportSelectionError {
     enum class Code {
         IncompleteSelection,
@@ -23,18 +26,31 @@ struct ExportSelectionError {
     std::filesystem::path path;
     std::string           detail;
 
+    
+
+
 
     [[nodiscard]] std::string describe(std::string_view target = {}) const;
 };
 
 
+
+
+
 class SelectionExporter {
 public:
+    
+
+
+
+
+
+
     [[nodiscard]] app::Result<std::filesystem::path, ExportSelectionError> saveToMcstructure(
-        SelectionState const&        state,
+        SelectionState const& state,
         std::filesystem::path const& schematicDirectory,
-        std::string_view             name,
-        Dimension&                   dimension
+        std::string_view      name,
+        Dimension&            dimension
     ) const;
 };
 

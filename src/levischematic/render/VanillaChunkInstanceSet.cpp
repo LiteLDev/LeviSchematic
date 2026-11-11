@@ -20,13 +20,52 @@ namespace levischematic::render {
 namespace {
 
 
+
+
 auto& getLogger() { return levischematic::LeviSchematic::getInstance().getSelf().getLogger(); }
+
+
+
+
 
 
 [[nodiscard]] constexpr int signOf(int value) noexcept { return (value > 0) - (value < 0); }
 
 
+
+
+
+
+
+
+
+
+
+
+
 constexpr bool kKeepAllFaceDirectionsForPreview = true;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 [[nodiscard]] std::size_t releaseRenderChunkGeometry(std::shared_ptr<::RenderChunkGeometry> const& geometry) {
@@ -40,28 +79,41 @@ constexpr bool kKeepAllFaceDirectionsForPreview = true;
 }
 
 
+
+
+
+
+
+
+
 void writeSortCameraDelta(
     SchematicRenderChunkInstanced& instanced,
     ::BlockPos const&              position,
     ::Vec3 const&                  sortCamera
 ) noexcept {
-    auto const cameraX                      = static_cast<int>(std::floor(sortCamera.x));
-    auto const cameraY                      = static_cast<int>(std::floor(sortCamera.y));
-    auto const cameraZ                      = static_cast<int>(std::floor(sortCamera.z));
+    auto const cameraX = static_cast<int>(std::floor(sortCamera.x));
+    auto const cameraY = static_cast<int>(std::floor(sortCamera.y));
+    auto const cameraZ = static_cast<int>(std::floor(sortCamera.z));
     instanced.mLastSortCameraDelta.get()[0] = signOf((position.x >> 4) - (cameraX >> 4));
     instanced.mLastSortCameraDelta.get()[1] = signOf((position.y >> 4) - (cameraY >> 4));
     instanced.mLastSortCameraDelta.get()[2] = signOf((position.z >> 4) - (cameraZ >> 4));
 }
 
 
+
+
+
+
+
+
 void logSortCameraDelta(::BlockPos const& position, ::glm::ivec3 const& cameraDelta) {
     static std::string lastMessage;
     std::string const  message = "VanillaChunkInstanceSet: sorted chunk=(" + std::to_string(position.x) + ","
-                               + std::to_string(position.y) + "," + std::to_string(position.z) + ") chunkPos=("
-                               + std::to_string(position.x >> 4) + "," + std::to_string(position.y >> 4) + ","
-                               + std::to_string(position.z >> 4) + ") cameraDelta=(" + std::to_string(cameraDelta[0])
-                               + "," + std::to_string(cameraDelta[1]) + "," + std::to_string(cameraDelta[2]) + ")"
-                               + (kKeepAllFaceDirectionsForPreview ? " faceCulling=forcedAll" : " faceCulling=vanilla");
+                              + std::to_string(position.y) + "," + std::to_string(position.z) + ") chunkPos=("
+                              + std::to_string(position.x >> 4) + "," + std::to_string(position.y >> 4) + ","
+                              + std::to_string(position.z >> 4) + ") cameraDelta=(" + std::to_string(cameraDelta[0])
+                              + "," + std::to_string(cameraDelta[1]) + "," + std::to_string(cameraDelta[2]) + ")"
+                              + (kKeepAllFaceDirectionsForPreview ? " faceCulling=forcedAll" : " faceCulling=vanilla");
     if (message == lastMessage) {
         return;
     }
@@ -73,14 +125,16 @@ void logSortCameraDelta(::BlockPos const& position, ::glm::ivec3 const& cameraDe
 
 void VanillaChunkInstanceSet::reset() {
     clear();
-
+    
     (void)createSorter();
 }
 
 void VanillaChunkInstanceSet::clear() {
     mDirty.clear();
-
-
+    
+    
+    
+    
     std::size_t releasedGeometries = 0;
     for (auto const& [chunkOrigin, instanced] : mInstances) {
         if (!instanced) {
@@ -90,10 +144,8 @@ void VanillaChunkInstanceSet::clear() {
         releasedGeometries += releaseRenderChunkGeometry(instanced->mNextRenderChunkGeometry);
         releasedGeometries += releaseRenderChunkGeometry(instanced->mCurrentRenderChunkGeometry);
         if (instanced->mRenderChunkShared) {
-            releasedGeometries +=
-                releaseRenderChunkGeometry(instanced->mRenderChunkShared->mCurrentRenderChunkGeometry);
-            releasedGeometries +=
-                releaseRenderChunkGeometry(instanced->mRenderChunkShared->mBuildingRenderChunkGeometry);
+            releasedGeometries += releaseRenderChunkGeometry(instanced->mRenderChunkShared->mCurrentRenderChunkGeometry);
+            releasedGeometries += releaseRenderChunkGeometry(instanced->mRenderChunkShared->mBuildingRenderChunkGeometry);
         }
     }
     if (!mInstances.empty()) {
@@ -123,10 +175,11 @@ bool VanillaChunkInstanceSet::ready() const noexcept { return static_cast<bool>(
 bool VanillaChunkInstanceSet::createSorter() {
     auto sorter = std::make_unique<SchematicRenderChunkSorter>(std::shared_ptr<SchematicRenderChunkSorterSharedInfo>{});
 
-
+    
     sorter->mForceDisableCulling = kKeepAllFaceDirectionsForPreview;
 
-
+    
+    
     getLogger().debug(
         "VanillaChunkInstanceSet: RenderChunkSorter created at {:p} (sharedInfo={:p}, "
         "forceDisableCulling={})",
@@ -146,13 +199,13 @@ SchematicRenderChunkInstanced* VanillaChunkInstanceSet::obtain(::BlockPos const&
     }
     auto instanced = std::make_unique<SchematicRenderChunkInstanced>();
 
-
+    
     ::SubChunkPos const chunkPos{chunkOrigin.x >> 4, chunkOrigin.y >> 4, chunkOrigin.z >> 4};
     instanced->mRenderChunkShared = makeSchematicRenderChunkShared(chunkPos);
 
     auto const inserted = mInstances.emplace(chunkOrigin, std::move(instanced));
     if (inserted.second) {
-
+        
         auto const& shared = inserted.first->second->mRenderChunkShared;
         getLogger().debug(
             "VanillaChunkInstanceSet: RenderChunkInstanced created at {:p} for chunk=({}, {}, {}), "
@@ -170,13 +223,16 @@ SchematicRenderChunkInstanced* VanillaChunkInstanceSet::obtain(::BlockPos const&
     return inserted.first->second.get();
 }
 
-bool VanillaChunkInstanceSet::prepareRebuild(SchematicRenderChunkInstanced& instanced, RenderChunkBuilder& builder) {
+bool VanillaChunkInstanceSet::prepareRebuild(
+    SchematicRenderChunkInstanced& instanced,
+    RenderChunkBuilder& builder
+) {
     auto& shared = instanced.mRenderChunkShared;
     if (!shared) {
         return false;
     }
 
-
+    
     Vec3 const currentCameraPosition{0.0f, 0.0f, 0.0f};
     shared->startRebuild(builder, currentCameraPosition);
 
@@ -191,20 +247,22 @@ bool VanillaChunkInstanceSet::prepareRebuild(SchematicRenderChunkInstanced& inst
 
 void VanillaChunkInstanceSet::buildPrepared(SchematicRenderChunkInstanced& instanced, RenderChunkBuilder& builder) {
     detail::ChunkLightingCapabilities const lighting;
-    instanced.mRenderChunkShared->mBuildingRenderChunkGeometry
-        ->rebuild(builder, false, ::BakedBlockLightType::Flat, false, lighting.value);
+    instanced.mRenderChunkShared->mBuildingRenderChunkGeometry->rebuild(
+        builder, false, ::BakedBlockLightType::Flat, false, lighting.value
+    );
 }
 
 void VanillaChunkInstanceSet::finishRebuild(
     SchematicRenderChunkInstanced& instanced,
-    RenderChunkBuilder&            builder,
-    ::mce::BufferResourceService&  bufferResourceService
+    RenderChunkBuilder& builder,
+    ::mce::BufferResourceService& bufferResourceService
 ) {
-    auto& shared   = instanced.mRenderChunkShared;
+    auto& shared = instanced.mRenderChunkShared;
     auto& building = shared->mBuildingRenderChunkGeometry;
     building->endRebuild(
         builder,
         bufferResourceService,
+        *builder.mRenderChunkVertexStreamPlanRegistry.get(),
         shared->mBuildState->load() == SchematicRenderChunkShared::BuildState::Building,
         shared->mCurrentRenderChunkGeometry != nullptr,
         shared->mRenderMetadata,
@@ -212,11 +270,14 @@ void VanillaChunkInstanceSet::finishRebuild(
     );
     shared->mBuildState->store(SchematicRenderChunkShared::BuildState::NotBuldingOrSorting);
 
-
+    
     shared->mCurrentRenderChunkGeometry = std::move(building);
 }
 
-bool VanillaChunkInstanceSet::prepareSort(SchematicRenderChunkInstanced& instanced, ::Vec3 const& sortCamera) {
+bool VanillaChunkInstanceSet::prepareSort(
+    SchematicRenderChunkInstanced& instanced,
+    ::Vec3 const&                  sortCamera
+) {
     if (!mSorter) {
         return false;
     }
@@ -225,11 +286,14 @@ bool VanillaChunkInstanceSet::prepareSort(SchematicRenderChunkInstanced& instanc
         return false;
     }
 
-
+    
+    
     auto const& position = shared->mPosition.get();
     writeSortCameraDelta(instanced, position, sortCamera);
 
-
+    
+    
+    
     if (auto& info = mSorter->mSharedInfo) {
         info->x->store(sortCamera.x);
         info->y->store(sortCamera.y);
@@ -252,11 +316,13 @@ void VanillaChunkInstanceSet::sortPrepared(SchematicRenderChunkInstanced& instan
         return;
     }
 
-
+    
+    
+    
     ::BlockPos const&   geometryPosition = sortingGeometry->mPosition;
     ::SubChunkPos const renderChunkPos{geometryPosition.x >> 4, geometryPosition.y >> 4, geometryPosition.z >> 4};
 
-    auto&                                                     faces = sortingGeometry->mFaceSortingMetaData.get();
+    auto& faces = sortingGeometry->mFaceSortingMetaData.get();
     ::buffer_span<std::shared_ptr<::FaceSortingMetaDataBase>> faceSortingData;
     faceSortingData.mBegin = faces.data();
     faceSortingData.mEnd   = faces.data() + faces.size();
@@ -266,7 +332,7 @@ void VanillaChunkInstanceSet::sortPrepared(SchematicRenderChunkInstanced& instan
 
 void VanillaChunkInstanceSet::finishSort(
     SchematicRenderChunkInstanced& instanced,
-    ::mce::BufferResourceService&  bufferResourceService
+    ::mce::BufferResourceService& bufferResourceService
 ) {
     instanced.endSort(*mSorter, bufferResourceService);
     instanced.promoteSortedGeometry();
@@ -275,8 +341,8 @@ void VanillaChunkInstanceSet::finishSort(
 
 bool VanillaChunkInstanceSet::sort(
     SchematicRenderChunkInstanced& instanced,
-    ::Vec3 const&                  sortCamera,
-    ::mce::BufferResourceService&  bufferResourceService
+    ::Vec3 const& sortCamera,
+    ::mce::BufferResourceService& bufferResourceService
 ) {
     if (!prepareSort(instanced, sortCamera)) return false;
     sortPrepared(instanced);
@@ -286,7 +352,7 @@ bool VanillaChunkInstanceSet::sort(
 
 bool VanillaChunkInstanceSet::cameraDeltaChanged(
     SchematicRenderChunkInstanced const& instanced,
-    ::Vec3 const&                        sortCamera
+    ::Vec3 const&                         sortCamera
 ) const noexcept {
     auto const cameraX = static_cast<int>(std::floor(sortCamera.x));
     auto const cameraY = static_cast<int>(std::floor(sortCamera.y));

@@ -4,8 +4,8 @@
 
 #include "levischematic/app/PlacementService.h"
 #include "levischematic/render/SchematicRenderAlgorithms.h"
-#include "levischematic/schematic/FakeWorld.h"
 #include "levischematic/selection/SelectionState.h"
+#include "levischematic/schematic/FakeWorld.h"
 
 #include "mc/client/gui/screens/ScreenContext.h"
 #include "mc/client/renderer/Tessellator.h"
@@ -59,6 +59,7 @@ void ValidationHullRenderer::clear() noexcept {
     mTextureResolved = false;
     mDrawable        = false;
     mCache           = {};
+    mTaskOverlay     = false;
     mDeferred.reset();
     mBuildStart = 0;
 }
@@ -106,6 +107,14 @@ void ValidationHullRenderer::drawSelection(
         mSelectionSize.reset();
         return;
     }
+    auto* native = material.mRenderMaterialInfoPtr ? material.mRenderMaterialInfoPtr->mPtr.get() : nullptr;
+    struct RestoreDepth {
+        mce::RenderMaterial* material;
+        mce::DepthWriteMask mask;
+        ~RestoreDepth() { if (material) material->depthStencilStateDescription->depthWriteMask = mask; }
+    } restore{native, native ? native->depthStencilStateDescription->depthWriteMask : mce::DepthWriteMask{}};
+    
+    if (native) native->depthStencilStateDescription->depthWriteMask = static_cast<mce::DepthWriteMask>(0);
     selection::Box const box{*selection.corner1, *selection.corner2};
     auto const           origin = box.getMin();
     auto const           size   = box.getSize();
@@ -148,15 +157,17 @@ std::unique_ptr<mce::Mesh> ValidationHullRenderer::buildMesh(
     }
 
     tessellator.begin({}, mce::PrimitiveMode::QuadList, static_cast<int>(vertices.size()), false);
-
-
+    
+    
+    
+    
     tessellator.mNextNormal        = std::nullopt;
     tessellator.mNextPBRTextureIdx = std::nullopt;
     tessellator.mNextMERS          = std::nullopt;
     tessellator.mNextGeoType       = std::nullopt;
     tessellator.mQuadTwoSided      = true;
     for (auto const& vertex : vertices) {
-        tessellator.color(vertex.color);
+        tessellator.color(vertex.color.r, vertex.color.g, vertex.color.b, vertex.color.a);
         tessellator.tex2({0.5f, 0.5f});
         tessellator.vertex(vertex.x, vertex.y, vertex.z);
     }
@@ -167,6 +178,7 @@ std::unique_ptr<mce::Mesh> ValidationHullRenderer::buildMesh(
         tessellator,
         material,
         texture,
+        SupplementaryFieldAutoGenerationMode::None,
         [&](ScreenContext const&, mce::Mesh const& mesh, mce::MaterialPtr const&, TextureVariant const&) {
             if (mesh.isValid()) result = std::make_unique<mce::Mesh>(mesh);
         }
@@ -185,10 +197,13 @@ void ValidationHullRenderer::draw(
     app::Config const&                     config,
     selection::SelectionOverlayView const& selection
 ) {
-    auto const& state = placements.verification();
-    auto const& view  = placements.viewState();
-    if (!mCache.matches(state.epoch, view.revision, config.hull)) {
+    auto const& verification = placements.verification();
+    auto const& state        = verification.overlay();
+    bool const  taskOverlay  = verification.taskOverlay != nullptr;
+    auto const& view         = placements.viewState();
+    if (mTaskOverlay != taskOverlay || !mCache.matches(state.epoch, view.revision, config.hull)) {
         mBatches.clear();
+        mTaskOverlay        = taskOverlay;
         mCache.epoch        = state.epoch;
         mCache.viewRevision = view.revision;
         mCache.style        = config.hull;
@@ -245,21 +260,21 @@ void ValidationHullRenderer::draw(
     bool const       oldApplyTransform       = tessellator.mApplyTransform;
     auto const       oldNextColor            = tessellator.mNextColor;
     auto const       oldNextBone             = tessellator.mNextBoneId;
-    std::array      oldNextUv{tessellator.mNextUV[0].get(), tessellator.mNextUV[1].get(), tessellator.mNextUV[2].get()};
-    auto const      oldNextNormal        = tessellator.mNextNormal;
-    auto const      oldNextPbrTextureIdx = tessellator.mNextPBRTextureIdx;
-    auto const      oldNextMers          = tessellator.mNextMERS;
-    auto const      oldNextGeoType       = tessellator.mNextGeoType;
-    uchar const     oldQuadFacing        = tessellator.mQuadFacing;
-    bool const      oldQuadTwoSided      = tessellator.mQuadTwoSided;
-    bool const      oldNoColor           = tessellator.mNoColor;
-    util::ScopeExit restoreState([&] {
-        *tessellator.mPostTransformOffset = oldOffset;
-        tessellator.mPostTransformScale   = oldScale;
-        tessellator.mTransformMatrix      = oldTransform;
-        tessellator.mApplyTransform       = oldApplyTransform;
-        tessellator.mNextColor            = oldNextColor;
-        tessellator.mNextBoneId           = oldNextBone;
+    std::array oldNextUv{tessellator.mNextUV[0].get(), tessellator.mNextUV[1].get(), tessellator.mNextUV[2].get()};
+    auto const       oldNextNormal           = tessellator.mNextNormal;
+    auto const       oldNextPbrTextureIdx    = tessellator.mNextPBRTextureIdx;
+    auto const       oldNextMers             = tessellator.mNextMERS;
+    auto const       oldNextGeoType          = tessellator.mNextGeoType;
+    uchar const      oldQuadFacing           = tessellator.mQuadFacing;
+    bool const       oldQuadTwoSided         = tessellator.mQuadTwoSided;
+    bool const       oldNoColor              = tessellator.mNoColor;
+    util::ScopeExit  restoreState([&] {
+        *tessellator.mPostTransformOffset               = oldOffset;
+        tessellator.mPostTransformScale                 = oldScale;
+        tessellator.mTransformMatrix                    = oldTransform;
+        tessellator.mApplyTransform                     = oldApplyTransform;
+        tessellator.mNextColor                          = oldNextColor;
+        tessellator.mNextBoneId                         = oldNextBone;
         for (std::size_t index = 0; index < oldNextUv.size(); ++index) tessellator.mNextUV[index] = oldNextUv[index];
         tessellator.mNextNormal                         = oldNextNormal;
         tessellator.mNextPBRTextureIdx                  = oldNextPbrTextureIdx;
@@ -279,8 +294,9 @@ void ValidationHullRenderer::draw(
         screenContext.isAlphaMaskedTintEnabled          = oldAlphaMaskedTint;
     });
     screenContext.isDrawingUI = false;
-
-
+    
+    
+    
     screenContext.isDrawingEditorSelectionHighlight = false;
     screenContext.isDrawingMovingBlock              = false;
     screenContext.isDitheringEnabled                = false;
@@ -305,13 +321,18 @@ void ValidationHullRenderer::draw(
         }
         while (batch.cursor != candidate.chunk->cells.end() && budget.available()) {
             auto const& [posKey, cell] = *batch.cursor++;
+            if (!verification.allowsHullStatus(cell.status)) continue;
             auto pos                   = util::decodePosKey(posKey);
-            if (!view.layerRange.contains(pos.y)) continue;
-            auto const& color = cell.status == verifier::VerificationStatus::BlockMismatch ? config.hull.blockColor
-                                                                                           : config.hull.propertyColor;
+            if (!view.layerRange.containsPosition(pos)) continue;
+            auto color = cell.status == verifier::VerificationStatus::PropertyMismatch ? config.hull.propertyColor
+                                                                                       : config.hull.blockColor;
+            if (cell.status == verifier::VerificationStatus::MissingBlock) color = {0.2f, 0.5f, 1.0f, color[3]};
+            if (cell.status == verifier::VerificationStatus::ExtraBlock) color = {1.0f, 0.2f, 0.4f, color[3]};
             if (color[3] == 0.0f) continue;
             BlockPos local{pos.x - candidate.origin.x, pos.y - candidate.origin.y, pos.z - candidate.origin.z};
-            if (cell.status == verifier::VerificationStatus::BlockMismatch)
+            if (cell.status == verifier::VerificationStatus::BlockMismatch
+                || cell.status == verifier::VerificationStatus::MissingBlock
+                || cell.status == verifier::VerificationStatus::ExtraBlock)
                 appendCube(batch.block, local, {color[0], color[1], color[2], color[3]});
             else if (cell.status == verifier::VerificationStatus::PropertyMismatch)
                 appendCube(batch.property, local, {color[0], color[1], color[2], color[3]});
@@ -325,7 +346,7 @@ void ValidationHullRenderer::draw(
         ++builds;
         auto build = [&](auto& pending, auto& mesh) {
             if (pending.empty() || mesh || !budget.available()) return;
-            mesh = buildMesh(screenContext, tessellator, material, texture, pending);
+            mesh      = buildMesh(screenContext, tessellator, material, texture, pending);
             if (mesh) std::vector<Vertex>{}.swap(pending);
         };
         build(batch.block, batch.blockMesh);
@@ -406,9 +427,11 @@ bool ValidationHullRenderer::contains(
     int                          dimension,
     app::Config const&           config
 ) const {
-    auto const& state = placements.verification();
-    if (!mDrawable || state.clearing || !mCache.matches(state.epoch, placements.viewState().revision, config.hull)
-        || !placements.viewState().layerRange.contains(pos.y))
+    auto const& verification = placements.verification();
+    auto const& state        = verification.overlay();
+    if (!mDrawable || mTaskOverlay != (verification.taskOverlay != nullptr) || state.clearing
+        || !mCache.matches(state.epoch, placements.viewState().revision, config.hull)
+        || !placements.viewState().layerRange.containsPosition(pos))
         return false;
     auto  client   = ll::service::getClientInstance();
     auto* renderer = client ? client->getLevelRenderer() : nullptr;
@@ -433,8 +456,10 @@ bool ValidationHullRenderer::contains(
         || !batch->second.complete)
         return false;
     auto* cell = state.find(dimension, pos);
-    return cell
-        && ((cell->status == verifier::VerificationStatus::BlockMismatch && batch->second.blockMesh
+    return cell && verification.allowsHullStatus(cell->status)
+        && (((cell->status == verifier::VerificationStatus::BlockMismatch
+              || cell->status == verifier::VerificationStatus::MissingBlock
+              || cell->status == verifier::VerificationStatus::ExtraBlock) && batch->second.blockMesh
              && mCache.style.blockColor[3] > 0)
             || (cell->status == verifier::VerificationStatus::PropertyMismatch && batch->second.propertyMesh
                 && mCache.style.propertyColor[3] > 0));
@@ -458,9 +483,9 @@ void ValidationHullRenderer::renderPass(
         return;
     }
 
-    auto const* glowMaterial = resolveMaterial();
-    auto        texture      = glowMaterial ? resolveTexture(levelRenderer) : TextureVariant{};
-    bool const  deferred     = static_cast<bool>(itemRenderer->mIsDeferredEnabled);
+    auto const*             glowMaterial      = resolveMaterial();
+    auto                    texture           = glowMaterial ? resolveTexture(levelRenderer) : TextureVariant{};
+    bool const              deferred          = static_cast<bool>(itemRenderer->mIsDeferredEnabled);
     if (mDeferred && *mDeferred != deferred) {
         mBatches.clear();
         mSelectionMesh.reset();
@@ -469,8 +494,10 @@ void ValidationHullRenderer::renderPass(
     auto const&             outlineMaterial   = rendererPlayer->mOutlineSelectionMaterial.get();
     auto const&             selectionMaterial = rendererPlayer->selectionTwoSidedMaterial.get();
     mce::MaterialPtr const* materialPtr       = nullptr;
-
-
+    
+    
+    
+    
     if (glowMaterial) {
         materialPtr = glowMaterial;
     } else if (deferred && outlineMaterial.mRenderMaterialInfoPtr) {
@@ -487,6 +514,8 @@ void ValidationHullRenderer::renderPass(
     auto const& blendMaterialPtr = itemRenderer->mMatBlendBlock.get();
     auto*       blendMaterial =
         blendMaterialPtr.mRenderMaterialInfoPtr ? blendMaterialPtr.mRenderMaterialInfoPtr->mPtr.get() : nullptr;
+    
+
 
 
     struct MaterialStateRestore {
@@ -496,6 +525,7 @@ void ValidationHullRenderer::renderPass(
         float                                     depthBias{};
         float                                     slopeBias{};
         bool                                      restorePrimitive = false;
+        
 
 
         ~MaterialStateRestore() {

@@ -10,13 +10,13 @@
 namespace levischematic::render {
 
 struct FakeWorld {
-
+    
     struct Entry {
         BlockPos                pos;
         Block const*            block;
         std::optional<BlockPos> source;
     };
-
+    
     struct SubChunk {
         std::deque<Entry> blocks;
         size_t            cursor = 0;
@@ -24,18 +24,18 @@ struct FakeWorld {
         BlockPos          visibilityOrigin;
         bool              built = false, ready = false;
     };
-
+    
     FakeWorld(placement::PlacementInstance const&, Dimension&);
-
+    
     void advance(
         placement::PlacementInstance const&,
         verifier::VerifierState const&,
         editor::ViewState const&,
         util::WorkBudget const&
     );
-
+    
     bool ready(BlockPos origin) const;
-
+    
     void                                             markDirty(BlockPos pos);
     BlockPos                                         transformedSize;
     std::unique_ptr<schematic::SchematicChunkSource> chunkSource;
@@ -46,20 +46,26 @@ struct FakeWorld {
     bool                                             indexed = false;
 
 private:
+    
     void append(BlockPos, Block const*, std::optional<BlockPos>);
-
+    
     void write(BlockPos, Block const&);
-
+    void updateConnections(BlockPos);
+    std::deque<BlockPos> mConnectionQueue;
+    std::unordered_set<uint64_t> mQueuedConnections;
+    std::unordered_map<uint64_t, size_t> mConnectionPendingChunks;
+    
     bool visible(
         placement::PlacementInstance const&,
         verifier::VerifierState const&,
         editor::ViewState const&,
         BlockPos
     ) const;
-
-    uint64_t visibilityStamp(placement::PlacementInstance const&, verifier::VerifierState const&, BlockPos) const;
-    int      mMinHeight;
-    size_t   mIndex = 0, mBuild = 0, mVisibility = 0;
+    
+    uint64_t     visibilityStamp(placement::PlacementInstance const&, verifier::VerifierState const&, BlockPos) const;
+    int          mMinHeight;
+    size_t       mIndex = 0, mBuild = 0, mVisibility = 0;
+    std::unordered_map<uint64_t, placement::OverrideEntry> mOverrides;
     std::unordered_map<uint64_t, placement::OverrideEntry>::const_iterator mOverride;
 };
 
@@ -80,7 +86,7 @@ inline ::Rotation toMinecraftRotation(placement::PlacementInstance::Rotation rot
 inline ::Mirror toMinecraftMirror(placement::PlacementInstance::Mirror mirror) {
     switch (mirror) {
     case placement::PlacementInstance::Mirror::MIRROR_X:
-        return ::Mirror::Z;
+        return ::Mirror::Z; 
     case placement::PlacementInstance::Mirror::MIRROR_Z:
         return ::Mirror::X;
     case placement::PlacementInstance::Mirror::NONE:

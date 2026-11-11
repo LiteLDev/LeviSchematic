@@ -18,6 +18,10 @@ struct Bounds;
 namespace levischematic::schematic {
 
 
+
+
+
+
 class SchematicBlockSource : public ::BlockSource {
 public:
     AABB mBounds;
@@ -26,24 +30,50 @@ public:
     Block const& getBlock(BlockPos const& pos) const override;
     Block const& getBlock(BlockPos const& pos, uint layer) const override;
     Block const& getExtraBlock(BlockPos const& pos) const override;
-    bool         setProjectionVisible(BlockPos const& pos, bool visible);
-    bool         projectionVisible(BlockPos const& pos) const;
+    bool setProjectionVisible(BlockPos const& pos, bool visible);
+    bool projectionVisible(BlockPos const& pos) const;
+
+    
+
+
+
+
 
 
     SchematicBlockSource(::Level& level, ::Dimension& dimension, ::ChunkSource& chunkSource, ::AABB const& bounds);
 
+    
+
 
     virtual ~SchematicBlockSource() override = default;
 
+    
 
-    virtual void addListener(::BlockSourceListener&) override {}
 
 
-    virtual void removeListener(::BlockSourceListener&) override {}
+    virtual void addListener(::BlockSourceListener&) override {};
+
+    
+
+
+
+    virtual void removeListener(::BlockSourceListener&) override {};
+
+    
+
+
+
+
 
 
     virtual ::gsl::span<::gsl::not_null<::Actor*>>
     fetchEntities(::Actor const* except, ::AABB const& bb, bool useHitbox, bool getDisplayEntities) override;
+
+    
+
+
+
+
 
 
     virtual ::gsl::span<::gsl::not_null<::Actor*>> fetchEntities(
@@ -53,17 +83,35 @@ public:
         ::std::function<bool(::Actor*)> selector
     ) override;
 
-
-    virtual bool hasChunksAt(::Bounds const&, bool) const override { return true; }
-
-
-    virtual bool hasChunksAt(::BlockPos const&, int, bool) const override { return true; }
+    
 
 
-    virtual bool hasChunksAt(::AABB const&, bool) const override { return true; }
 
+
+    virtual bool hasChunksAt(::Bounds const&, bool) const override {
+        return true;
+    };
+
+    
+
+
+
+
+
+    virtual bool hasChunksAt(::BlockPos const&, int, bool) const override {
+        return true;
+    };
+
+    
+
+
+
+
+    virtual bool hasChunksAt(::AABB const&, bool) const override {
+        return true;
+    };
 private:
     std::unordered_set<uint64_t> mHiddenPositions;
-    Block const*                 mAir = nullptr;
+    Block const* mAir = nullptr;
 };
 } 

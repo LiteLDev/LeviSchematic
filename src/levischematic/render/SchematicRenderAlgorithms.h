@@ -1,6 +1,10 @@
 #pragma once
 
 
+
+
+
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -41,6 +45,11 @@ void prioritizeVisibleBuilds(std::vector<Candidate>& candidates, std::size_t rot
 }
 
 
+
+
+
+
+
 inline bool validArea(Point const& lower, Point const& upper) {
     constexpr double limit = static_cast<double>(std::numeric_limits<int>::max()) - 16;
     for (std::size_t axis = 0; axis < 3; ++axis) {
@@ -54,6 +63,13 @@ inline bool validArea(Point const& lower, Point const& upper) {
 }
 
 
+
+
+
+
+
+
+
 inline std::vector<GridOrigin> generateChunkOrigins(Point const& lower, Point const& upper) {
     std::vector<GridOrigin> result;
     if (!validArea(lower, upper)) {
@@ -61,9 +77,11 @@ inline std::vector<GridOrigin> generateChunkOrigins(Point const& lower, Point co
     }
 
     auto start =
+    
 
 
-        [](float value) { return static_cast<int>(std::floor(static_cast<double>(value) / 16)) * 16; };
+
+    [](float value) { return static_cast<int>(std::floor(static_cast<double>(value) / 16)) * 16; };
 
     for (int x = start(lower[0]); x < static_cast<double>(upper[0]); x += 16) {
         for (int y = start(lower[1]); y < static_cast<double>(upper[1]); y += 16) {
@@ -76,9 +94,22 @@ inline std::vector<GridOrigin> generateChunkOrigins(Point const& lower, Point co
 }
 
 
+
+
+
+
+
+
 [[nodiscard]] inline GridOrigin rotatedStructureSize(GridOrigin const& size, bool swapHorizontalAxes) {
     return swapHorizontalAxes ? GridOrigin{size[2], size[1], size[0]} : size;
 }
+
+
+
+
+
+
+
 
 
 inline bool withinBlockEntityBounds(Point const& position, Point const& lower, Point const& upper) {

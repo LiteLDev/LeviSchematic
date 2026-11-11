@@ -21,24 +21,39 @@ class BaseActorRenderContext;
 namespace levischematic::render {
 
 
+
+
+
 class TerrainMaterialVariationManagerResource {
 public:
-    TerrainMaterialVariationManagerResource() = default;
+    
 
 
-    TerrainMaterialVariationManagerResource(TerrainMaterialVariationManagerResource const&) = delete;
+    TerrainMaterialVariationManagerResource()                                                          = default;
+    
+
+
+
+    TerrainMaterialVariationManagerResource(TerrainMaterialVariationManagerResource const&)            = delete;
+    
+
 
 
     TerrainMaterialVariationManagerResource& operator=(TerrainMaterialVariationManagerResource const&) = delete;
+    
 
 
     ~TerrainMaterialVariationManagerResource() { reset(); }
 
+    
 
-    [[nodiscard]] bool ensure();
+
+    [[nodiscard]] bool                               ensure();
+    
 
 
-    void reset() noexcept;
+    void                                             reset() noexcept;
+    
 
 
     [[nodiscard]] ::TerrainMaterialVariationManager* get() const noexcept { return mInstance.get(); }
@@ -50,10 +65,18 @@ private:
 using SchematicRangeIndices    = ::RangeIndices;
 using SchematicChunkRenderData = ::ChunkRenderData;
 
-inline constexpr std::size_t kChunkLayerCount = 10;
+inline constexpr std::size_t kChunkLayerCount = 17;
+
+
+
 
 
 [[nodiscard]] char const* chunkLayerName(std::size_t index) noexcept;
+
+
+
+
+
 
 
 void writeChunkOriginAndScale(
@@ -61,6 +84,9 @@ void writeChunkOriginAndScale(
     ::BlockPos const&         chunkOrigin,
     ::Vec3 const&             relativeOrigin
 );
+
+
+
 
 
 struct ChunkLayerSubmitStats {
@@ -71,6 +97,13 @@ struct ChunkLayerSubmitStats {
 };
 
 
+
+
+
+
+
+
+
 [[nodiscard]] ChunkLayerSubmitStats submitChunkLayers(
     SchematicRenderChunkInstanced&                 instanced,
     SchematicChunkRenderData const&                chunkRenderData,
@@ -78,6 +111,10 @@ struct ChunkLayerSubmitStats {
     ::CommandListQueue const&                      commandListQueue,
     TerrainMaterialVariationManagerResource const& materials
 );
+
+
+
+
 
 
 [[nodiscard]] bool makeChunkRenderData(SchematicRenderChunkInstanced const& instanced, SchematicChunkRenderData& out);

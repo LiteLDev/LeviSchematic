@@ -6,36 +6,92 @@
 #include "mc/world/level/block/Block.h"
 
 #include <cstdint>
-#include <deque>
+#include <array>
 #include <filesystem>
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
+#include <deque>
 
 class StructureTemplate;
 
 namespace levischematic::placement {
 
 using PlacementId = uint32_t;
+struct SchematicAsset;
+struct SchematicRegion {
+    std::string id, name;
+    BlockPos offset{0,0,0};
+    std::shared_ptr<const SchematicAsset> content;
+};
+struct RegionSettings {
+    bool enabled = true;
+    BlockPos offset{0,0,0};
+    int rotation = 0, mirror = 0;
+};
+struct GridSettings {
+    bool enabled = false;
+    std::array<int,3> spacing{16,16,16}, negative{}, positive{};
+    bool operator==(GridSettings const&) const = default;
+    bool valid() const {
+        uint64_t count = 1;
+        for (int i=0;i<3;++i) {
+            if (negative[i]<0 || positive[i]<0 || (spacing[i]==0 && (negative[i] || positive[i]))) return false;
+            auto n = uint64_t(negative[i])+positive[i]+1;
+            if (n > 65536 || count > 65536/n) return false;
+            count *= n;
+        }
+        return true;
+    }
+};
+
+
+
 
 
 struct SchematicAsset {
+    
+
 
 
     struct LocalBlockEntry {
-        BlockPos     localPos;
-        Block const* renderBlock = nullptr;
+        BlockPos                              localPos;
+        const Block*                          renderBlock = nullptr;
     };
 
-    BlockPos                                 size{0, 0, 0};
-    std::deque<LocalBlockEntry>              localBlocks;
-    std::string                              defaultName;
-    std::shared_ptr<StructureTemplate const> structure;
+    BlockPos                     size{0, 0, 0};
+    std::deque<LocalBlockEntry> localBlocks;
+    std::string                  defaultName;
+    std::shared_ptr<const StructureTemplate> structure;
+    
+    std::vector<int> indices;
+    std::vector<Block const*> palette;
+    std::unordered_set<size_t> editedCells;
+    uint64_t resourceId = 0;
+    uint64_t revision = 1;
+    bool modified = false;
+    std::vector<SchematicRegion> regions;
+    std::string sourceStamp;
+    std::filesystem::path sourcePath;
+    bool sourceConflict = false;
+
+    
 
 
-    [[nodiscard]] int totalNonAirBlocks() const noexcept { return static_cast<int>(localBlocks.size()); }
+    [[nodiscard]] int totalNonAirBlocks() const noexcept {
+        if (!regions.empty()) {
+            int64_t count=0;
+            for (auto const& region:regions) count+=region.content?region.content->totalNonAirBlocks():0;
+            return static_cast<int>(std::min<int64_t>(count,INT32_MAX));
+        }
+        return static_cast<int>(localBlocks.size());
+    }
 };
+
+
+
 
 
 struct OverrideEntry {
@@ -44,9 +100,12 @@ struct OverrideEntry {
         SetBlock,
     };
 
-    Kind         kind  = Kind::Remove;
-    Block const* block = nullptr;
+    Kind                                 kind  = Kind::Remove;
+    const Block*                         block = nullptr;
 };
+
+
+
 
 
 struct PlacementInstance {
@@ -63,32 +122,56 @@ struct PlacementInstance {
         MIRROR_Z = 2,
     };
 
-    PlacementId                                 id = 0;
-    std::shared_ptr<SchematicAsset const>       asset;
-    std::string                                 name;
-    std::filesystem::path                       filePath;
-    int                                         dimensionId = 0;
-    BlockPos                                    origin{0, 0, 0};
-    Rotation                                    rotation        = Rotation::NONE;
-    Mirror                                      mirror          = Mirror::NONE;
-    bool                                        enabled         = true;
-    bool                                        renderEnabled   = true;
-    uint64_t                                    revision        = 1;
-    uint64_t                                    contentRevision = 1;
+    PlacementId                          id = 0;
+    std::shared_ptr<const SchematicAsset> asset;
+    std::string                          name;
+    std::filesystem::path                filePath;
+    int                                  dimensionId   = 0;
+    BlockPos                             origin{0, 0, 0};
+    Rotation                             rotation      = Rotation::NONE;
+    Mirror                               mirror        = Mirror::NONE;
+    bool                                 enabled       = true;
+    bool                                 renderEnabled = true;
+    bool                                 locked = false;
+    std::array<bool, 3>                   axisLocked{};
+    bool                                 entitiesEnabled = true;
+    GridSettings                         grid;
+    std::unordered_map<std::string, RegionSettings> regions;
+    PlacementId                          parentId = 0;
+    std::string                          regionId;
+    uint64_t                             revision      = 1;
+    uint64_t                             contentRevision = 1;
     std::unordered_map<uint64_t, OverrideEntry> overrides;
 
+    
 
-    [[nodiscard]] int totalNonAirBlocks() const noexcept;
+
+    [[nodiscard]] int         totalNonAirBlocks() const noexcept;
+    
 
 
     [[nodiscard]] std::string describeTransform() const;
 };
 
 
-[[nodiscard]] inline PlacementInstance::Rotation
-rotateBy(PlacementInstance::Rotation base, PlacementInstance::Rotation delta) {
-    return static_cast<PlacementInstance::Rotation>((static_cast<int>(base) + static_cast<int>(delta)) % 4);
+
+
+
+
+[[nodiscard]] inline PlacementInstance::Rotation rotateBy(
+    PlacementInstance::Rotation base,
+    PlacementInstance::Rotation delta
+) {
+    return static_cast<PlacementInstance::Rotation>(
+        (static_cast<int>(base) + static_cast<int>(delta)) % 4
+    );
 }
+
+
+
+
+
+
 
 
 [[nodiscard]] inline BlockPos transformLocalPos(
@@ -125,6 +208,9 @@ rotateBy(PlacementInstance::Rotation base, PlacementInstance::Rotation delta) {
 
     return {x, y, z};
 }
+
+
+
 
 
 [[nodiscard]] std::pair<BlockPos, BlockPos> computeEnclosingBox(PlacementInstance const& placement);

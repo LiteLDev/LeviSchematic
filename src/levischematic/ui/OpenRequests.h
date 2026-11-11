@@ -18,7 +18,7 @@ struct OpenRequests {
             close = visible;
         } else if (visible && !close) close = true;
         else {
-            page  = PageId::Projection;
+            page  = PageId::MainMenu;
             close = false;
         }
     }

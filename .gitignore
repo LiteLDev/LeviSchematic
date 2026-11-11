@@ -562,5 +562,5 @@ fabric.properties
 /ll_include
 frame.md
 PROJECT_CONTEXT.md
-/docs/*
+/docs/
 /.agents/

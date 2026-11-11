@@ -3,13 +3,18 @@
 namespace levischematic::hook {
 
 
+
+
 void registerRuntimeHooks();
+
 
 
 void unregisterRuntimeHooks();
 
 
+
 void registerTickHooks();
+
 
 
 void unregisterTickHooks();

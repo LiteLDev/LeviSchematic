@@ -29,12 +29,13 @@ std::vector<std::string> RuntimeContext::listAvailableSchematics() const {
         return files;
     }
 
-    for (auto const& entry : fs::directory_iterator(mSchematicDirectory)) {
+    for (auto const& entry : fs::recursive_directory_iterator(mSchematicDirectory)) {
         if (!entry.is_regular_file()) {
             continue;
         }
-        if (entry.path().extension() == ".mcstructure") {
-            files.push_back(entry.path().filename().string());
+        if (entry.path().extension() == ".mcstructure" || entry.path().filename().string().ends_with(".schemset.json")) {
+            auto value=entry.path().lexically_relative(mSchematicDirectory).generic_u8string();
+            files.emplace_back(reinterpret_cast<char const*>(value.data()),value.size());
         }
     }
 

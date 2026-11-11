@@ -9,9 +9,14 @@ namespace levischematic::command {
 
 void registerSchemSelectionCommands(ll::command::CommandHandle& schemCmd) {
     schemCmd.overload<SchemOriginParam>().text("pos1").required("pos").execute(
+    
 
 
-        [&](CommandOrigin const& origin, CommandOutput& output, SchemOriginParam const& param, Command const& cmd) {
+
+
+
+
+    [&](CommandOrigin const& origin, CommandOutput& output, SchemOriginParam const& param, Command const& cmd) {
             auto session = acquireSession(output);
             if (!session) return;
             auto& selectionService = session->selection();
@@ -22,22 +27,29 @@ void registerSchemSelectionCommands(ll::command::CommandHandle& schemCmd) {
     );
 
     schemCmd.overload().text("pos1").execute(
+    
 
 
-        [&](CommandOrigin const& origin, CommandOutput& output) {
-            auto session = acquireSession(output);
-            if (!session) return;
-            auto& selectionService = session->selection();
-            auto  blockPos         = BlockPos(origin.getWorldPosition());
-            selectionService.setSelectionCorner1(blockPos);
-            output.success("Selection corner 1 set to player position ({})", blockPos.toString());
-        }
-    );
+
+
+    [&](CommandOrigin const& origin, CommandOutput& output) {
+        auto session = acquireSession(output);
+        if (!session) return;
+        auto& selectionService = session->selection();
+        auto  blockPos         = BlockPos(origin.getWorldPosition());
+        selectionService.setSelectionCorner1(blockPos);
+        output.success("Selection corner 1 set to player position ({})", blockPos.toString());
+    });
 
     schemCmd.overload<SchemOriginParam>().text("pos2").required("pos").execute(
+    
 
 
-        [&](CommandOrigin const& origin, CommandOutput& output, SchemOriginParam const& param, Command const& cmd) {
+
+
+
+
+    [&](CommandOrigin const& origin, CommandOutput& output, SchemOriginParam const& param, Command const& cmd) {
             auto session = acquireSession(output);
             if (!session) return;
             auto& selectionService = session->selection();
@@ -48,121 +60,131 @@ void registerSchemSelectionCommands(ll::command::CommandHandle& schemCmd) {
     );
 
     schemCmd.overload().text("pos2").execute(
+    
 
 
-        [&](CommandOrigin const& origin, CommandOutput& output) {
-            auto session = acquireSession(output);
-            if (!session) return;
-            auto& selectionService = session->selection();
-            auto  blockPos         = BlockPos(origin.getWorldPosition());
-            selectionService.setSelectionCorner2(blockPos);
-            output.success("Selection corner 2 set to player position ({})", blockPos.toString());
-        }
-    );
+
+
+    [&](CommandOrigin const& origin, CommandOutput& output) {
+        auto session = acquireSession(output);
+        if (!session) return;
+        auto& selectionService = session->selection();
+        auto  blockPos         = BlockPos(origin.getWorldPosition());
+        selectionService.setSelectionCorner2(blockPos);
+        output.success("Selection corner 2 set to player position ({})", blockPos.toString());
+    });
 
     schemCmd.overload<SchemNamedParam>()
         .text("save")
         .required("filename")
         .execute(
+        
 
 
-            [&](CommandOrigin const& origin, CommandOutput& output, SchemNamedParam const& param) {
-                auto session = acquireSession(output);
-                if (!session) return;
-                auto& selectionService = session->selection();
-                auto* dimension        = origin.getDimension();
-                if (!dimension) {
-                    output.error("Cannot determine current dimension.");
-                    return;
-                }
 
-                auto result = selectionService.saveSelection(param.filename, *dimension);
-                if (!result) {
-                    replySelectionError(output, "command.saveSelection", param.filename, result.error());
-                    return;
-                }
 
-                output.success(
-                    "Saved selection as '{}' ({}x{}x{})",
-                    param.filename,
-                    result.value().size.x,
-                    result.value().size.y,
-                    result.value().size.z
-                );
+
+        [&](CommandOrigin const& origin, CommandOutput& output, SchemNamedParam const& param) {
+            auto session = acquireSession(output);
+            if (!session) return;
+            auto& selectionService = session->selection();
+            auto* dimension        = origin.getDimension();
+            if (!dimension) {
+                output.error("Cannot determine current dimension.");
+                return;
             }
-        );
 
-    schemCmd.overload()
-        .text("selection")
-        .text("clear")
-        .execute(
-
-
-            [&](CommandOrigin const&, CommandOutput& output) {
-                auto session = acquireSession(output);
-                if (!session) return;
-                session->selection().clearSelection();
-                output.success("Selection cleared.");
+            auto result = session->saves().request(selectionService.state(), session->runtime().schematicDirectory(),
+                param.filename, static_cast<int>(dimension->getDimensionId()), session->sessionGeneration());
+            if (!result) {
+                output.error(result.error());
+                return;
             }
-        );
 
-    schemCmd.overload()
-        .text("selection")
-        .text("mode")
-        .execute(
+            output.success(
+                "Queued selection save '{}' (task {}). Use /schem save-status or Save Selection menu.",
+                param.filename,
+                result.value()
+            );
+        });
 
-
-            [&](CommandOrigin const&, CommandOutput& output) {
-                auto session = acquireSession(output);
-                if (!session) return;
-                auto& selectionService = session->selection();
-                selectionService.toggleSelectionMode();
-                output.success("Selection mode: {}", selectionService.isSelectionModeEnabled() ? "ON" : "OFF");
-            }
-        );
-
-    schemCmd.overload()
-        .text("selection")
-        .text("info")
-        .execute(
+    schemCmd.overload().text("save-status").execute([](CommandOrigin const&, CommandOutput& output) {
+        auto session = acquireSession(output); if (!session) return;
+        auto status = session->saves().progress();
+        output.success("Save task {}: {} {}/{} - {}", status.id,status.phase,status.completed,status.total,status.detail);
+    });
+    schemCmd.overload().text("save-cancel").execute([](CommandOrigin const&, CommandOutput& output) {
+        auto session = acquireSession(output); if (!session) return;
+        session->saves().cancel(); output.success("Save cancellation requested.");
+    });
+    schemCmd.overload().text("selection").text("clear").execute(
+    
 
 
-            [&](CommandOrigin const&, CommandOutput& output) {
-                auto session = acquireSession(output);
-                if (!session) return;
-                auto const& selectionState = session->selection().state();
-                std::string msg            = "Selection Info:\n";
-                msg += "  Mode: " + std::string(selectionState.selectionMode ? "ON" : "OFF") + "\n";
 
-                if (selectionState.corner1) {
-                    auto const& corner1 = *selectionState.corner1;
-                    msg += "  Corner 1: (" + std::to_string(corner1.x) + ", " + std::to_string(corner1.y) + ", "
-                         + std::to_string(corner1.z) + ")\n";
-                } else {
-                    msg += "  Corner 1: (not set)\n";
-                }
 
-                if (selectionState.corner2) {
-                    auto const& corner2 = *selectionState.corner2;
-                    msg += "  Corner 2: (" + std::to_string(corner2.x) + ", " + std::to_string(corner2.y) + ", "
-                         + std::to_string(corner2.z) + ")\n";
-                } else {
-                    msg += "  Corner 2: (not set)\n";
-                }
+    [&](CommandOrigin const&, CommandOutput& output) {
+        auto session = acquireSession(output);
+        if (!session) return;
+        session->selection().clearSelection();
+        output.success("Selection cleared.");
+    });
 
-                if (selection::hasCompleteSelection(selectionState)) {
-                    auto size       = selection::getSize(selectionState);
-                    auto minCorner  = selection::getMinCorner(selectionState);
-                    msg            += "  Size: " + std::to_string(size.x) + "x" + std::to_string(size.y) + "x"
-                                    + std::to_string(size.z) + "\n";
-                    msg += "  Min corner: (" + std::to_string(minCorner.x) + ", " + std::to_string(minCorner.y) + ", "
-                         + std::to_string(minCorner.z) + ")\n";
-                    msg += "  Total blocks: " + std::to_string(static_cast<int64_t>(size.x) * size.y * size.z) + "\n";
-                }
+    schemCmd.overload().text("selection").text("mode").execute(
+    
 
-                output.success(msg);
-            }
-        );
+
+
+
+    [&](CommandOrigin const&, CommandOutput& output) {
+        auto session = acquireSession(output);
+        if (!session) return;
+        auto& selectionService = session->selection();
+        selectionService.toggleSelectionMode();
+        output.success("Selection mode: {}", selectionService.isSelectionModeEnabled() ? "ON" : "OFF");
+    });
+
+    schemCmd.overload().text("selection").text("info").execute(
+    
+
+
+
+
+    [&](CommandOrigin const&, CommandOutput& output) {
+        auto session = acquireSession(output);
+        if (!session) return;
+        auto const& selectionState  = session->selection().state();
+        std::string msg             = "Selection Info:\n";
+        msg                        += "  Mode: " + std::string(selectionState.selectionMode ? "ON" : "OFF") + "\n";
+
+        if (selectionState.corner1) {
+            auto const& corner1  = *selectionState.corner1;
+            msg                 += "  Corner 1: (" + std::to_string(corner1.x) + ", " + std::to_string(corner1.y) + ", "
+                                 + std::to_string(corner1.z) + ")\n";
+        } else {
+            msg += "  Corner 1: (not set)\n";
+        }
+
+        if (selectionState.corner2) {
+            auto const& corner2  = *selectionState.corner2;
+            msg                 += "  Corner 2: (" + std::to_string(corner2.x) + ", " + std::to_string(corner2.y) + ", "
+                                 + std::to_string(corner2.z) + ")\n";
+        } else {
+            msg += "  Corner 2: (not set)\n";
+        }
+
+        if (selection::hasCompleteSelection(selectionState)) {
+            auto size      = selection::getSize(selectionState);
+            auto minCorner = selection::getMinCorner(selectionState);
+            msg += "  Size: " + std::to_string(size.x) + "x" + std::to_string(size.y) + "x" + std::to_string(size.z)
+                 + "\n";
+            msg += "  Min corner: (" + std::to_string(minCorner.x) + ", " + std::to_string(minCorner.y) + ", "
+                 + std::to_string(minCorner.z) + ")\n";
+            msg += "  Total blocks: " + std::to_string(static_cast<int64_t>(size.x) * size.y * size.z) + "\n";
+        }
+
+        output.success(msg);
+    });
 }
 
 } 

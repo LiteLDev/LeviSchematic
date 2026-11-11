@@ -9,20 +9,41 @@
 namespace levischematic::app {
 
 
+
+
+
+
+
+
 class SessionGate {
 public:
+    
+
+
+
     class Lock {
     public:
-        Lock() = default;
+        
 
 
-        Lock(Lock const&) = delete;
+        Lock()                       = default;
+        
+
+
+
+        Lock(Lock const&)            = delete;
+        
+
 
 
         Lock& operator=(Lock const&) = delete;
+        
+
 
 
         Lock(Lock&& other) noexcept : mGate(std::exchange(other.mGate, nullptr)) {}
+        
+
 
 
         Lock& operator=(Lock&& other) noexcept {
@@ -32,18 +53,23 @@ public:
             }
             return *this;
         }
+        
 
 
         ~Lock() { release(); }
+        
 
 
         [[nodiscard]] bool owns_lock() const noexcept { return mGate != nullptr; }
 
     private:
         friend class SessionGate;
+        
+
 
 
         explicit Lock(SessionGate& gate) : mGate(&gate) { ++gate.mDepth; }
+        
 
 
         void release() noexcept {
@@ -59,24 +85,32 @@ public:
         SessionGate* mGate = nullptr;
     };
 
+    
+
+
 
     explicit SessionGate(void (*onDrain)() noexcept = nullptr) : mOnDrain(onDrain) {}
+    
+
 
 
     [[nodiscard]] Lock acquire(bool tryOnly = false) {
-        if (tryOnly && sOwner == this) return {};
+        if (tryOnly && sOwner == this) return {}; 
         auto const generation = mGeneration.load();
         if (!mOpen.load()) return {};
         auto lock = enter(tryOnly);
         if (!lock.owns_lock() || !mOpen.load() || generation != mGeneration.load()) return {};
         return lock;
     }
+    
 
 
     [[nodiscard]] Lock control() { return enter(false); }
+    
 
 
-    void close() noexcept { mOpen.store(false); }
+    void               close() noexcept { mOpen.store(false); }
+    
 
 
     void publish() noexcept {
@@ -84,14 +118,20 @@ public:
         ++mGeneration;
         mOpen.store(true);
     }
+    
 
 
     [[nodiscard]] uint64_t generation() const noexcept { return mGeneration.load(); }
+    
 
 
-    [[nodiscard]] bool isNested() const noexcept { return sOwner == this && mDepth > 1; }
+    [[nodiscard]] bool     isNested() const noexcept { return sOwner == this && mDepth > 1; }
 
 private:
+    
+
+
+
     Lock enter(bool tryOnly) {
         if (sOwner != this) {
             assert(sOwner == nullptr);

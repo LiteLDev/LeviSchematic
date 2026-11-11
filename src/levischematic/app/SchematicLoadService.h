@@ -23,19 +23,21 @@ struct LoadTaskStatus {
 
 class SchematicLoadService {
 public:
+    
     SchematicLoadService();
-
+    
     ~SchematicLoadService();
-
+    
     Result<uint64_t, std::string>
     request(std::filesystem::path path, BlockPos origin, int dimension, uint64_t generation, unsigned limit);
-
+    
     std::vector<std::string> tick(uint64_t generation, PlacementService& placements, util::WorkBudget const& budget);
-
+    
     std::optional<LoadTaskStatus> status(uint64_t id, uint64_t generation) const;
-
+    std::vector<LoadTaskStatus> statuses(uint64_t generation) const;
+    
     bool cancel(uint64_t id, uint64_t generation);
-
+    
     void cancelAll();
 
 private:

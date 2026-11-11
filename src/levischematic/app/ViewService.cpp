@@ -5,6 +5,43 @@
 
 namespace levischematic::app {
 
+ViewMutationStatus ViewService::configure(editor::LayerRange range) {
+    auto status = validateRange(range.minY, range.maxY);
+    if (!status) return status;
+    if (static_cast<unsigned>(range.axis) > 2 || static_cast<unsigned>(range.mode) > 4)
+        return ViewMutationStatus::failure({ViewError::Code::InvalidLayerRange, "Invalid layer axis or mode."});
+    range.enabled = range.mode != editor::LayerMode::All;
+    if (range != mViewState.layerRange) {
+        mViewState.layerRange = range;
+        touch();
+    }
+    return ok<ViewError>();
+}
+bool ViewService::cycleMode(int direction) {
+    auto range = mViewState.layerRange;
+    range.mode = static_cast<editor::LayerMode>((static_cast<int>(range.mode) + (direction < 0 ? 4 : 1)) % 5);
+    (void)configure(range);
+    return true;
+}
+bool ViewService::step(int delta, double playerCoordinate) {
+    if (!editor::stepLayer(mViewState.layerRange, delta, playerCoordinate)) return false;
+    touch();
+    return true;
+}
+bool ViewService::setAt(BlockPos const& position) {
+    auto& range      = mViewState.layerRange;
+    int   coordinate = range.axis == editor::LayerAxis::X ? position.x
+                     : range.axis == editor::LayerAxis::Y ? position.y
+                                                          : position.z;
+    if (range.mode == editor::LayerMode::All || range.mode == editor::LayerMode::Range
+        || coordinate == range.boundary())
+        return false;
+    range.boundary() = coordinate;
+    touch();
+    return true;
+}
+bool ViewService::follow(BlockPos const& position) { return mViewState.layerRange.followPlayer && setAt(position); }
+
 std::string ViewError::describe() const {
     switch (code) {
     case Code::InvalidLayerRange:
@@ -22,9 +59,12 @@ ViewMutationStatus ViewService::setMinY(int minY) {
     }
 
     auto& layerRange   = mViewState.layerRange;
-    bool  changed      = layerRange.minY != minY || !layerRange.enabled;
+    bool  changed      = layerRange.minY != minY || !layerRange.enabled || layerRange.axis != editor::LayerAxis::Y
+                      || layerRange.mode != editor::LayerMode::Range;
     layerRange.minY    = minY;
     layerRange.enabled = true;
+    layerRange.axis    = editor::LayerAxis::Y;
+    layerRange.mode    = editor::LayerMode::Range;
     if (changed) {
         touch();
     }
@@ -40,9 +80,12 @@ ViewMutationStatus ViewService::setMaxY(int maxY) {
     }
 
     auto& layerRange   = mViewState.layerRange;
-    bool  changed      = layerRange.maxY != maxY || !layerRange.enabled;
+    bool  changed      = layerRange.maxY != maxY || !layerRange.enabled || layerRange.axis != editor::LayerAxis::Y
+                      || layerRange.mode != editor::LayerMode::Range;
     layerRange.maxY    = maxY;
     layerRange.enabled = true;
+    layerRange.axis    = editor::LayerAxis::Y;
+    layerRange.mode    = editor::LayerMode::Range;
     if (changed) {
         touch();
     }
@@ -57,10 +100,13 @@ ViewMutationStatus ViewService::setRange(int minY, int maxY) {
     }
 
     auto& layerRange   = mViewState.layerRange;
-    bool  changed      = layerRange.minY != minY || layerRange.maxY != maxY || !layerRange.enabled;
+    bool  changed      = layerRange.minY != minY || layerRange.maxY != maxY || !layerRange.enabled
+                      || layerRange.axis != editor::LayerAxis::Y || layerRange.mode != editor::LayerMode::Range;
     layerRange.minY    = minY;
     layerRange.maxY    = maxY;
     layerRange.enabled = true;
+    layerRange.axis    = editor::LayerAxis::Y;
+    layerRange.mode    = editor::LayerMode::Range;
     if (changed) {
         touch();
     }
@@ -95,6 +141,8 @@ bool ViewService::enableLayerRange() {
     }
 
     mViewState.layerRange.enabled = true;
+    mViewState.layerRange.mode    = editor::LayerMode::Range;
+    mViewState.layerRange.axis    = editor::LayerAxis::Y;
     touch();
     return true;
 }
@@ -105,6 +153,7 @@ bool ViewService::disableLayerRange() {
     }
 
     mViewState.layerRange.enabled = false;
+    mViewState.layerRange.mode    = editor::LayerMode::All;
     touch();
     return true;
 }

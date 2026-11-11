@@ -1,16 +1,38 @@
 #include "FakeWorld.h"
 #include "SchematicBlockEntities.h"
+#include "levischematic/schematic/placement/PlacementGeometry.h"
+#include "levischematic/schematic/placement/ProjectionQuery.h"
 #include "levischematic/render/SchematicRenderAlgorithms.h"
+#include "ll/api/memory/Symbol.h"
 #include "mc/world/level/ChunkBlockPos.h"
 #include "mc/world/level/ChunkPos.h"
 #include "mc/world/level/ILevel.h"
 #include "mc/world/level/block/states/VanillaBlockStateTransformUtils.h"
+#include "mc/world/level/block/components/BlockConnectionComponent.h"
+#include "mc/world/level/block/traits/block_trait/IConnectionUpdateCallback.h"
 #include "mc/world/level/chunk/LevelChunk.h"
 #include "mc/world/level/dimension/Dimension.h"
 #include <algorithm>
 #include <stdexcept>
 
 namespace levischematic::render {
+namespace {
+BlockConnectionComponent const* connectionComponent(Block const& block) {
+    
+    
+    
+    
+    static auto const* id = static_cast<Bedrock::typeid_t<void> const*>(ll::memory::SymbolView{
+        "?id@?1???$type_id@XVBlockConnectionComponent@@@Bedrock@@YA?AV?$typeid_t@X@1@XZ@4V21@A"
+    }.resolve(true));
+    if (!id || id->value == UINT16_MAX)
+        throw std::runtime_error("Native block connection component type ID is unavailable.");
+    auto* base = block.mBlockType->mComponents->_findComponentBase(*id);
+    if (!base) return nullptr;
+    return &static_cast<BlockComponentStorage::ComponentInstance<BlockConnectionComponent>*>(base)->mValue;
+}
+} 
+
 BlockPos transformedSizeFor(placement::PlacementInstance const& placement) {
     auto const size               = placement.asset->size;
     bool const swapHorizontalAxes = placement.rotation == placement::PlacementInstance::Rotation::CW_90
@@ -40,7 +62,8 @@ FakeWorld::FakeWorld(placement::PlacementInstance const& placement, Dimension& d
         *chunkSource,
         placementRenderBounds(placement)
     );
-    mOverride = placement.overrides.begin();
+    mOverrides = placement.overrides;
+    mOverride = mOverrides.begin();
 }
 void FakeWorld::append(BlockPos pos, Block const* block, std::optional<BlockPos> source) {
     if (!block || block->isAir()) return;
@@ -60,6 +83,33 @@ void FakeWorld::write(BlockPos pos, Block const& block) {
     auto chunk = chunkSource->getOrLoadChunk(ChunkPos{pos.x >> 4, pos.z >> 4}, ChunkSource::LoadMode{}, true);
     if (!chunk) throw std::runtime_error("Cannot allocate schematic chunk.");
     chunk->setBlockSimple(ChunkBlockPos{pos, static_cast<short>(mMinHeight)}, block);
+    for (auto delta : {BlockPos{0, 0, 0}, {1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}}) {
+        BlockPos neighbor{pos.x + delta.x, pos.y + delta.y, pos.z + delta.z};
+        auto const& candidate = blockSource->getBlock(neighbor);
+        if (candidate.isAir() || !connectionComponent(candidate))
+            continue;
+        if (mQueuedConnections.insert(util::encodePosKey(neighbor)).second) {
+            mConnectionQueue.push_back(neighbor);
+            ++mConnectionPendingChunks[util::subChunkKeyFromWorldPos(neighbor.x, neighbor.y, neighbor.z)];
+        }
+    }
+}
+void FakeWorld::updateConnections(BlockPos pos) {
+    auto const* block = &blockSource->getBlock(pos);
+    if (block->isAir()) return;
+    auto component = connectionComponent(*block);
+    if (!component) return;
+    auto const* updated = block;
+    
+    
+    for (auto const& data : component->mConnectionData.get())
+        if (data.mUpdateCallback)
+            updated = &data.mUpdateCallback->updateConnection(*blockSource, *updated, pos, data.mDirections);
+    if (updated != block) {
+        auto chunk = chunkSource->getOrLoadChunk(ChunkPos{pos.x >> 4, pos.z >> 4}, ChunkSource::LoadMode{}, true);
+        if (chunk) chunk->setBlockSimple(ChunkBlockPos{pos, static_cast<short>(mMinHeight)}, *updated);
+        markDirty(pos);
+    }
 }
 bool FakeWorld::visible(
     placement::PlacementInstance const& placement,
@@ -68,7 +118,7 @@ bool FakeWorld::visible(
     BlockPos                            pos
 ) const {
     BlockPos world{placement.origin.x + pos.x, placement.origin.y + pos.y, placement.origin.z + pos.z};
-    return view.layerRange.contains(world.y)
+    return view.layerRange.containsPosition(world)
         && verification.showsProjection(placement.dimensionId, world, placement.id);
 }
 uint64_t FakeWorld::visibilityStamp(
@@ -94,13 +144,13 @@ uint64_t FakeWorld::visibilityStamp(
 void FakeWorld::markDirty(BlockPos pos) {
     auto origin = util::subChunkOrigin(pos.x, pos.y, pos.z);
     for (BlockPos offset : {
-             BlockPos{  0,   0,   0},
-             BlockPos{ 16,   0,   0},
-             BlockPos{-16,   0,   0},
-             BlockPos{  0,  16,   0},
-             BlockPos{  0, -16,   0},
-             BlockPos{  0,   0,  16},
-             BlockPos{  0,   0, -16}
+             BlockPos{0,   0,   0  },
+             BlockPos{16,  0,   0  },
+             BlockPos{-16, 0,   0  },
+             BlockPos{0,   16,  0  },
+             BlockPos{0,   -16, 0  },
+             BlockPos{0,   0,   16 },
+             BlockPos{0,   0,   -16}
     })
         dirty.insert(util::encodeSubChunkKey({origin.x + offset.x, origin.y + offset.y, origin.z + offset.z}));
 }
@@ -110,7 +160,7 @@ void FakeWorld::advance(
     editor::ViewState const&            view,
     util::WorkBudget const&             budget
 ) {
-
+    
     while (!indexed && budget.available()) {
         if (mIndex < placement.asset->localBlocks.size()) {
             auto const& entry = placement.asset->localBlocks[mIndex++];
@@ -121,20 +171,22 @@ void FakeWorld::advance(
                 placement.rotation
             );
             BlockPos world{placement.origin.x + pos.x, placement.origin.y + pos.y, placement.origin.z + pos.z};
-            if (placement.overrides.contains(util::encodePosKey(world))) continue;
+            if (placement.overrides.contains(util::encodePosKey(entry.localPos))) continue;
             auto* block = VanillaBlockStateTransformUtils::transformBlock(
                 *entry.renderBlock,
                 toMinecraftRotation(placement.rotation),
                 toMinecraftMirror(placement.mirror)
             );
             append(pos, block, entry.localPos);
-        } else if (mOverride != placement.overrides.end()) {
+        } else if (mOverride != mOverrides.end()) {
             auto const& [key, replacement] = *mOverride++;
             if (replacement.kind != placement::OverrideEntry::Kind::SetBlock) continue;
-            auto pos = util::decodePosKey(key);
+            auto world = placement::toWorld(placement, util::decodePosKey(key));
+            if (!world) continue;
+            auto pos = *world;
             append(
                 {pos.x - placement.origin.x, pos.y - placement.origin.y, pos.z - placement.origin.z},
-                replacement.block,
+                placement::projectedBlock(placement, replacement.block),
                 {}
             );
         } else indexed = true;
@@ -152,21 +204,21 @@ void FakeWorld::advance(
             chunk.ready  = true;
             chunk.built  = true;
             chunk.cursor = 0;
-
+            
             chunk.epoch = UINT64_MAX;
             markDirty(origin);
             ++mBuild;
         }
     }
-
+    
     size_t visited = 0;
     while (indexed && mBuild && visited++ < mBuild && budget.available()) {
         if (mVisibility >= mBuild) mVisibility = 0;
-        auto  origin  = origins[mVisibility];
-        auto& chunk   = subChunks.at(util::encodeSubChunkKey(origin));
-        auto  stamp   = visibilityStamp(placement, verification, origin);
-        bool  current = chunk.epoch == verification.epoch && chunk.viewRevision == view.revision && chunk.stamp == stamp
-                     && chunk.visibilityOrigin == placement.origin;
+        auto  origin = origins[mVisibility];
+        auto& chunk  = subChunks.at(util::encodeSubChunkKey(origin));
+        auto  stamp  = visibilityStamp(placement, verification, origin);
+        bool current = chunk.epoch == verification.epoch && chunk.viewRevision == view.revision
+                    && chunk.stamp == stamp && chunk.visibilityOrigin == placement.origin;
         if (chunk.ready && current) {
             ++mVisibility;
             continue;
@@ -195,9 +247,18 @@ void FakeWorld::advance(
         chunk.ready  = true;
         ++mVisibility;
     }
+    while (!mConnectionQueue.empty() && budget.available()) {
+        auto pos = mConnectionQueue.front();
+        mConnectionQueue.pop_front();
+        mQueuedConnections.erase(util::encodePosKey(pos));
+        updateConnections(pos);
+        auto key = util::subChunkKeyFromWorldPos(pos.x, pos.y, pos.z);
+        if (--mConnectionPendingChunks.at(key) == 0) mConnectionPendingChunks.erase(key);
+    }
 }
 bool FakeWorld::ready(BlockPos origin) const {
     auto it = subChunks.find(util::encodeSubChunkKey(origin));
-    return it != subChunks.end() && it->second.ready;
+    return !mConnectionPendingChunks.contains(util::encodeSubChunkKey(origin))
+        && it != subChunks.end() && it->second.ready;
 }
 } 

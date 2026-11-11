@@ -2,9 +2,15 @@ add_rules("mode.debug", "mode.release")
 
 add_repositories("levimc-repo https://github.com/LiteLDev/xmake-repo.git")
 
-add_requires("levilamina 26.51.*", {configs = {target_type = get_config("target_type")}})
+add_requires("levilamina 26.60.4", {configs = {target_type = get_config("target_type")}})
 
 add_requires("levibuildscript")
+
+option("target_type")
+    set_default("client")
+    set_showmenu(true)
+    set_values("client")
+option_end()
 
 if not has_config("vs_runtime") then
     set_runtimes("MD")
@@ -20,6 +26,7 @@ target("LeviSchematic") -- Change this to your mod name.
     add_rules("@levibuildscript/linkrule")
     add_rules("@levibuildscript/modpacker")
     if is_plat("windows") then
+        add_syslinks("user32", "version") -- Input focus and version-gated empty SDK render types.
         add_defines("NOMINMAX", "UNICODE")
         set_exceptions("none") -- To avoid conflicts with /EHa.
         add_cxflags( "/EHa", "/utf-8", "/W4", "/w44265", "/w44289", "/w44296", "/w45263", "/w44738", "/w45204")
@@ -47,6 +54,10 @@ target("LeviSchematic") -- Change this to your mod name.
     )
     add_files("src/**.cpp")
     add_includedirs("src")
+    after_build(function (target)
+        os.mkdir("bin/LeviSchematic/assets")
+        os.cp("assets/ui", "bin/LeviSchematic/assets/")
+    end)
     if is_config("target_type", "server") then
     --  add_includedirs("src-server")
     --  add_files("src-server/**.cpp")

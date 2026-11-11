@@ -28,13 +28,18 @@ It lets players load saved structures into the world as translucent projections,
 ### Projection Rendering And Verification
 
 - Renders projected blocks as translucent ghost blocks in the world
+- Block-entity models share the projection composite with terrain. `projection.alpha` is the background weight (0 opaque, 1 invisible); apply changes with `/schem config reload`.
 - Refreshes projection chunks after placement edits
 - Supports a global visible Y range filter for projection display
 - Tracks expected blocks from loaded placements
 - Compares projected blocks with actual world blocks
 - Matched blocks are hidden; missing/unknown blocks use the normal projection; type/property errors use separate Hull batches
 - Applies Y filtering to projected blocks, block entities and Hull
-- Removes the custom text HUD; command feedback and selection wireframes remain
+- Shows a native-font information panel while holding a stick in the main hand, with matte green text on a translucent black background
+- Displays the mode, selected schematic filename and selection corners or placement origin, size and transforms. Use Settings → Info overlays → HUD layout, or `/schem ui hud`, to drag each of the four mod HUD panels and set its size to 50%–200% with the slider or numeric input. Leaving saves automatically; individual and global resets are available.
+- The editor shows examples for inactive panels. Normal gameplay retains each panel's visibility conditions. `hud.panels` stores normalized safe-area positions and `scalePercent` for projection, target, materials and verifier HUDs; existing `hud.position` supplies the legacy default side.
+- Pick-block and easy-place operation feedback is shown only with `diagnostics=true`.
+- Hides the panel in menus and when the game HUD is hidden; long filenames are shortened to fit
 
 ### Selection And Export
 
@@ -103,7 +108,7 @@ Examples:
 
 | Command | Purpose | Usage Notes |
 |------|------|------|
-| `/schem renderer stats` | Shows preview cache and geometry statistics. | Includes per-placement chunk and submitted layer counts. |
+| `/schem renderer stats` | Shows preview cache, geometry and block-entity composite statistics. | Includes per-placement chunk/layer counts, cumulative submitted chunk coverage, build failures, block-entity dispatches, Highlighted records, material variations and skip reasons; submissions do not imply on-screen visibility. With `diagnostics=true`, also writes expected and submitted local chunk origins to `diagnostics/renderer-stats.json` in the mod data directory. |
 | `/schem renderer reset` | Releases preview runtime resources. | Preserves placements, transforms and overrides; rebuilds on the next valid render frame. |
 
 Dimension changes release preview caches and keep placements. Leaving a world clears placements and selections; rejoin starts a new session. Actual block entities remain on the existing native display path; visibility follows verification and Y filtering. They are not dispatched while a CPU mesh job owns their fake world.
@@ -173,7 +178,11 @@ Examples:
 | `/schem pos1 <x> <y> <z>` | Sets selection corner 1 to the specified position. | Use when you want exact coordinates. |
 | `/schem pos2` | Sets selection corner 2 to the player's current position. | Works the same as `pos1`, but for the second corner. |
 | `/schem pos2 <x> <y> <z>` | Sets selection corner 2 to the specified position. | Completes the region when both corners are set. |
-| `/schem save <filename>` | Saves the selected region as a `.mcstructure` file. | Requires both selection corners to be set first. |
+| `/schem save <filename>` | Queues progressive capture into a new `.mcstructure` file. | Requires both corners; existing files require confirmation in the Save Selection menu. |
+| `/schem save-status` / `/schem save-cancel` | Shows progress or cancels capture. | Unloaded chunks fail explicitly; capture spans multiple ticks. |
+| `/schem ui <save\|layers\|verifier\|session>` | Opens a core workflow page. | Also available from the main menu. |
+| `/schem verify <start\|layers\|stop\|reset\|info>` | Controls selected placement verification. | `layers` scans the render range; hidden projections can still be verified. |
+| `/schem layer mode <all\|single\|range\|below\|above>` | Sets the render layer mode. | Also `layer axis <x\|y\|z>`, `layer boundary <value>` and `layer info`. |
 | `/schem selection clear` | Clears the current selection. | Removes both saved corners. |
 | `/schem selection mode` | Toggles selection mode on or off. | Selection mode also enables stick-based corner picking. |
 | `/schem selection info` | Shows current selection state information. | Displays mode, corners, size, min corner, and total block count when complete. |
@@ -201,3 +210,28 @@ When selection mode is enabled, the source code also supports in-world corner pi
 - The Y range filter is global to the current projection view, not per placement.
 - Many commands require a currently selected placement. If nothing is selected, load a schematic first or use `/schem select <id>`.
 
+## Configuration and verification
+
+Selection face color is configured by `app::Config::selection.faceColor`, persisted as `selection.faceColor` in `config.json`. It is an RGBA array in the range `[0, 1]`, defaulting to `[1.0, 1.0, 1.0, 0.10]` (white, 10% opacity). Alpha `0` hides only the faces and keeps the existing selection lines. Apply edits with `/schem config reload`; color/alpha changes rebuild the selection mesh without clearing validation Hulls. Older configuration files receive the default when the field is absent.
+
+`config.json` is created in LeviLamina's mod configuration directory. Typed `app::ConfigStore` supports `snapshot()`, `submit(value)`, `reload()` and `save()`. Consumers use copies. Invalid values retain the last valid configuration; external threads submit values and the client tick applies them.
+
+`visibility.renderDistanceBlocks` defaults to **128 blocks**, shared by projection terrain, validation Hulls, and projection block entities. It measures 3D distance from the rendering camera to the nearest point of each bounding box, not to the placement origin. Set it to `0` for unlimited distance. `visibility.frustumCulling` defaults to `true`; terrain and Hulls use conservative subchunk bounds. Block entities receive distance filtering, not independent frustum/terrain-occlusion filtering. Existing version-1 configuration files receive the new defaults without changing other settings. Apply edits with `/schem config reload`; distance changes do not flush meshes or stop verification.
+
+
+```powershell
+xmake f -a x64 -m release -p windows --target_type=client
+xmake
+powershell -ExecutionPolicy Bypass -File src-test/run-tests.ps1
+```
+
+
+## Client UI
+
+Release **M**, press **F7**, or run `/schem ui` to open the Litematica-style main menu. Menus use a native scene with C++ drawing and input handling. The package includes the original Litematica/MaLiLib atlases and JE 26.3 button sprites; install the complete `bin/LeviSchematic` directory, including `assets/ui`.
+
+Schematic loading, loaded resources and placements have separate lists. Configuration uses category tabs, search and per-field reset. Valid edits take effect on the client tick and save when leaving configuration or closing the menu. Invalid input and save errors retain the page for correction. Escape cancels capture or a confirmation, then returns to the parent page. The HUD layout editor configures the four mod overlays independently.
+
+Text follows the game language using the existing Simplified Chinese/English translation files under `config/i18n/ui`. Missing translations use built-in defaults. Key overrides retain the existing `ui-keybindings.json` format. Schematics remain `.mcstructure`.
+
+`/schem ui status` reports backend/lifecycle state. `/schem ui layout` exports the last completed frame to the mod data directory's `diagnostics/ui-layout.json`, including viewport, scale, control rectangles, clips and resource UVs. Additional routes include `main`, `load`, `placements`, `placement`, `selection`, `settings`, `keys`, `materials`, `survival` and `tasks`; existing routes remain supported.

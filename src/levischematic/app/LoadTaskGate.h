@@ -7,12 +7,13 @@ namespace levischematic::app {
 
 class LoadTaskGate {
 public:
+    
     explicit LoadTaskGate(uint64_t generation) : mGeneration(generation) {}
-
+    
     std::stop_token token() const { return mStop.get_token(); }
-
+    
     bool cancelled() const { return mStop.stop_requested(); }
-
+    
     bool cancel() {
         std::scoped_lock lock(mMutex);
         if (mFinished) return false;
@@ -20,7 +21,7 @@ public:
         mFinished = true;
         return true;
     }
-
+    
     template <class Commit>
     bool publish(uint64_t generation, Commit&& commit) {
         std::scoped_lock lock(mMutex);

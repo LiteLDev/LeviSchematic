@@ -51,7 +51,7 @@ void createSchematicBlockEntity(
         auto        index   = static_cast<uint64_t>(source->z)
                             + static_cast<uint64_t>(size.z) * (source->y + static_cast<uint64_t>(size.y) * source->x);
         auto const* positionData = palette ? palette->getBlockPositionData(index) : nullptr;
-        if (positionData) nbt = positionData->mBlockEntityData.get();
+        if (positionData && !placement.asset->editedCells.contains(index)) nbt = positionData->mBlockEntityData.get();
     }
     CompoundTag empty;
     auto actor = BlockActor::loadStatic(block->getBlockType(), pos, region.getLevel(), nbt ? *nbt : empty, helper);
@@ -60,16 +60,36 @@ void createSchematicBlockEntity(
     auto  chunk = world.chunkSource->getExistingChunk(ChunkPos{pos.x >> 4, pos.z >> 4});
     if (!chunk) throw std::runtime_error("Missing block entity chunk.");
     chunk->_placeBlockEntity(std::move(actor));
-    if (!chest || !chest->mDeferredPairLoad || chest->mLargeChestPaired) return;
-    BlockPos pairedPos{chest->mDeferredPairX, pos.y, chest->mDeferredPairZ};
-    if (std::abs(pos.x - pairedPos.x) + std::abs(pos.z - pairedPos.z) != 1) return;
-    auto* other = region.getBlockEntity(pairedPos);
-    if (!other || !chest->canPairWith(other, region)) return;
-    auto* paired = static_cast<ChestBlockActor*>(other);
-    paired->_pairWith(chest, region, false);
-    chest->_pairWith(paired, region, true);
-    chest->mDeferredPairLoad  = false;
-    paired->mDeferredPairLoad = false;
-    world.markDirty(pairedPos);
+    if (!chest) return;
+    auto resolvePair = [&](ChestBlockActor& lead) {
+        if (!lead.mDeferredPairLoad || lead.mLargeChestPaired) return;
+        auto const& leadPos = lead.getPosition();
+        BlockPos    pairedPos{lead.mDeferredPairX, leadPos.y, lead.mDeferredPairZ};
+        if (std::abs(leadPos.x - pairedPos.x) + std::abs(leadPos.z - pairedPos.z) != 1) return;
+        auto* other = region.getBlockEntity(pairedPos);
+        if (!other || !lead.canPairWith(other, region)) return;
+        auto* paired = static_cast<ChestBlockActor*>(other);
+        paired->_pairWith(&lead, region, false);
+        lead._pairWith(paired, region, true);
+        lead.mDeferredPairLoad    = false;
+        paired->mDeferredPairLoad = false;
+        world.markDirty(leadPos);
+        world.markDirty(pairedPos);
+    };
+    resolvePair(*chest);
+    
+    
+    
+    for (auto const offset : {
+             BlockPos{1,  0, 0 },
+             BlockPos{-1, 0, 0 },
+             BlockPos{0,  0, 1 },
+             BlockPos{0,  0, -1}
+    }) {
+        auto* neighbor = region.getBlockEntity({pos.x + offset.x, pos.y, pos.z + offset.z});
+        if (!neighbor || neighbor->getType() != BlockActorType::Chest) continue;
+        auto& lead = *static_cast<ChestBlockActor*>(neighbor);
+        if (lead.mDeferredPairLoad && lead.mDeferredPairX == pos.x && lead.mDeferredPairZ == pos.z) resolvePair(lead);
+    }
 }
 } 

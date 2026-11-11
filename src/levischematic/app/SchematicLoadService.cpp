@@ -11,9 +11,9 @@
 namespace levischematic::app {
 
 struct SchematicLoadService::Impl {
-
+    
     struct Job {
-
+        
         explicit Job(uint64_t generation) : gate(generation) {}
         LoadTaskStatus                             status;
         std::filesystem::path                      path;
@@ -29,19 +29,19 @@ struct SchematicLoadService::Impl {
     std::deque<std::shared_ptr<Job>>         queued;
     std::deque<std::shared_ptr<Job>>         ready;
     std::deque<placement::AssetPreparation>  retired;
-    std::deque<std::shared_ptr<Job>>         preparing;
+    std::deque<std::shared_ptr<Job>>         preparing; 
     uint64_t                                 nextId = 1;
     std::jthread                             worker;
 
-
+    
     Impl() : worker([this](std::stop_token stop) { run(stop); }) {}
-
+    
     ~Impl() {
         worker.request_stop();
         wake.notify_all();
         worker.join();
     }
-
+    
     void run(std::stop_token stop) {
         while (!stop.stop_requested()) {
             std::shared_ptr<Job>                       job;
@@ -74,7 +74,7 @@ struct SchematicLoadService::Impl {
             ready.push_back(std::move(job));
         }
     }
-
+    
     void retire(Job& job) {
         if (!job.prepared) return;
         std::scoped_lock lock(mutex);
@@ -85,6 +85,13 @@ struct SchematicLoadService::Impl {
 };
 SchematicLoadService::SchematicLoadService() : mImpl(std::make_unique<Impl>()) {}
 SchematicLoadService::~SchematicLoadService() { cancelAll(); }
+std::vector<LoadTaskStatus> SchematicLoadService::statuses(uint64_t generation) const {
+    std::scoped_lock lock(mImpl->mutex);
+    std::vector<LoadTaskStatus> result;
+    for (auto const& [id, job] : mImpl->jobs)
+        if (job->status.generation == generation) result.push_back(job->status);
+    return result;
+}
 Result<uint64_t, std::string> SchematicLoadService::request(
     std::filesystem::path path,
     BlockPos              origin,
@@ -97,7 +104,7 @@ Result<uint64_t, std::string> SchematicLoadService::request(
     for (auto const& [id, job] : mImpl->jobs)
         if (!job->status.terminal) ++active;
     if (active >= limit) return Result<uint64_t, std::string>::failure("Schematic loading queue is full.");
-
+    
     for (auto it = mImpl->jobs.begin(); mImpl->jobs.size() >= 64 && it != mImpl->jobs.end();)
         if (it->second->status.terminal) it = mImpl->jobs.erase(it);
         else ++it;

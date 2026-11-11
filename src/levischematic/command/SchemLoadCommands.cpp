@@ -37,7 +37,7 @@ void registerSchemLoadCommands(ll::command::CommandHandle& schemCmd) {
         .required("filename")
         .required("pos")
         .execute(
-
+            
             [](CommandOrigin const& origin, CommandOutput& output, SchemLoadParam const& param, Command const& cmd) {
                 auto* dimension = origin.getDimension();
                 enqueueLoad(
@@ -52,7 +52,7 @@ void registerSchemLoadCommands(ll::command::CommandHandle& schemCmd) {
         .text("load")
         .required("filename")
         .execute(
-
+            
             [](CommandOrigin const& origin, CommandOutput& output, SchemNamedParam const& param) {
                 auto* dimension = origin.getDimension();
                 enqueueLoad(
@@ -64,7 +64,7 @@ void registerSchemLoadCommands(ll::command::CommandHandle& schemCmd) {
             }
         );
     schemCmd.overload<LoadTaskParam>().text("load").text("status").required("taskId").execute(
-
+        
         [](CommandOrigin const&, CommandOutput& output, LoadTaskParam const& param) {
             auto session = acquireSession(output);
             if (!session) return;
@@ -84,7 +84,7 @@ void registerSchemLoadCommands(ll::command::CommandHandle& schemCmd) {
         }
     );
     schemCmd.overload<LoadTaskParam>().text("load").text("cancel").required("taskId").execute(
-
+        
         [](CommandOrigin const&, CommandOutput& output, LoadTaskParam const& param) {
             auto session = acquireSession(output);
             if (!session) return;
@@ -93,6 +93,9 @@ void registerSchemLoadCommands(ll::command::CommandHandle& schemCmd) {
         }
     );
     schemCmd.overload().text("files").execute(
+        
+
+
 
 
         [&](CommandOrigin const&, CommandOutput& output) {

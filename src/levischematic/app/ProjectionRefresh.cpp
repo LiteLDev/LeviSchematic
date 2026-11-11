@@ -9,12 +9,14 @@ namespace levischematic::app {
 void refreshProjectionState(AppKernel& session, BlockSource* source) {
     if (source) session.verifier().refresh(*source);
     else session.verifier().refresh();
+    
+    
 }
 void refreshProjectionStateForDimension(AppKernel& session, Dimension* dimension) {
     refreshProjectionState(session, dimension ? &dimension->getBlockSourceFromMainChunkSource() : nullptr);
 }
 void refreshCurrentClientProjectionState(AppKernel& session) {
-    auto  client = ll::service::getClientInstance();
+    auto client = ll::service::getClientInstance();
     auto* player = client ? client->getLocalPlayer() : nullptr;
     refreshProjectionStateForDimension(session, player ? &player->getDimension() : nullptr);
 }

@@ -1,5 +1,9 @@
 #pragma once
 
+#include "LayerRange.h"
+#include "levischematic/schematic/placement/SchematicContent.h"
+#include "levischematic/schematic/placement/ResourceState.h"
+
 #include "levischematic/schematic/placement/PlacementStore.h"
 #include "levischematic/selection/SelectionState.h"
 #include "levischematic/verifier/VerifierTypes.h"
@@ -10,23 +14,38 @@ enum class ToolMode {
     None,
     Placement,
     Selection,
+    Edit,
+    Paste,
+    GridPaste,
+    Fill,
+    Replace,
+    Delete,
+    Clone,
+    Move,
 };
+inline bool creativeTool(ToolMode mode) { return mode >= ToolMode::Paste && mode <= ToolMode::Move; }
+inline bool areaTool(ToolMode mode) { return mode == ToolMode::Selection || mode >= ToolMode::Fill; }
 
 
-struct LayerRange {
-    int  minY    = -64;
-    int  maxY    = 320;
-    bool enabled = false;
 
 
-    [[nodiscard]] bool contains(int worldY) const noexcept { return !enabled || (worldY >= minY && worldY <= maxY); }
-};
+
+
+
+
 
 
 struct ToolState {
-    ToolMode activeTool = ToolMode::None;
+    ToolMode activeTool = ToolMode::Selection;
+    bool     enabled    = true;
     uint64_t revision   = 0;
+    Block const* sampledBlock = nullptr;
+    placement::EditMatch editMatch = placement::EditMatch::Single;
+    bool editAdjacent = true;
 };
+
+
+
 
 
 struct ViewState {
@@ -35,12 +54,19 @@ struct ViewState {
 };
 
 
+
+
+
 struct DebugState {
     uint64_t revision = 0;
 };
 
 
+
+
+
 struct EditorState {
+    placement::ResourceState resources;
     placement::PlacementState placements;
     selection::SelectionState selection;
     verifier::VerifierState   verifier;

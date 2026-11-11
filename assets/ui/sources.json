@@ -1,0 +1,85 @@
+{
+  "sources": {
+    "litematica": {
+      "repository": "https://github.com/sakura-ryoko/litematica",
+      "commit": "64e74592f631cfa5b084bedb0eda5dac8a3b3cb8",
+      "path": "src/main/resources/assets/litematica/textures/gui/gui_widgets.png",
+      "license": "LGPL-3.0"
+    },
+    "malilib": {
+      "repository": "https://github.com/sakura-ryoko/malilib",
+      "commit": "b043d04c21009a9ac1d19078e56c501d63d56ec8",
+      "path": "src/main/resources/assets/malilib/textures/gui/gui_widgets.png",
+      "license": "LGPL-3.0"
+    },
+    "minecraft": {
+      "source": "https://piston-data.mojang.com/v1/objects/e877b6a07acd633fb3bb475002175cec036e7b87/client.jar",
+      "version": "26.3",
+      "clientSHA1": "e877b6a07acd633fb3bb475002175cec036e7b87",
+      "path": "assets/minecraft/textures/gui/sprites/widget/",
+      "copyright": "Mojang AB / Microsoft; original Minecraft assets"
+    }
+  },
+  "files": [
+    {
+      "file": "litematica/gui_widgets.png",
+      "source": "litematica",
+      "sha256": "7bf08aecd5d49f0550c31bd249d4fed91c344adc484a9e9ef1fb76da81475f02",
+      "dimensions": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "malilib/gui_widgets.png",
+      "source": "malilib",
+      "sha256": "1d8c25a701e974f73507be227971b6db45cd6b1c0102b83d4fff879ab8d72083",
+      "dimensions": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "minecraft/button.png",
+      "source": "minecraft",
+      "sha256": "0a2e159360200a39e0c7e9c0db0e6aa034ba4e1f8d99698c004084b5ba6e94cb",
+      "dimensions": [
+        200,
+        20
+      ]
+    },
+    {
+      "file": "minecraft/button_disabled.png",
+      "source": "minecraft",
+      "sha256": "19866c723b986b57300a5248f6255ceb0e464faf673f73fdcf4158da1195c250",
+      "dimensions": [
+        200,
+        20
+      ]
+    },
+    {
+      "file": "minecraft/button_highlighted.png",
+      "source": "minecraft",
+      "sha256": "1fcd15ad8971b1e846f848b2211d631f51b9b6533d99ca392a5799af7e9854f9",
+      "dimensions": [
+        200,
+        20
+      ]
+    },
+    {
+      "file": "minecraft/button.png.mcmeta",
+      "source": "minecraft",
+      "sha256": "c8f6fe62c01c357a814223d4ab6a368e5122c195fa2671e585fa24988557a505"
+    },
+    {
+      "file": "minecraft/button_disabled.png.mcmeta",
+      "source": "minecraft",
+      "sha256": "d7dd31a632fe41be64e07ef0676b726e50f0af053e638742ec1f6f9550a1b7e5"
+    },
+    {
+      "file": "minecraft/button_highlighted.png.mcmeta",
+      "source": "minecraft",
+      "sha256": "c8f6fe62c01c357a814223d4ab6a368e5122c195fa2671e585fa24988557a505"
+    }
+  ]
+}

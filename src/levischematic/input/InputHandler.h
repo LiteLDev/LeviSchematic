@@ -1,76 +1,65 @@
 #pragma once
 
+#include <cstdint>
 #include <functional>
-#include <string_view>
-#include <vector>
 
 #include "mc/client/game/IClientInstance.h"
-#include "mc/deps/input/enums/FocusImpact.h"
 
 namespace levischematic::app {
 class ViewService;
-}
-
-namespace levischematic::verifier {
-class VerifierService;
+class ToolService;
 }
 
 namespace levischematic::input {
 
-enum class InputActionId {
-    IncreaseViewMaxY,
-    DecreaseViewMaxY,
-};
 
-enum class TriggerPhase {
-    ButtonDown,
-    ButtonUp,
-};
+
 
 
 struct InputExecutionContext {
-    app::ViewService*     viewService = nullptr;
-    std::function<void()> refreshProjectionState;
+    app::ViewService*          viewService       = nullptr;
+    std::function<void()>      refreshProjectionState;
+    app::ToolService*          toolService = nullptr;
+
+    
 
 
     [[nodiscard]] bool isValid() const;
 };
 
 
+
+
+
 class InputHandler {
 public:
-    using InputExecutor = std::function<void(InputExecutionContext const&, ::FocusImpact, ::IClientInstance&)>;
+    
 
-
-    struct InputBindingSpec {
-        InputActionId    id;
-        std::string_view registryName;
-        std::vector<int> defaultKeyCodes;
-        bool             allowRemap = true;
-        TriggerPhase     phase      = TriggerPhase::ButtonDown;
-        InputExecutor    executor;
-    };
 
 
     void initialize(InputExecutionContext context);
+    
 
 
     void shutdown();
+    
 
 
     [[nodiscard]] bool isInitialized() const;
-
-
-    void execute(InputActionId action, ::FocusImpact focusImpact, ::IClientInstance& client) const;
+    void               pump(::IClientInstance& client, uint64_t generation);
 
 private:
     InputExecutionContext mContext;
 };
 
 
-char const* inputActionToString(InputActionId action);
+
+
 
 
 void registerInputDefinitions();
+void startInputEvents();
+void stopInputEvents();
+void resetInputState();
 
 } 

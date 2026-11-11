@@ -1,5 +1,8 @@
 #include "VerifierService.h"
+#include "levischematic/schematic/placement/PlacementGeometry.h"
+#include "levischematic/schematic/placement/ProjectionQuery.h"
 #include "VerifierBlockListener.h"
+#include "VerificationPresence.h"
 #include "levischematic/schematic/FakeWorld.h"
 #include "mc/client/game/ClientInstance.h"
 #include "mc/client/multiplayer/ClientLevel.h"
@@ -14,10 +17,11 @@ namespace levischematic::verifier {
 VerifierService::VerifierService(
     VerifierState&                   state,
     placement::PlacementState const& placements,
-    editor::ViewState const&
+    editor::ViewState const& view
 )
 : mState(state),
-  mPlacements(placements) {}
+  mPlacements(placements),
+  mView(view) {}
 VerifierService::~VerifierService() { detachFromRuntime(); }
 void VerifierService::handleJoinLevel(ClientInstance& client) {
     attachToRuntime(client);
@@ -41,6 +45,11 @@ void VerifierService::clear() {
     mRevision       = 0;
     mBuilding       = false;
     mPolling.reset();
+    mTasks.clear();
+    mState.taskOverlay.reset();
+    mRetiredOverlays.clear();
+    mOverlayRebuild = false;
+    mHighlightTask = 0;
 }
 void VerifierService::refresh() {
     if (mRevision != mPlacements.revision) mRefreshRequested = true;
@@ -49,6 +58,13 @@ void VerifierService::refresh(BlockSource&) { refresh(); }
 void VerifierService::handleBlockChanged(BlockSource& source, BlockPos const& pos, Block const&) {
     auto key = util::makeWorldBlockKey(static_cast<int>(source.getDimensionId()), pos);
     if (mState.find(key.dimensionId, pos) && mDirtySet.insert(key).second) mDirty.push_back(key);
+    for (auto& [id, task] : mTasks) {
+        auto p = mPlacements.projections.find(id);
+        if (!task.running || p == mPlacements.projections.end() || p->second.dimensionId != key.dimensionId) continue;
+        auto cell = task.cells.find(key.posKey);
+        if (cell != task.cells.end() && evaluate(key.dimensionId, pos, cell->second))
+            publishOverlay(task, pos, cell->second);
+    }
 }
 bool VerifierService::evaluate(int dimension, BlockPos const& pos, VerificationCell& cell) {
     Block const* actual = nullptr;
@@ -61,7 +77,7 @@ bool VerifierService::evaluate(int dimension, BlockPos const& pos, VerificationC
     });
 }
 VerificationStatus VerifierService::compare(Block const& expected, Block const& actual) {
-    if (actual.isAir()) return VerificationStatus::MissingBlock;
+    if (auto status = classifyPresence(expected.isAir(), actual.isAir())) return *status;
     auto [it, inserted] = mSpecs.try_emplace(&expected);
     if (inserted) it->second = buildCompareSpecFromBlock(expected);
     auto const& spec = it->second;
@@ -84,9 +100,9 @@ void VerifierService::insert(placement::PlacementInstance const& placement, Bloc
     auto  key           = util::makeWorldBlockKey(placement.dimensionId, pos);
     auto& chunk         = mState.chunks[{key.dimensionId, util::subChunkKeyFromWorldPos(pos.x, pos.y, pos.z)}];
     auto [it, inserted] = chunk.cells.try_emplace(key.posKey, VerificationCell{block, placement.id});
-    if (!inserted) return;
+    if (!inserted) return; 
     evaluate(key.dimensionId, pos, it->second);
-    chunk.revision = ++mState.revision;
+    chunk.revision    = ++mState.revision;
     mKeys.push_back(key);
 }
 void VerifierService::update(util::WorldBlockKey key) {
@@ -99,19 +115,22 @@ void VerifierService::update(util::WorldBlockKey key) {
     it->second.revision = ++mState.revision;
 }
 void VerifierService::tick(util::WorkBudget const& budget) {
+    placement::ensureProjectionInstances(mPlacements);
+    mTaskFirst = !mTaskFirst;
+    if (mTaskFirst) tickTasks(budget);
     if (mRevision != mPlacements.revision || mRefreshRequested) {
         mRevision         = mPlacements.revision;
         mRefreshRequested = false;
         mState.clearing   = true;
         ++mState.epoch;
         ++mState.revision;
-        mBuildPlacement  = mPlacements.order.size();
+        mBuildPlacement  = mPlacements.projectionOrder.size();
         mBlockCursor     = 0;
         mOverrideStarted = false;
         mBuilding        = true;
         mPolling.reset();
     }
-
+    
     while (mState.clearing && budget.available()) {
         if (!mState.chunks.empty()) {
             auto it = mState.chunks.begin();
@@ -129,8 +148,8 @@ void VerifierService::tick(util::WorkBudget const& budget) {
             mPolling.reset();
             break;
         }
-        auto found = mPlacements.placements.find(mPlacements.order[mBuildPlacement - 1]);
-        if (found == mPlacements.placements.end() || !found->second.enabled || !found->second.renderEnabled
+        auto found = mPlacements.projections.find(mPlacements.projectionOrder[mBuildPlacement - 1]);
+        if (found == mPlacements.projections.end() || !found->second.enabled || !found->second.renderEnabled
             || !found->second.asset) {
             --mBuildPlacement;
             mBlockCursor     = 0;
@@ -145,7 +164,8 @@ void VerifierService::tick(util::WorkBudget const& budget) {
         if (mOverride != placement.overrides.end()) {
             auto const& [key, value] = *mOverride++;
             if (value.kind == placement::OverrideEntry::Kind::SetBlock)
-                insert(placement, util::decodePosKey(key), value.block);
+                if (auto pos = placement::toWorld(placement, util::decodePosKey(key)))
+                    insert(placement, *pos, placement::projectedBlock(placement, value.block));
             continue;
         }
         if (mBlockCursor < placement.asset->localBlocks.size()) {
@@ -161,7 +181,7 @@ void VerifierService::tick(util::WorkBudget const& budget) {
                 placement.origin.y + transformed.y,
                 placement.origin.z + transformed.z
             };
-            if (placement.overrides.contains(util::encodePosKey(pos))) continue;
+            if (placement.overrides.contains(util::encodePosKey(local.localPos))) continue;
             auto* block = VanillaBlockStateTransformUtils::transformBlock(
                 *local.renderBlock,
                 render::toMinecraftRotation(placement.rotation),
@@ -180,7 +200,7 @@ void VerifierService::tick(util::WorkBudget const& budget) {
         mDirtySet.erase(key);
         update(key);
     }
-
+    
     auto   pollTime = VerificationPollSchedule::Clock::now();
     size_t count    = 0;
     while (!mState.clearing && !mBuilding && count++ < 512 && budget.available()) {
@@ -188,6 +208,7 @@ void VerifierService::tick(util::WorkBudget const& budget) {
         if (!index) break;
         update(mKeys[*index]);
     }
+    if (!mTaskFirst) tickTasks(budget);
 }
 void VerifierService::attachToRuntime(ClientInstance& client) {
     auto* level = client.getLevel();
@@ -238,10 +259,12 @@ void VerifierService::detachFromRuntime() {
 }
 
 void VerifierService::handleSourceDestroyed(BlockSource& source) {
-
-
+    
+    
     std::erase_if(
         mSources,
+        
+
 
 
         [&](auto const& item) { return item.second == &source; }
