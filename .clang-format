@@ -1,7 +1,7 @@
 BasedOnStyle: LLVM
 AccessModifierOffset: -4
 AlignAfterOpenBracket: BlockIndent
-AlignArrayOfStructures: Right
+AlignArrayOfStructures: Left
 AlignConsecutiveDeclarations:
   Enabled: true
   AcrossEmptyLines: false
@@ -36,6 +36,7 @@ BreakBeforeBinaryOperators: NonAssignment
 ColumnLimit: 120
 CommentPragmas: '^ IWYU pragma:'
 ConstructorInitializerIndentWidth: 0
+FixNamespaceComments: false
 IndentWidth: 4
 Language: Cpp
 MaxEmptyLinesToKeep: 2
@@ -44,10 +45,3 @@ PointerAlignment: Left
 TabWidth: 4
 UseTab: Never
 SortIncludes: CaseSensitive
-# RemoveEmptyLinesInUnwrappedLines: true
-RemoveSemicolon: true
-# SeparateDefinitionBlocks: Always
-SortUsingDeclarations: LexicographicNumeric
-Standard: Latest
-LineEnding: CRLF
-QualifierAlignment: Right
