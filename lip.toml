@@ -1,6 +1,6 @@
 format = 4
 id = "github.com/LiteLDev/LeviSchematic"
-version = "0.0.0"
+version = "1.0.0"
 
 [info]
 name = "LeviSchematic"
@@ -17,7 +17,7 @@ side = "client"
 platform = "win-x64"
 
 [variants."".deps]
-"github.com/LiteLDev/LeviLamina#client" = "26.51.*"
+"github.com/LiteLDev/LeviLamina#client" = "26.60.*"
 
 [[variants."".assets]]
 type = "zip"
