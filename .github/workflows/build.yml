@@ -1,6 +1,9 @@
 on:
   pull_request:
   push:
+    paths:
+      - 'src/levischematic/**.cpp'
+      - 'src/levischematic/**.h'
   workflow_dispatch:
 
 jobs:

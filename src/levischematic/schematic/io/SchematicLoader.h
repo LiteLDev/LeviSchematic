@@ -19,6 +19,6 @@ public:
     static Expected<AssetPreparation, LoadPlacementError> read(std::filesystem::path const& path, std::stop_token stop);
     static Expected<AssetPreparation, LoadPlacementError>
                 readTag(CompoundTag const&, std::filesystem::path const&, std::stop_token);
-    static bool advance(AssetPreparation& pending, util::WorkBudget const& budget);
+    static bool advance(AssetPreparation& pending, Level& level, util::WorkBudget const& budget);
 };
 }

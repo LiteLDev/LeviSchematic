@@ -1,6 +1,6 @@
 format = 4
 id = "github.com/LiteLDev/LeviSchematic"
-version = "1.0.2"
+version = "1.0.3"
 
 [info]
 name = "LeviSchematic"
