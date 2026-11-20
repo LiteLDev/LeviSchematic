@@ -23,6 +23,7 @@
 #include "ll/api/service/TargetedBedrock.h"
 #include "mc/client/game/ClientInstance.h"
 #include "mc/client/game/IMinecraftGame.h"
+#include "mc/client/multiplayer/ClientLevel.h"
 #include "mc/client/player/LocalPlayer.h"
 #include "mc/deps/core/threading/TaskGroup.h"
 #include "mc/resources/ResourceLoadManager.h"
@@ -61,7 +62,8 @@ void AppKernel::maintain(ClientInstance& client) {
         util::WorkBudget changesBudget(config.performance.tickBudgetMs * 0.5);
         mSession->verifierService->tickChanges(changesBudget);
         mSession->verifierService->tick(changesBudget);
-        mSession->placementService->resources().tick(budget);
+        auto& level = *client.getLevel();
+        mSession->placementService->resources().tick(level, budget);
         mSession->selectionService->tickGrow(client.getLocalPlayer()->getDimension(), budget);
         mSession->actors.tick(client, *mSession->placementService, budget);
         mSession->worldEdit->tick(client, sessionGeneration(), budget);
@@ -94,7 +96,7 @@ void AppKernel::maintain(ClientInstance& client) {
             LeviSchematic::getInstance().getSelf().getLogger().info(message);
         }
         mSession->loadFirst = !mSession->loadFirst;
-        auto notices        = mLoads.tick(sessionGeneration(), *mSession->placementService, budget);
+        auto notices        = mLoads.tick(sessionGeneration(), *mSession->placementService, level, budget);
         for (auto const& message : notices) {
             client.getLocalPlayer()->displayClientMessage(message, std::nullopt);
             LeviSchematic::getInstance().getSelf().getLogger().info(message);

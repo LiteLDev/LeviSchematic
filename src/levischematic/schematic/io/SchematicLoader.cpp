@@ -2,7 +2,6 @@
 #include "levischematic/schematic/io/SchematicSetIO.h"
 #include "levischematic/schematic/placement/model/PlacementGeometry.h"
 #include "levischematic/shared/io/Utf8Path.h"
-#include "ll/api/service/Bedrock.h"
 #include "mc/deps/nbt/CompoundTag.h"
 #include "mc/world/level/Level.h"
 #include "mc/world/level/levelgen/structure/StructureBlockPalette.h"
@@ -132,17 +131,15 @@ SchematicLoader::readTag(CompoundTag const& tag, std::filesystem::path const& pa
     }
 }
 
-bool SchematicLoader::advance(AssetPreparation& pending, util::WorkBudget const& budget) {
+bool SchematicLoader::advance(AssetPreparation& pending, Level& level, util::WorkBudget const& budget) {
     if (!pending.regions.empty()) {
         while (pending.regionCursor < pending.regions.size() && budget.available()) {
-            if (!advance(pending.regions[pending.regionCursor], budget)) return false;
+            if (!advance(pending.regions[pending.regionCursor], level, budget)) return false;
             ++pending.regionCursor;
         }
         return pending.regionCursor == pending.regions.size();
     }
-    auto level = ll::service::getLevel();
-    if (!level) throw std::runtime_error("World registry is unavailable.");
-    auto        registry = level->getUnknownBlockTypeRegistry();
+    auto        registry = level.getUnknownBlockTypeRegistry();
     auto const& data     = pending.asset->structure->mStructureTemplateData.get();
     auto const* palette  = data.getPalette(StructureTemplateData::DEFAULT_PALETTE_NAME());
     while (pending.paletteCursor < pending.palette.size() && budget.available()) {

@@ -225,7 +225,7 @@ void ResourceService::cancel() {
     mProgress.running = false;
     mProgress.detail  = "Cancelled; content unchanged";
 }
-void ResourceService::tick(util::WorkBudget const& budget) {
+void ResourceService::tick(Level& level, util::WorkBudget const& budget) {
     if (mReload) {
         auto& job = *mReload;
         try {
@@ -243,7 +243,7 @@ void ResourceService::tick(util::WorkBudget const& budget) {
                 mReload.reset();
                 return;
             }
-            if (!SchematicLoader::advance(*job.pending, budget)) return;
+            if (!SchematicLoader::advance(*job.pending, level, budget)) return;
             auto it = mResources.find(job.resource);
             if (it == mResources.end() || it->second.content != job.previous)
                 throw std::runtime_error("Resource changed while reloading.");

@@ -4,7 +4,6 @@
 #include "levischematic/schematic/io/SchematicPathResolver.h"
 
 #include "ll/api/io/FileUtils.h"
-#include "ll/api/service/Bedrock.h"
 
 #include "mc/deps/nbt/CompoundTag.h"
 #include "mc/world/level/Level.h"
@@ -109,17 +108,10 @@ app::Result<std::filesystem::path, ExportSelectionError> SelectionExporter::save
         settings.mIgnoreBlocks                              = false;
         settings.mAllowNonTickingPlayerAndTickingAreaChunks = false;
 
-        auto level = ll::service::getLevel();
-        if (!level) {
-            return app::Result<std::filesystem::path, ExportSelectionError>::failure({
-                .code   = ExportSelectionError::Code::RegistryUnavailable,
-                .detail = "Level service is unavailable while exporting the selection.",
-            });
-        }
-
-        auto structureTemplate =
-            std::make_unique<StructureTemplate>(std::string(name), level->getUnknownBlockTypeRegistry());
-        structureTemplate->fillFromWorld(dimension.getBlockSourceFromMainChunkSource(), minPos, settings);
+        auto& source = dimension.getBlockSourceFromMainChunkSource();
+        auto  structureTemplate =
+            std::make_unique<StructureTemplate>(std::string(name), source.getLevel().getUnknownBlockTypeRegistry());
+        structureTemplate->fillFromWorld(source, minPos, settings);
 
         auto nbtTag = structureTemplate->save();
 

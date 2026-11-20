@@ -564,3 +564,6 @@ frame.md
 PROJECT_CONTEXT.md
 /docs/
 /.agents/
+AUTOMATED_TESTING.md
+/src-test/
+/tools/

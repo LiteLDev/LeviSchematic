@@ -6,6 +6,8 @@
 #include "levischematic/shared/result/Result.h"
 #include <map>
 
+class Level;
+
 namespace levischematic::app {
 using ResourceRecord = placement::ResourceRecord;
 struct ContentProgress {
@@ -36,7 +38,7 @@ public:
     StatusResult<std::string>     saveAs(placement::PlacementId, std::filesystem::path, bool overwrite);
     StatusResult<std::string>     reload(uint64_t resource, bool discard);
     StatusResult<std::string>     edit(placement::EditRequest const&, editor::LayerRange const&);
-    void                          tick(util::WorkBudget const&);
+    void                          tick(Level& clientLevel, util::WorkBudget const&);
     void                          cancel();
     ContentProgress               progress() const { return mProgress; }
 };

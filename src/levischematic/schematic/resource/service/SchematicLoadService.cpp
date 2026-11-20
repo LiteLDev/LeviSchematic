@@ -142,8 +142,12 @@ void SchematicLoadService::cancelAll() {
             }
         }
 }
-std::vector<std::string>
-SchematicLoadService::tick(uint64_t generation, PlacementService& placements, util::WorkBudget const& budget) {
+std::vector<std::string> SchematicLoadService::tick(
+    uint64_t                generation,
+    PlacementService&       placements,
+    Level&                  level,
+    util::WorkBudget const& budget
+) {
     std::vector<std::string> notices;
     {
         std::scoped_lock lock(mImpl->mutex);
@@ -162,7 +166,7 @@ SchematicLoadService::tick(uint64_t generation, PlacementService& placements, ut
         }
         bool done = !job->error.empty();
         try {
-            if (!done) done = placement::SchematicLoader::advance(*job->prepared, budget);
+            if (!done) done = placement::SchematicLoader::advance(*job->prepared, level, budget);
             if (done && job->error.empty()) {
                 PlacementLoadInfo loaded;
                 bool              published = job->gate.publish(generation, [&] {

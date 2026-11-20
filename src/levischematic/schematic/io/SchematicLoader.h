@@ -3,6 +3,8 @@
 #include "levischematic/shared/scheduling/WorkBudget.h"
 #include <stop_token>
 
+class Level;
+
 namespace levischematic::placement {
 struct AssetPreparation {
     std::vector<AssetPreparation>   regions;

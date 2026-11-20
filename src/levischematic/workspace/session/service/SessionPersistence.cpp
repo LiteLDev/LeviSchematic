@@ -10,6 +10,7 @@
 #include "ll/api/service/Bedrock.h"
 #include "ll/api/service/ServerInfo.h"
 #include "mc/client/game/ClientInstance.h"
+#include "mc/client/multiplayer/ClientLevel.h"
 #include "mc/client/player/LocalPlayer.h"
 #include "mc/deps/nbt/CompoundTag.h"
 #include "mc/network/GameConnectionInfo.h"
@@ -500,9 +501,9 @@ void SessionPersistence::tick(ClientInstance& client, util::WorkBudget const& bu
             s.preparing = s.reader.get();
             if (!s.preparing->error.empty()) throw std::runtime_error(s.preparing->error);
         }
-        if (s.status.restoring && s.preparing) {
+        if (auto* level = client.getLevel(); s.status.restoring && s.preparing && level) {
             while (s.prepareCursor < s.preparing->assets.size() && budget.available()) {
-                if (!placement::SchematicLoader::advance(s.preparing->assets[s.prepareCursor], budget)) break;
+                if (!placement::SchematicLoader::advance(s.preparing->assets[s.prepareCursor], *level, budget)) break;
                 ++s.prepareCursor;
             }
             if (s.prepareCursor == s.preparing->assets.size() && budget.available()) s.publish();

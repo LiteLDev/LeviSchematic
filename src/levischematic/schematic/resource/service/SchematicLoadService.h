@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+class Level;
+
 namespace levischematic::app {
 class PlacementService;
 struct LoadTaskStatus {
