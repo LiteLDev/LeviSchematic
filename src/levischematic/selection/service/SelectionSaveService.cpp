@@ -1,4 +1,5 @@
 #include "levischematic/selection/service/SelectionSaveService.h"
+#include "levischematic/schematic/convert/LitematicConverter.h"
 #include "levischematic/schematic/io/SchematicPathResolver.h"
 #include "levischematic/schematic/placement/model/VolumeIndex.h"
 #include "levischematic/selection/capture/StructureCapture.h"
@@ -27,11 +28,13 @@ struct SelectionSaveService::Impl {
         size_t                                  cursor = 0, completed = 0;
         std::filesystem::path                   directory;
         nlohmann::json                          manifest;
+        bool                                    litematic = false;
     };
     std::unique_ptr<Group> group;
     struct WriteControl {
-        std::mutex mutex;
-        bool       cancelled = false, committed = false;
+        std::mutex  mutex;
+        bool        cancelled = false, committed = false;
+        std::string notice;
     };
     SaveProgress                                 status;
     uint64_t                                     generation = 0, nextId = 1;
@@ -93,9 +96,11 @@ Result<uint64_t, std::string> SelectionSaveService::request(
     if (directory.empty() || name.empty()) return R::failure("Schematic directory or filename is empty.");
     s.group.reset();
     if (selection.normal && !selection.regions.empty()) {
-        auto group = std::make_unique<Impl::Group>();
-        auto path  = schematic::SchematicPathResolver(directory).makeFilePath(util::pathFromUtf8(name));
-        if (!path.filename().string().ends_with(".schemset.json")) path.replace_extension(".schemset.json");
+        auto group       = std::make_unique<Impl::Group>();
+        auto path        = schematic::SchematicPathResolver(directory).makeFilePath(util::pathFromUtf8(name));
+        group->litematic = convert::isLitematicPath(path);
+        if (!group->litematic && !path.filename().string().ends_with(".schemset.json"))
+            path.replace_extension(".schemset.json");
         if (std::filesystem::exists(path) && !options.overwrite) return R::failure("File exists. Confirm overwrite.");
         size_t                  total = 0;
         std::optional<BlockPos> min;
@@ -162,7 +167,8 @@ Result<uint64_t, std::string> SelectionSaveService::request(
     if (!selection.corner1 || !selection.corner2) return R::failure("Set both selection corners first.");
     if (directory.empty() || name.empty()) return R::failure("Schematic directory or filename is empty.");
     auto path = schematic::SchematicPathResolver(directory).makeFilePath(util::pathFromUtf8(name));
-    if (path.extension() != ".mcstructure") return R::failure("Only .mcstructure is supported.");
+    if (path.extension() != ".mcstructure" && !convert::isLitematicPath(path))
+        return R::failure("Only .mcstructure or .litematic is supported.");
     if (std::filesystem::exists(path) && !options.overwrite)
         return R::failure("File exists. Confirm overwrite in Save Selection.");
     auto                   a = *selection.corner1, b = *selection.corner2;
@@ -218,6 +224,7 @@ void SelectionSaveService::tick(ClientInstance& client, uint64_t generation, uti
             if (!error.empty()) s.fail(error);
             else {
                 s.status.phase    = "已保存 / Saved";
+                s.status.detail   = s.control->notice;
                 s.status.terminal = true;
             }
             return;
@@ -251,7 +258,19 @@ void SelectionSaveService::tickServer(Level& level, uint64_t generation, util::W
     advance(*dimension, level, budget);
 }
 void SelectionSaveService::advanceGroup(ClientInstance& client, uint64_t generation, util::WorkBudget const& budget) {
-    auto& s     = *mImpl;
+    auto& s = *mImpl;
+    if (s.writer.valid()) {
+        if (s.writer.wait_for(std::chrono::seconds(0)) != std::future_status::ready) return;
+        auto error = s.writer.get();
+        if (!error.empty()) s.fail(error);
+        else {
+            s.status.phase    = "已保存 / Saved";
+            s.status.detail   = s.control->notice;
+            s.status.terminal = true;
+        }
+        s.group.reset();
+        return;
+    }
     auto& group = *s.group;
     group.child->tick(client, generation, budget);
     auto progress      = group.child->progress();
@@ -266,6 +285,10 @@ void SelectionSaveService::advanceGroup(ClientInstance& client, uint64_t generat
     }
     group.completed += progress.completed;
     ++group.cursor;
+    if (group.cursor == group.regions.size() && group.litematic) {
+        startLitematicMerge();
+        return;
+    }
     if (group.cursor == group.regions.size()) {
         try {
             util::writeAtomic(s.status.path, group.manifest.dump(2), s.options.overwrite);
@@ -292,6 +315,66 @@ void SelectionSaveService::advanceGroup(ClientInstance& client, uint64_t generat
         s.fail(result.error());
         s.group.reset();
     }
+}
+
+void SelectionSaveService::startLitematicMerge() {
+    auto& s     = *mImpl;
+    auto& group = *s.group;
+    struct Part {
+        std::string           name;
+        BlockPos              offset;
+        std::filesystem::path file;
+    };
+    std::vector<Part> parts;
+    auto              origin = group.manifest.at("origin").get<std::array<int, 3>>();
+    for (auto const& entry : group.manifest.at("regions")) {
+        auto offset = entry.at("offset").get<std::array<int, 3>>();
+        parts.push_back({
+            entry.at("name").get<std::string>(),
+            {offset[0] - origin[0], offset[1] - origin[1], offset[2] - origin[2]},
+            s.status.path.parent_path() / util::pathFromUtf8(entry.at("file").get<std::string>())
+        });
+    }
+    s.status.phase = "写入中 / Writing";
+    s.control      = std::make_shared<Impl::WriteControl>();
+    s.writer       = std::async(
+        std::launch::async,
+        [parts     = std::move(parts),
+         directory = group.directory,
+         path      = s.status.path,
+         control   = s.control,
+         overwrite = s.options.overwrite]() {
+            try {
+                std::vector<std::unique_ptr<CompoundTag>> tags;
+                std::vector<convert::StructureRegionRef>  refs;
+                for (auto const& part : parts) {
+                    tags.push_back(convert::readMcstructureFile(part.file));
+                    refs.push_back({part.name, part.offset, tags.back().get()});
+                }
+                convert::ConversionReport report;
+                util::writeAtomicTemporary(path, convert::encodeLitematicFile(refs, path.stem().string(), report));
+                {
+                    std::lock_guard lock(control->mutex);
+                    if (control->cancelled) {
+                        std::error_code ec;
+                        std::filesystem::remove(util::atomicTemporaryPath(path), ec);
+                        return std::string("Cancelled.");
+                    }
+                    util::commitAtomic(path, overwrite);
+                    control->committed = true;
+                    control->notice    = report.summary();
+                }
+                std::error_code ec;
+                for (auto const& part : parts) std::filesystem::remove(part.file, ec);
+                std::filesystem::remove(directory, ec);
+                return std::string{};
+            } catch (std::exception const& e) {
+                std::error_code ec;
+                std::filesystem::remove(util::atomicTemporaryPath(path), ec);
+                return std::string(e.what());
+            }
+        }
+    );
 }
 
 void SelectionSaveService::advance(Dimension& dimension, Level& level, util::WorkBudget const& budget) {
@@ -357,10 +440,18 @@ void SelectionSaveService::advance(Dimension& dimension, Level& level, util::Wor
                  control   = s.control,
                  overwrite = s.options.overwrite]() {
                     try {
-                        auto tag   = capture->finish();
-                        auto bytes = tag->toBinaryNbt();
+                        auto                      tag = capture->finish();
+                        convert::ConversionReport report;
+                        std::string               bytes;
+                        if (convert::isLitematicPath(path)) {
+                            std::array refs{
+                                convert::StructureRegionRef{path.stem().string(), {}, tag.get()}
+                            };
+                            bytes = convert::encodeLitematicFile(refs, path.stem().string(), report);
+                        } else bytes = tag->toBinaryNbt();
                         util::writeAtomicTemporary(path, bytes);
                         std::lock_guard lock(control->mutex);
+                        control->notice = report.summary();
                         if (control->cancelled) {
                             std::error_code ec;
                             std::filesystem::remove(util::atomicTemporaryPath(path), ec);

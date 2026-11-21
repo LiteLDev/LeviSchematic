@@ -630,4 +630,32 @@ ValidationMarkerRouteStats routeValidationMarkers(std::function<void()> const& d
     });
     return stats;
 }
+
+ValidationMarkerRouteStats labelInsertedRecords(std::function<void()> const& dispatch, std::uint16_t view) {
+    ValidationMarkerRouteStats stats;
+    auto                       service = ServiceLocator<mce::framebuilder::FrameBuilder>::get();
+    if (!service || !service.get()->enabled()) return stats;
+    auto&          builder = *service.get();
+    RegistryCursor before;
+    builder.custom([&](auto const& context) { before = cursor(&context); });
+    if (!before.valid) return stats;
+    dispatch();
+    builder.custom([&](auto const& context) {
+        auto const after = cursor(&context);
+        if (!after.valid || after.frame != before.frame || (before.item && after.item != before.item)
+            || after.count < before.count)
+            return;
+        for (auto i = before.count; i < after.count; ++i) {
+            auto* record = reinterpret_cast<void*>(after.records + i * recordStride);
+            if (labelRecordView(after, record, view)) ++stats.routed;
+            else {
+                auto mask = readField<detail::HighlightMask>(record, 0);
+                detail::disableRecordPasses(mask);
+                std::memcpy(record, mask.data(), sizeof(mask));
+                ++stats.unrouted;
+            }
+        }
+    });
+    return stats;
+}
 }

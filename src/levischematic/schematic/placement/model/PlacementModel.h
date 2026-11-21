@@ -127,6 +127,8 @@ struct PlacementInstance {
     [[nodiscard]] std::string describeTransform() const;
 };
 
+[[nodiscard]] Block const* secondaryLayerBlock(SchematicAsset const& asset, BlockPos const& local);
+
 [[nodiscard]] inline PlacementInstance::Rotation
 rotateBy(PlacementInstance::Rotation base, PlacementInstance::Rotation delta) {
     return static_cast<PlacementInstance::Rotation>((static_cast<int>(base) + static_cast<int>(delta)) % 4);

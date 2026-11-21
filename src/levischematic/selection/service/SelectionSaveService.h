@@ -38,6 +38,7 @@ public:
 
 private:
     void advanceGroup(ClientInstance&, uint64_t generation, util::WorkBudget const&);
+    void startLitematicMerge();
     void advance(Dimension&, Level&, util::WorkBudget const&);
     struct Impl;
     std::unique_ptr<Impl> mImpl;

@@ -24,4 +24,11 @@ inline std::array<int, 3> volumePosition(size_t index, std::array<int, 3> size) 
         static_cast<int>(index % size[2])
     };
 }
+template <class Indices>
+inline std::optional<size_t> secondaryLayerIndex(Indices const* extra, size_t index, bool edited) {
+    if (extra == nullptr || edited || index >= extra->size()) return {};
+    auto value = (*extra)[index];
+    if (value < 0) return {};
+    return static_cast<size_t>(value);
+}
 }

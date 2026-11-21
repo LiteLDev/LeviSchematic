@@ -11,19 +11,29 @@ namespace levischematic::render::detail {
 
 using HighlightMask = std::array<std::uint64_t, 2>;
 
-inline constexpr std::uint16_t projectionCoverageView = 0xffff;
-inline constexpr std::uint16_t projectionColorView    = 0xfffe;
-inline constexpr std::uint16_t validationFaceView     = 0xfffd;
-inline constexpr std::uint16_t validationEdgeView     = 0xfffc;
+inline constexpr std::uint16_t projectionCoverageView   = 0xffff;
+inline constexpr std::uint16_t projectionColorView      = 0xfffe;
+inline constexpr std::uint16_t validationFaceView       = 0xfffd;
+inline constexpr std::uint16_t validationEdgeView       = 0xfffc;
+inline constexpr std::uint16_t projectionBlendDepthView = 0xfffb;
 
 inline std::vector<std::uint16_t> projectionPassViews(std::span<std::uint16_t const> original, bool coverage) {
     if (coverage) return {projectionCoverageView};
     std::vector<std::uint16_t> result;
     result.reserve(original.size() + 1);
     for (auto id : original)
-        if (id != projectionCoverageView) result.push_back(id);
+        if (id != projectionCoverageView && id != projectionBlendDepthView) result.push_back(id);
     if (result.empty()) result.push_back(0);
     result.push_back(projectionColorView);
+    return result;
+}
+
+inline std::vector<std::uint16_t> projectionColorPassViews(std::span<std::uint16_t const> original) {
+    std::vector<std::uint16_t> result;
+    result.reserve(original.size() + 2);
+    for (auto id : original)
+        if (id != projectionBlendDepthView) result.push_back(id);
+    if (result.empty()) result = {0, projectionColorView};
     return result;
 }
 

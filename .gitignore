@@ -558,9 +558,6 @@ fabric.properties
 /.idea/
 /.vscode/
 /bin/
-/litematica
-/ll_include
-frame.md
 PROJECT_CONTEXT.md
 /docs/
 /.agents/

@@ -13,6 +13,7 @@ struct AssetPreparation {
     std::vector<Block const*>       palette;
     std::size_t                     paletteCursor = 0;
     std::size_t                     blockCursor   = 0;
+    std::string                     notice;
 };
 class SchematicLoader {
 public:

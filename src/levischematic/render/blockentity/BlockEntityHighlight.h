@@ -36,6 +36,10 @@ struct ValidationMarkerRouteStats {
 
 ValidationMarkerRouteStats routeValidationMarkers(std::function<void()> const& dispatch, std::uint16_t view);
 
+ValidationMarkerRouteStats labelInsertedRecords(std::function<void()> const& dispatch, std::uint16_t view);
+
 bool validationMarkerHighlightAvailable();
+
+bool projectionBlendDepthAvailable();
 
 }

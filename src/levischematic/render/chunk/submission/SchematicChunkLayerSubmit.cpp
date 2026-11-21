@@ -1,5 +1,6 @@
 #include "levischematic/render/chunk/submission/SchematicChunkLayerSubmit.h"
 #include "levischematic/render/blockentity/BlockEntityHighlight.h"
+#include "levischematic/render/blockentity/BlockEntityHighlightPolicy.h"
 
 #include "levischematic/app/bootstrap/LeviSchematic.h"
 #include "levischematic/render/chunk/model/SchematicRenderChunkShared.h"
@@ -229,6 +230,16 @@ bool submitChunkLayer(
 
     auto const& sdkDescription =
         reinterpret_cast<mce::framebuilder::RenderChunkGeometryDescription const&>(description);
+    if (!frameBuilder.get()->isDeferredEnabled() && layer.id == TerrainLayers::Blend().id
+        && projectionBlendDepthAvailable()) {
+        description.mTerrainLayer = &TerrainLayers::Opaque();
+        auto const labelled       = labelInsertedRecords(
+            [&] { frameBuilder.get()->_insert(std::cref(sdkDescription)); },
+            detail::projectionBlendDepthView
+        );
+        if (labelled.unrouted != 0) logUnavailable("Blend depth copy has records without ViewSetId");
+        description.mTerrainLayer = &layer;
+    }
     frameBuilder.get()->_insert(std::cref(sdkDescription));
     return true;
 }

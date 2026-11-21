@@ -15,6 +15,7 @@ struct FakeWorld {
         BlockPos                pos;
         Block const*            block;
         std::optional<BlockPos> source;
+        Block const*            extra = nullptr;
     };
 
     struct SubChunk {
@@ -48,9 +49,9 @@ struct FakeWorld {
     bool                                             indexed = false;
 
 private:
-    void append(BlockPos, Block const*, std::optional<BlockPos>);
+    void append(BlockPos, Block const*, std::optional<BlockPos>, Block const* extra = nullptr);
 
-    void                                 write(BlockPos, Block const&);
+    void                                 write(BlockPos, Block const&, Block const* extra);
     void                                 updateConnections(BlockPos);
     std::deque<BlockPos>                 mConnectionQueue;
     std::unordered_set<uint64_t>         mQueuedConnections;
@@ -63,9 +64,10 @@ private:
         BlockPos
     ) const;
 
-    uint64_t visibilityStamp(placement::PlacementInstance const&, verifier::VerifierState const&, BlockPos) const;
-    int      mMinHeight;
-    size_t   mIndex = 0, mBuild = 0, mVisibility = 0;
+    uint64_t     visibilityStamp(placement::PlacementInstance const&, verifier::VerifierState const&, BlockPos) const;
+    int          mMinHeight;
+    Block const* mAir   = nullptr;
+    size_t       mIndex = 0, mBuild = 0, mVisibility = 0;
     std::unordered_map<uint64_t, placement::OverrideEntry>                 mOverrides;
     std::unordered_map<uint64_t, placement::OverrideEntry>::const_iterator mOverride;
 };

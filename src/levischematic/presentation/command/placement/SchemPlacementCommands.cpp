@@ -313,17 +313,19 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
         help += "  /schem sign <copy|copyback|paste|cancel> - Next native sign editor paste\n";
         help += "  /schem ui status - Show C++ UI backend and lifecycle diagnostics\n";
         help += "  /schem ui <save|layers|verifier|session|resources|edit> - Open a workflow page\n";
-        help += "  /schem resource <status|save|reload-discard|cancel> | saveas <file>\n";
+        help += "  /schem resource <status|save|reload-discard|cancel> | saveas <file> "
+                "(.mcstructure|.schemset.json|.litematic)\n";
         help += "  /schem edit set <x y z> <block> - Edit shared schematic content\n";
         help += "  /schem grid enabled <bool> | grid <x|y|z> <spacing> <negative> <positive>\n";
         help += "  /schem selection normal <bool> | add <name> | region <id>\n";
-        help += "  /schem save <file> - Queue progressive world selection capture (no overwrite)\n";
+        help += "  /schem save <file> - Queue progressive world selection capture (no overwrite); "
+                "<file>.litematic saves Litematica format\n";
         help += "  /schem save-status | save-cancel - Inspect/cancel selection capture\n";
         help += "  /schem verify <start|layers|stop|reset|info> - Selected placement verification\n";
         help += "  /schem layer mode <all|single|range|below|above> - Set layer mode\n";
         help += "  /schem layer axis <x|y|z> | boundary <value> | info\n";
         help += "  M: menu; Ctrl+Alt+S: save; M+V: verifier; M+PageUp/PageDown: layer mode\n";
-        help += "  /schem load <file> [x y z] - Queue schematic load\n";
+        help += "  /schem load <file> [x y z] - Queue schematic load (.mcstructure, .schemset.json, .litematic)\n";
         help += "  /schem load status <taskId> - Show load progress\n";
         help += "  /schem load cancel <taskId> - Cancel an unfinished load\n";
         help += "  /schem config reload - Validate and apply config.json on next tick\n";
@@ -343,6 +345,9 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
         help += "  /schem block set <x y z> <block> - Override one projected block\n";
         help += "  /schem block clear <x y z> - Clear one block override\n";
         help += "  /schem files - List available files\n";
+        help += "  /schem convert|convert-overwrite <source> <target> - Convert between .litematic, .mcstructure and "
+                ".schemset.json (blocks only)\n";
+        help += "  /schem convert-status | convert-cancel - Inspect/cancel the file conversion\n";
         help += "  /schem reset - Reset transform\n";
         help += "  /schem clear - Clear placements and cancel unfinished loads\n";
         help += "  /schem pos1 [x y z] - Set selection corner 1\n";

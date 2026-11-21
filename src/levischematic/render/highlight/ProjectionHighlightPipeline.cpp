@@ -26,6 +26,7 @@ bool                     installed                 = false;
 thread_local bool        promoteHighlightTarget    = false;
 thread_local void const* coverageTarget            = nullptr;
 thread_local bool        markersPending            = false;
+thread_local bool        inHighlightEffect         = false;
 std::uintptr_t           selectionTransparentEntry = 0;
 
 
@@ -79,6 +80,7 @@ struct alignas(8) NativePassContext {
     std::array<std::byte, 40>              borrowed{};
     std::optional<NativePassStateOverride> state;
     std::array<std::byte, 4>               padding{};
+    explicit NativePassContext(void const* source) { std::memcpy(this, source, sizeof(*this)); }
     NativePassContext(void const* source, NativePassState pass) {
         std::memcpy(this, source, sizeof(*this));
         if (!state) state.emplace();
@@ -227,6 +229,23 @@ void drawHighlightMarkers(void* declarator, void const* context, void const* col
     }
 }
 
+void drawBlendDepth(
+    void*              declarator,
+    void const*        context,
+    std::string const& name,
+    void const*        color,
+    void const*        optionalColor,
+    void const*        depth,
+    void const*        buffer1,
+    void const*        buffer2,
+    void const*        texture1,
+    void const*        texture2,
+    void const*        texture3,
+    void const*        texture4,
+    void const*        texture5,
+    void const*        texture6
+);
+
 void finishHighlightDeclaration(
     void*       declarator,
     void const* context,
@@ -280,6 +299,23 @@ LL_STATIC_HOOK(
             texture5,
             texture6
         );
+        if (markersPending && sortMode == 1 && !coverageTarget)
+            drawBlendDepth(
+                declarator,
+                context,
+                name,
+                color,
+                optionalColor,
+                depth,
+                buffer1,
+                buffer2,
+                texture1,
+                texture2,
+                texture3,
+                texture4,
+                texture5,
+                texture6
+            );
         finishHighlightDeclaration(declarator, context, sortMode, color, depth);
         return;
     }
@@ -354,9 +390,14 @@ LL_STATIC_HOOK(
     void const*         texture6
 ) {
     if (pass.getString() != "ForwardPBROpaque" || !coverageTarget) {
+        std::optional<ProjectionPassContext> filtered;
+        if (inHighlightEffect && !coverageTarget)
+            filtered.emplace(NativePassContext(context), [](auto original) {
+                return detail::projectionColorPassViews(original);
+            });
         origin(
             declarator,
-            context,
+            filtered ? &filtered->context : context,
             sortMode,
             pass,
             name,
@@ -421,6 +462,47 @@ LL_STATIC_HOOK(
 }
 
 
+void drawBlendDepth(
+    void*              declarator,
+    void const*        context,
+    std::string const& name,
+    void const*        color,
+    void const*        optionalColor,
+    void const*        depth,
+    void const*        buffer1,
+    void const*        buffer2,
+    void const*        texture1,
+    void const*        texture2,
+    void const*        texture3,
+    void const*        texture4,
+    void const*        texture5,
+    void const*        texture6
+) {
+    static HashedString const opaque{"Opaque"};
+    ProjectionPassContext     blendDepth(
+        NativePassContext(context, NativePassState{false, true, NativeDepthComparison::LessEqual}),
+        [](auto) { return std::vector<std::uint16_t>{detail::projectionBlendDepthView}; }
+    );
+    ProjectionOpaqueGeometryHook::origin(
+        declarator,
+        &blendDepth.context,
+        0,
+        opaque,
+        name + "/ProjectionBlendDepth",
+        color,
+        optionalColor,
+        depth,
+        buffer1,
+        buffer2,
+        texture1,
+        texture2,
+        texture3,
+        texture4,
+        texture5,
+        texture6
+    );
+}
+
 LL_STATIC_HOOK(
     ProjectionHighlightImageHook,
     ll::memory::HookPriority::Normal,
@@ -476,6 +558,8 @@ LL_STATIC_HOOK(
     bool const  previous         = promoteHighlightTarget;
     auto const* previousCoverage = coverageTarget;
     bool const  previousPending  = markersPending;
+    bool const  previousEffect   = inHighlightEffect;
+    inHighlightEffect            = true;
     promoteHighlightTarget       = preExposure;
     coverageTarget               = nullptr;
     markersPending               = true;
@@ -483,12 +567,14 @@ LL_STATIC_HOOK(
         bool        previous;
         void const* previousCoverage;
         bool        previousPending;
+        bool        previousEffect;
         ~Restore() {
+            inHighlightEffect      = previousEffect;
             promoteHighlightTarget = previous;
             coverageTarget         = previousCoverage;
             markersPending         = previousPending;
         }
-    } restore{previous, previousCoverage, previousPending};
+    } restore{previous, previousCoverage, previousPending, previousEffect};
     origin(
         declarator,
         allocator,
@@ -592,4 +678,6 @@ void unregisterProjectionHighlightPipeline() {
 }
 
 bool validationMarkerHighlightAvailable() { return installed && selectionTransparentEntry != 0; }
+
+bool projectionBlendDepthAvailable() { return installed; }
 }

@@ -1,4 +1,5 @@
 #include "levischematic/schematic/io/SchematicLoader.h"
+#include "levischematic/schematic/convert/LitematicConverter.h"
 #include "levischematic/schematic/io/SchematicSetIO.h"
 #include "levischematic/schematic/placement/model/PlacementGeometry.h"
 #include "levischematic/shared/io/Utf8Path.h"
@@ -16,37 +17,16 @@ Expected<AssetPreparation, LoadPlacementError>
 SchematicLoader::read(std::filesystem::path const& path, std::stop_token stop) {
     using Result = Expected<AssetPreparation, LoadPlacementError>;
     try {
-        if (path.filename().string().ends_with(".schemset.json")) {
-            std::ifstream file(path);
-            auto          document = nlohmann::json::parse(file);
-            if (document.at("version") != 1) throw std::runtime_error("Unsupported schematic set version.");
+        auto assemble = [&](std::string name, auto&& regions) -> Result {
             AssetPreparation result;
-            result.asset                           = std::make_shared<SchematicAsset>();
-            result.asset->defaultName              = document.value("name", path.stem().string());
-            auto                            origin = document.value("origin", std::array<int, 3>{});
-            std::unordered_set<std::string> ids;
-            auto                            root = std::filesystem::weakly_canonical(path.parent_path());
-            for (auto const& entry : document.at("regions")) {
+            result.asset              = std::make_shared<SchematicAsset>();
+            result.asset->defaultName = std::move(name);
+            for (auto& [id, regionName, pos, child] : regions) {
                 if (stop.stop_requested()) throw std::runtime_error("Cancelled.");
-                auto id = entry.at("id").get<std::string>();
-                if (id.empty() || !ids.insert(id).second) throw std::runtime_error("Duplicate/empty region ID.");
-                auto relative = util::pathFromUtf8(entry.at("file").get<std::string>());
-                auto target   = std::filesystem::weakly_canonical(root / relative);
-                auto within   = target.lexically_relative(root);
-                if (relative.is_absolute() || within.empty() || *within.begin() == ".."
-                    || target.extension() != ".mcstructure")
-                    throw std::runtime_error("Region must reference an mcstructure inside the set directory.");
-                auto child = read(target, stop);
                 if (!child) return Result::failure(child.error());
-                auto offset = entry.at("offset").get<std::array<int, 3>>();
-                auto pos    = checkedPosition(
-                    {int64_t(offset[0]) - origin[0], int64_t(offset[1]) - origin[1], int64_t(offset[2]) - origin[2]}
-                );
-                if (!pos) throw std::runtime_error("Region offset overflow.");
-                result.asset->regions.push_back({id, entry.value("name", id), *pos, child.value().asset});
+                result.asset->regions.push_back({id, regionName, pos, child.value().asset});
                 auto size = child.value().asset->size;
-                auto end =
-                    checkedPosition({int64_t(pos->x) + size.x, int64_t(pos->y) + size.y, int64_t(pos->z) + size.z});
+                auto end = checkedPosition({int64_t(pos.x) + size.x, int64_t(pos.y) + size.y, int64_t(pos.z) + size.z});
                 if (!end) throw std::runtime_error("Region extent overflow.");
                 auto& extent = result.asset->size;
                 extent       = {std::max(extent.x, end->x), std::max(extent.y, end->y), std::max(extent.z, end->z)};
@@ -59,6 +39,48 @@ SchematicLoader::read(std::filesystem::path const& path, std::stop_token stop) {
             result.asset->sourcePath  = path;
             result.asset->sourceStamp = fileStamp(path);
             return Result::success(std::move(result));
+        };
+        struct Pending {
+            std::string                                    id;
+            std::string                                    name;
+            BlockPos                                       pos;
+            Expected<AssetPreparation, LoadPlacementError> child;
+        };
+        if (path.filename().string().ends_with(".schemset.json")) {
+            auto                 manifest = readSchematicSetManifest(path);
+            std::vector<Pending> regions;
+            for (auto const& entry : manifest.regions) {
+                if (stop.stop_requested()) throw std::runtime_error("Cancelled.");
+                regions.push_back({entry.id, entry.name, entry.offset, read(entry.file, stop)});
+                if (!regions.back().child) return Result::failure(regions.back().child.error());
+            }
+            return assemble(manifest.name, regions);
+        }
+        if (convert::isLitematicPath(path)) {
+            convert::ConversionReport report;
+            auto                      structures = convert::readLitematic(path, stop, report);
+            auto                      stamp      = fileStamp(path);
+            auto                      parse      = [&](CompoundTag const& tag) {
+                auto child = readTag(tag, path, stop);
+                if (child) {
+                    child.value().asset->sourcePath  = path;
+                    child.value().asset->sourceStamp = stamp;
+                }
+                return child;
+            };
+            Result result = Result::failure({LoadPlacementError::Code::EmptyStructure});
+            if (structures.size() == 1) result = parse(*structures.front().tag);
+            else {
+                std::vector<Pending> regions;
+                for (size_t i = 0; i < structures.size(); ++i) {
+                    auto& s = structures[i];
+                    regions.push_back({std::to_string(i), s.name, s.offset, parse(*s.tag)});
+                    if (!regions.back().child) return Result::failure(regions.back().child.error());
+                }
+                result = assemble(path.stem().string(), regions);
+            }
+            if (result) result.value().notice = report.summary();
+            return result;
         }
         std::ifstream input(path, std::ios::binary | std::ios::ate);
         if (!input) return Result::failure({LoadPlacementError::Code::FileNotFound});

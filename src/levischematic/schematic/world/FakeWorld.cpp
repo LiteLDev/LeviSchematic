@@ -4,6 +4,7 @@
 #include "levischematic/schematic/placement/query/ProjectionQuery.h"
 #include "levischematic/schematic/world/SchematicBlockEntities.h"
 #include "ll/api/memory/Symbol.h"
+#include "mc/deps/core/string/HashedString.h"
 #include "mc/world/level/ChunkBlockPos.h"
 #include "mc/world/level/ChunkPos.h"
 #include "mc/world/level/ILevel.h"
@@ -102,8 +103,11 @@ FakeWorld::FakeWorld(placement::PlacementInstance const& placement, Dimension& d
     );
     mOverrides = placement.overrides;
     mOverride  = mOverrides.begin();
+    auto air   = Block::tryGetFromRegistry(HashedString{"minecraft:air"});
+    if (!air) throw std::runtime_error("Air block unavailable.");
+    mAir = &*air;
 }
-void FakeWorld::append(BlockPos pos, Block const* block, std::optional<BlockPos> source) {
+void FakeWorld::append(BlockPos pos, Block const* block, std::optional<BlockPos> source, Block const* extra) {
     if (!block || block->isAir()) return;
     auto& bounds        = blockSource->mBounds;
     bounds.min.x        = std::min(bounds.min.x, static_cast<float>(pos.x));
@@ -115,12 +119,15 @@ void FakeWorld::append(BlockPos pos, Block const* block, std::optional<BlockPos>
     auto key            = util::subChunkKeyFromWorldPos(pos.x, pos.y, pos.z);
     auto [it, inserted] = subChunks.try_emplace(key);
     if (inserted) origins.push_back(util::subChunkOrigin(pos.x, pos.y, pos.z));
-    it->second.blocks.push_back({pos, block, source});
+    it->second.blocks.push_back({pos, block, source, extra});
 }
-void FakeWorld::write(BlockPos pos, Block const& block) {
+void FakeWorld::write(BlockPos pos, Block const& block, Block const* extra) {
     auto chunk = chunkSource->getOrLoadChunk(ChunkPos{pos.x >> 4, pos.z >> 4}, ChunkSource::LoadMode{}, true);
     if (!chunk) throw std::runtime_error("Cannot allocate schematic chunk.");
-    chunk->setBlockSimple(ChunkBlockPos{pos, static_cast<short>(mMinHeight)}, block);
+    ChunkBlockPos const local{pos, static_cast<short>(mMinHeight)};
+    chunk->setBlockSimple(local, block);
+    auto const& liquid = extra && !block.isAir() ? *extra : *mAir;
+    chunk->setExtraBlock(local, liquid, nullptr);
     for (auto delta : {
              BlockPos{0,  0,  0 },
              {1,  0,  0 },
@@ -222,7 +229,7 @@ void FakeWorld::advance(
                 toMinecraftRotation(placement.rotation),
                 toMinecraftMirror(placement.mirror)
             );
-            append(pos, block, entry.localPos);
+            append(pos, block, entry.localPos, placement::secondaryLayerBlock(*placement.asset, entry.localPos));
         } else if (mOverride != mOverrides.end()) {
             auto const& [key, replacement] = *mOverride++;
             if (replacement.kind != placement::OverrideEntry::Kind::SetBlock) continue;
@@ -241,10 +248,10 @@ void FakeWorld::advance(
         auto& chunk  = subChunks.at(util::encodeSubChunkKey(origin));
         if (chunk.cursor < chunk.blocks.size()) {
             auto& entry = chunk.blocks[chunk.cursor++];
-            write(entry.pos, *entry.block);
+            write(entry.pos, *entry.block, entry.extra);
             createSchematicBlockEntity(placement, *this, entry.pos, entry.block, entry.source);
             if (blockSource->setProjectionVisible(entry.pos, visible(placement, verification, view, entry.pos)))
-                write(entry.pos, blockSource->getBlock(entry.pos));
+                write(entry.pos, blockSource->getBlock(entry.pos), entry.extra);
         } else {
             chunk.ready  = true;
             chunk.built  = true;
@@ -283,7 +290,7 @@ void FakeWorld::advance(
             auto& entry = chunk.blocks[chunk.cursor++];
             bool  shown = visible(placement, verification, view, entry.pos);
             if (blockSource->setProjectionVisible(entry.pos, shown)) {
-                write(entry.pos, shown ? *entry.block : blockSource->getBlock(entry.pos));
+                write(entry.pos, shown ? *entry.block : blockSource->getBlock(entry.pos), entry.extra);
                 markDirty(entry.pos);
             }
         }

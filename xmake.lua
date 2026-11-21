@@ -6,6 +6,7 @@ add_repositories("miracleforest-repo https://github.com/MiracleForest/xmake-repo
 add_requires("levilamina 26.60.*", {configs = {target_type = get_config("target_type")}})
 
 add_requires("levibuildscript")
+add_requires("zlib")
 
 option("target_type")
     set_default("client")
@@ -52,4 +53,5 @@ target("LeviSchematic")
     after_build(function (target)
         os.mkdir("bin/LeviSchematic/assets")
         os.cp("assets/ui", "bin/LeviSchematic/assets/")
+        os.cp("assets/mappings", "bin/LeviSchematic/assets/")
     end)

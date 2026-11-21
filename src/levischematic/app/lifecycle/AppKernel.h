@@ -6,6 +6,7 @@
 #include "levischematic/interaction/survival/service/SurvivalService.h"
 #include "levischematic/interaction/tool/ToolService.h"
 #include "levischematic/interaction/worldedit/service/WorldEditService.h"
+#include "levischematic/schematic/convert/ConversionService.h"
 #include "levischematic/schematic/io/RuntimeContext.h"
 #include "levischematic/schematic/placement/service/PlacementService.h"
 #include "levischematic/schematic/placement/view/ViewService.h"
@@ -65,6 +66,7 @@ public:
     [[nodiscard]] SessionPersistence&             sessions();
     [[nodiscard]] SelectionSaveService&           saves() { return mSaves; }
     [[nodiscard]] SchematicLoadService&           loads() { return mLoads; }
+    [[nodiscard]] convert::ConversionService&     conversions() { return mConversions; }
 
 private:
     friend class SessionAccess;
@@ -79,6 +81,7 @@ private:
     class WorldSession;
     std::unique_ptr<WorldSession> mSession;
     SchematicLoadService          mLoads;
+    convert::ConversionService    mConversions;
     SelectionSaveService          mSaves;
     uint64_t                      mSaveNotified       = 0;
     State                         mState              = State::Empty;

@@ -44,6 +44,14 @@ std::filesystem::path SchematicPathResolver::withMcstructureExtension(const std:
     return result.lexically_normal();
 }
 
+std::filesystem::path SchematicPathResolver::withLitematicExtension(const std::filesystem::path& path) const {
+    auto result = path;
+    if (result.extension().empty()) {
+        result += ".litematic";
+    }
+    return result.lexically_normal();
+}
+
 std::filesystem::path SchematicPathResolver::makeFilePath(const std::filesystem::path& path) const {
     auto result = path;
     if (!result.is_absolute() && !mSchematicDirectory.empty()) {
@@ -59,14 +67,17 @@ std::filesystem::path SchematicPathResolver::resolveExistingPath(const std::file
     if (path.is_absolute()) {
         appendUnique(candidates, path);
         appendUnique(candidates, withMcstructureExtension(path));
+        appendUnique(candidates, withLitematicExtension(path));
     } else {
         if (!mSchematicDirectory.empty()) {
             appendUnique(candidates, mSchematicDirectory / path);
             appendUnique(candidates, makeFilePath(path));
+            appendUnique(candidates, withLitematicExtension(mSchematicDirectory / path));
         }
 
         appendUnique(candidates, makeAbsoluteIfPossible(path));
         appendUnique(candidates, makeAbsoluteIfPossible(withMcstructureExtension(path)));
+        appendUnique(candidates, makeAbsoluteIfPossible(withLitematicExtension(path)));
     }
 
     for (const auto& candidate : candidates) {

@@ -593,7 +593,7 @@ void SchematicChunkRenderer::render(
         }
     }
     if (!entry->pendingBuildChunk) {
-        entry->chunkBuilder->mGUIRendering     = true;
+        entry->chunkBuilder->mGUIRendering     = false;
         entry->chunkBuilder->mBuildBoundingBox = area;
     }
 

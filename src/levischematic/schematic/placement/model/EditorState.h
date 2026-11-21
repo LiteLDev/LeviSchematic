@@ -26,7 +26,6 @@ enum class ToolMode {
 inline bool creativeTool(ToolMode mode) { return mode >= ToolMode::Paste && mode <= ToolMode::Move; }
 inline bool areaTool(ToolMode mode) { return mode == ToolMode::Selection || mode >= ToolMode::Fill; }
 
-
 struct ToolState {
     ToolMode             activeTool   = ToolMode::Selection;
     bool                 enabled      = true;

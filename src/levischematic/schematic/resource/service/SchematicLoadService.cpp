@@ -178,6 +178,7 @@ std::vector<std::string> SchematicLoadService::tick(
                 }
                 job->error = published ? "Loaded '" + loaded.name + "' [ID: " + std::to_string(loaded.id)
                                              + "]; projection preparing."
+                                             + (job->prepared->notice.empty() ? "" : " " + job->prepared->notice)
                                        : "Cancelled before publication.";
             }
         } catch (std::exception const& error) {

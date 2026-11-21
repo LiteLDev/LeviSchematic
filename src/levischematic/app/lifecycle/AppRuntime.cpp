@@ -6,6 +6,7 @@
 #include "levischematic/presentation/ui/model/Ui.h"
 #include "levischematic/render/actor/ActorProjection.h"
 #include "levischematic/render/chunk/SchematicChunkRenderer.h"
+#include "levischematic/schematic/convert/LitematicConverter.h"
 #include "levischematic/schematic/io/SchematicLoader.h"
 #include "levischematic/schematic/placement/store/PlacementStore.h"
 #include "levischematic/schematic/placement/view/ProjectionRefresh.h"
@@ -58,6 +59,9 @@ void load() {
     if (gAppKernel) return;
     auto error = configStore().initialize(LeviSchematic::getInstance().getSelf().getConfigDir() / "config.json");
     if (!error.empty()) LeviSchematic::getInstance().getSelf().getLogger().warn("Configuration: {}", error);
+    convert::setBlockMappingPath(
+        LeviSchematic::getInstance().getSelf().getModDir() / "assets" / "mappings" / "java_bedrock_blocks.json"
+    );
     input::registerInputDefinitions();
     gAppKernel = std::make_unique<AppKernel>();
 }

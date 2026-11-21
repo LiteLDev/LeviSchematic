@@ -2,7 +2,7 @@
 
 [中文说明](README_zh.md)
 
-LeviSchematic is a client-side schematic projection mod for Minecraft Bedrock Edition, built on the LeviLamina client SDK and inspired by Litematica. It loads `.mcstructure` files into the world as translucent projections, helps you build them in survival or creative, checks your build against the schematic, and saves world regions back to `.mcstructure`.
+LeviSchematic is a client-side schematic projection mod for Minecraft Bedrock Edition, built on the LeviLamina client SDK and inspired by Litematica. It loads `.mcstructure` and `.litematic` files into the world as translucent projections, helps you build them in survival or creative, checks your build against the schematic, and saves world regions back to `.mcstructure` or `.litematic`.
 
 ## Requirements
 
@@ -14,7 +14,7 @@ LeviSchematic is a client-side schematic projection mod for Minecraft Bedrock Ed
 
 ### Projections
 
-- Load `.mcstructure` files as translucent ghost blocks, with several placements active at the same time
+- Load `.mcstructure` or `.litematic` files as translucent ghost blocks, with several placements active at the same time
 - Loading runs in the background and appears progressively; large structures do not freeze the game
 - Block entities (chests, signs, etc.) and ordinary entities are projected together with the blocks
 - Per placement: name, lock, enable/disable, show/hide, origin, move, rotate (90°/180°), mirror (X/Z), reset
@@ -42,8 +42,8 @@ LeviSchematic is a client-side schematic projection mod for Minecraft Bedrock Ed
 
 - Simple mode (one box) and Normal mode (multiple named regions)
 - Set corners with the tool, edit coordinates by hand, resize, Grow to surrounding blocks, automatic origin, or create a selection from an existing placement
-- Save a selection as a new `.mcstructure` (optionally including entities); capture runs progressively over several ticks and overwriting requires confirmation
-- Multi-region selections are saved as one `.mcstructure` per region plus a `.schemset.json` that ties them together
+- Save a selection as a new `.mcstructure`(default) or `.litematic` (optionally including entities); capture runs progressively over several ticks and overwriting requires confirmation
+- Multi-region selections are saved as one `.mcstructure` per region plus a `.schemset.json` that ties them together, `.litematic` natively supports multiple regions without requiring special processing.
 
 ### Schematic editing
 
@@ -168,4 +168,6 @@ The packaged mod is written to `bin/LeviSchematic`.
 
 ## License
 
-LGPL-3.0. The bundled Litematica/MaLiLib textures are LGPL-3.0; see `assets/ui` for sources and licenses.
+- LGPL-3.0.
+- The bundled Litematica/MaLiLib textures are LGPL-3.0; see `assets/ui` for sources and licenses.
+- The JE-to-BE block mapping table is sourced from [GeyserMC](https://github.com/GeyserMC/mappings) and is MIT License; see `assets/mappings` for the license.

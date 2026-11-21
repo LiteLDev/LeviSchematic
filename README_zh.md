@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-LeviSchematic 是一个 Minecraft 基岩版客户端投影 mod，基于 LeviLamina 客户端 SDK，参考 Litematica 的使用方式。它可以把 `.mcstructure` 结构以半透明投影的形式放进世界，在生存或创造模式下辅助建造，对照投影校验实际建筑，并把世界中的区域保存回 `.mcstructure`。
+LeviSchematic 是一个 Minecraft 基岩版客户端投影 mod，基于 LeviLamina 客户端 SDK，参考 Litematica 的使用方式。它可以把 `.mcstructure`和`.litematic` 文件以半透明投影的形式放进世界，在生存或创造模式下辅助建造，对照投影校验实际建筑，并把世界中的区域保存回 `.mcstructure`或`.litematic`。
 
 ## 运行环境
 
@@ -14,7 +14,7 @@ LeviSchematic 是一个 Minecraft 基岩版客户端投影 mod，基于 LeviLami
 
 ### 投影
 
-- 以半透明幽灵方块显示 `.mcstructure` 结构，可同时存在多个放置
+- 以半透明幽灵方块显示 `.mcstructure`或`.litematic` 结构，可同时存在多个放置
 - 结构在后台加载并逐步显示，大型结构不会卡住游戏
 - 方块实体（箱子、告示牌等）和普通实体与方块一同投影
 - 每个放置可设置：名称、锁定、启用/停用、显示/隐藏、原点、平移、旋转（90°/180°）、镜像（X/Z）、重置
@@ -42,8 +42,8 @@ LeviSchematic 是一个 Minecraft 基岩版客户端投影 mod，基于 LeviLami
 
 - 简单模式（单个选框）与普通模式（多个命名区域）
 - 可用工具设置角点、手动编辑坐标、调整大小、自动 Grow 到周围方块、自动原点，或从已有放置创建选区
-- 将选区保存为新的 `.mcstructure`（可包含实体）；保存分多个 tick 逐步进行，覆盖已有文件需要确认
-- 多区域选区按区域分别保存为 `.mcstructure`，并生成一个 `.schemset.json` 把它们关联起来
+- 将选区保存为新的 `.mcstructure`（默认）或`.litematic`（可包含实体）；保存分多个 tick 逐步进行，覆盖已有文件需要确认
+- 多区域选区按区域分别保存为 `.mcstructure`，并生成一个 `.schemset.json` 把它们关联起来，`.litematic`则是原生支持，无需特殊处理
 
 ### 编辑投影
 
@@ -168,4 +168,6 @@ xmake
 
 ## 许可证
 
-LGPL-3.0。附带的 Litematica/MaLiLib 纹理采用 LGPL-3.0，来源与许可见 `assets/ui`。
+- LGPL-3.0。
+- 附带的 Litematica/MaLiLib 纹理采用 LGPL-3.0，来源与许可见 `assets/ui`。
+- JE与BE方块映射表来自[GeyserMC](https://github.com/GeyserMC/mappings)，采用MIT，许可见 `assets/mappings`。

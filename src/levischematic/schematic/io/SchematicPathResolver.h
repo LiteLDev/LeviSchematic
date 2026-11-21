@@ -15,6 +15,7 @@ public:
 
 private:
     std::filesystem::path withMcstructureExtension(const std::filesystem::path& path) const;
+    std::filesystem::path withLitematicExtension(const std::filesystem::path& path) const;
 
     std::filesystem::path mSchematicDirectory;
 };

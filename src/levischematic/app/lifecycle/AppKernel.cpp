@@ -7,6 +7,7 @@
 #include "levischematic/presentation/ui/model/Ui.h"
 #include "levischematic/render/actor/ActorProjection.h"
 #include "levischematic/render/chunk/SchematicChunkRenderer.h"
+#include "levischematic/schematic/convert/LitematicConverter.h"
 #include "levischematic/schematic/io/SchematicLoader.h"
 #include "levischematic/schematic/placement/store/PlacementStore.h"
 #include "levischematic/schematic/placement/view/ProjectionRefresh.h"
@@ -68,6 +69,7 @@ void AppKernel::startSession(ClientInstance& client) {
     try {
         auto s = std::make_unique<WorldSession>();
         s->configureSchematicDirectory();
+        convert::captureBedrockBlockVersion();
         s->renderer->applyConfig(configStore().snapshot());
         s->input.initialize(
             {.viewService            = s->viewService.get(),
@@ -110,6 +112,7 @@ void AppKernel::endSession() {
     mSession->input.shutdown();
     mSession->worldEdit->cancel("Session ending; submitted world changes retained.");
     mLoads.cancelAll();
+    mConversions.shutdown();
     mSaves.cancel();
     mSaveNotified = mSaves.progress().id;
     mSession->persistence->cancelRestore();

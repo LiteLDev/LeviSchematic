@@ -1,13 +1,29 @@
 #include "levischematic/schematic/placement/model/PlacementModel.h"
 #include "levischematic/schematic/placement/model/PlacementGeometry.h"
 
+#include "levischematic/schematic/placement/model/VolumeIndex.h"
 #include "levischematic/shared/geometry/PositionUtils.h"
+
+#include "mc/world/level/levelgen/structure/StructureTemplate.h"
+#include "mc/world/level/levelgen/structure/StructureTemplateData.h"
 
 #include <algorithm>
 
 namespace levischematic::placement {
 
 int PlacementInstance::totalNonAirBlocks() const noexcept { return asset ? asset->totalNonAirBlocks() : 0; }
+
+Block const* secondaryLayerBlock(SchematicAsset const& asset, BlockPos const& local) {
+    if (!asset.structure || local.x < 0 || local.y < 0 || local.z < 0 || local.x >= asset.size.x
+        || local.y >= asset.size.y || local.z >= asset.size.z)
+        return nullptr;
+    auto const& extra   = asset.structure->mStructureTemplateData->mExtraBlockIndices.get();
+    auto const  index   = volumeIndex({local.x, local.y, local.z}, {asset.size.x, asset.size.y, asset.size.z});
+    auto const  palette = secondaryLayerIndex(extra ? &*extra : nullptr, index, asset.editedCells.contains(index));
+    if (!palette || *palette >= asset.palette.size()) return nullptr;
+    auto const* block = asset.palette[*palette];
+    return block && !block->isAir() ? block : nullptr;
+}
 
 std::string PlacementInstance::describeTransform() const {
     static constexpr const char* kRotationNames[] = {"0deg", "CW90", "180deg", "CCW90"};
