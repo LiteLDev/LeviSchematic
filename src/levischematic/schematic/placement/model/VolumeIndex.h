@@ -31,4 +31,4 @@ inline std::optional<size_t> secondaryLayerIndex(Indices const* extra, size_t in
     if (value < 0) return {};
     return static_cast<size_t>(value);
 }
-}
+} // namespace levischematic::placement

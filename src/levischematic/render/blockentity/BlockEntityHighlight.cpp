@@ -418,7 +418,7 @@ public:
     MaterialScope(MaterialScope const&)            = delete;
     MaterialScope& operator=(MaterialScope const&) = delete;
 };
-}
+} // namespace
 
 std::uintptr_t resolveProjectionEntry(char const* symbol, char const* signatureText) {
     if (!supportedExecutable()) return 0;
@@ -658,4 +658,4 @@ ValidationMarkerRouteStats labelInsertedRecords(std::function<void()> const& dis
     });
     return stats;
 }
-}
+} // namespace levischematic::render

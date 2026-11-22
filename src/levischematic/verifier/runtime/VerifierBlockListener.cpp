@@ -33,4 +33,4 @@ void VerifierBlockListener::onSourceDestroyed(::BlockSource& source) {
     app::sourceDestroyed(*this, source);
 }
 
-}
+} // namespace levischematic::verifier_block_listener

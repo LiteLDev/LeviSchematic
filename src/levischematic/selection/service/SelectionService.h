@@ -46,6 +46,7 @@ public:
     bool        removeRegion(uint32_t);
     bool        renameRegion(uint32_t, std::string);
     void        setOrigin(std::optional<BlockPos>);
+    void        setName(std::string);
     bool        resize(BlockPos amount);
     bool        fromPlacements(
         std::vector<std::reference_wrapper<placement::PlacementInstance const>> const&,
@@ -86,4 +87,4 @@ private:
     selection::SelectionExporter& mSelectionExporter;
 };
 
-}
+} // namespace levischematic::app

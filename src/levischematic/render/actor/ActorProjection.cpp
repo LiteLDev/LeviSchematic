@@ -169,7 +169,7 @@ LL_TYPE_INSTANCE_HOOK(
         });
     return result;
 }
-}
+} // namespace
 struct ActorProjection::Impl {
     struct Entry {
         uint64_t                                   revision = 0;
@@ -563,4 +563,4 @@ void unregisterActorProjectionHooks() {
     railPositionEntry = railOffsetEntry = 0;
     addActor                            = nullptr;
 }
-}
+} // namespace levischematic::render

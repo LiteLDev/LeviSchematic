@@ -31,7 +31,7 @@ BlockConnectionComponent const* connectionComponent(Block const& block) {
     if (!base) return nullptr;
     return &static_cast<BlockComponentStorage::ComponentInstance<BlockConnectionComponent>*>(base)->mValue;
 }
-}
+} // namespace
 
 BlockPos transformedSizeFor(placement::PlacementInstance const& placement) {
     auto const size               = placement.asset->size;
@@ -81,7 +81,7 @@ public:
         return layer == 0 ? getBlock(pos) : SchematicBlockSource::getBlock(pos, layer);
     }
 };
-}
+} // namespace
 
 FakeWorld::FakeWorld(placement::PlacementInstance const& placement, Dimension& dimension)
 : transformedSize(transformedSizeFor(placement)),
@@ -313,4 +313,4 @@ bool FakeWorld::ready(BlockPos origin) const {
     return !mConnectionPendingChunks.contains(util::encodeSubChunkKey(origin)) && it != subChunks.end()
         && it->second.ready;
 }
-}
+} // namespace levischematic::render

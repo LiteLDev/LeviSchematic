@@ -29,7 +29,7 @@ bool                   blocksBuild(GameMode& mode, BlockPos const& clicked, ucha
     auto session = app::accessSession();
     return session && !session->worldEdit().submitting() && session->survival().restrictPlacement(*player, pos, face);
 }
-}
+} // namespace
 LL_TYPE_INSTANCE_HOOK(
     RestrictedBuildHook,
     ll::memory::HookPriority::Normal,
@@ -67,4 +67,4 @@ void unregisterSurvivalHooks() {
     BuildHooks::unhook();
     registered = false;
 }
-}
+} // namespace levischematic::hook

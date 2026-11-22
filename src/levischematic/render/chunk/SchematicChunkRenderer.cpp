@@ -89,7 +89,7 @@ ScreenContext makeSchematicScreenContext(ScreenContext& screenContext) {
 }
 
 
-}
+} // namespace
 
 
 SchematicChunkRenderer::SchematicChunkRenderer()
@@ -899,4 +899,4 @@ bool SchematicChunkRenderer::_renderBlocks(
     return !origins.empty() && entry->chunkInstances.instanceCount() >= origins.size();
 }
 
-}
+} // namespace levischematic::render

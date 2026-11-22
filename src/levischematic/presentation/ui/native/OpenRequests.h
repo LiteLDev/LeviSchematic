@@ -26,4 +26,4 @@ struct OpenRequests {
         close = false;
     }
 };
-}
+} // namespace levischematic::ui

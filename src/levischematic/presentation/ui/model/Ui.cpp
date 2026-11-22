@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <charconv>
 #include <cmath>
+#include <cstdio>
 #include <iomanip>
 #include <sstream>
 #include <unordered_set>
@@ -9,10 +10,11 @@
 namespace levischematic::ui {
 void clearPage(Page& page) noexcept {
     page.rows.clear();
-    page.rawKey  = {};
-    page.refresh = {};
-    page.save    = {};
-    page.dismiss = {};
+    page.rawKey        = {};
+    page.captureEscape = {};
+    page.refresh       = {};
+    page.save          = {};
+    page.dismiss       = {};
 }
 void dismissModal(std::shared_ptr<Page> const& page) {
     auto dismiss = page->dismiss;
@@ -29,6 +31,7 @@ void beginModal(std::shared_ptr<Page> const& page, std::string message) {
             p->message = previous;
             p->refresh = refresh;
             p->dismiss = {};
+            p->modalTitle.clear();
         }
     };
     page->rows.clear();
@@ -54,6 +57,81 @@ PageBuilder& PageBuilder::info(std::string id, std::string text) {
     button(std::move(id), std::move(text), [] {});
     mPage->rows.back().kind = RowKind::Info;
     return *this;
+}
+Row&         PageBuilder::last() { return mPage->rows.back(); }
+PageBuilder& PageBuilder::at(float x, float y, float width, float height) {
+    auto& r  = last();
+    r.placed = true;
+    r.x      = x;
+    r.y      = y;
+    r.width  = width;
+    r.height = height;
+    return *this;
+}
+PageBuilder& PageBuilder::in(Slot slot) {
+    last().slot = slot;
+    return *this;
+}
+PageBuilder& PageBuilder::tip(std::string text) {
+    last().tooltip = std::move(text);
+    return *this;
+}
+PageBuilder& PageBuilder::icon(IconRef value) {
+    last().icon = value;
+    return *this;
+}
+PageBuilder& PageBuilder::color(uint32_t value) {
+    last().textColor = value;
+    return *this;
+}
+PageBuilder& PageBuilder::kind(RowKind value) {
+    last().kind = value;
+    return *this;
+}
+PageBuilder& PageBuilder::right(std::function<void()> action) {
+    last().secondary = std::move(action);
+    return *this;
+}
+PageBuilder& PageBuilder::enabled(bool value) {
+    last().enabled = value;
+    return *this;
+}
+PageBuilder& PageBuilder::checkbox(std::string id, std::string text, bool checked, std::function<void()> toggle) {
+    button(std::move(id), std::move(text), std::move(toggle));
+    last().kind    = RowKind::Checkbox;
+    last().checked = checked;
+    return *this;
+}
+PageBuilder& PageBuilder::toggle(std::string id, std::string text, bool value, std::function<void()> action) {
+    button(std::move(id), std::move(text), std::move(action));
+    last().kind  = RowKind::Toggle;
+    last().value = value ? "true" : "false";
+    return *this;
+}
+PageBuilder& PageBuilder::label(std::string id, std::string text) {
+    info(std::move(id), std::move(text));
+    last().kind = RowKind::Label;
+    return *this;
+}
+PageBuilder& PageBuilder::adjuster(std::string id, int mode, std::function<void(int)> action) {
+    button(std::move(id), {}, [] {});
+    last().kind       = RowKind::Adjust;
+    last().adjust     = std::move(action);
+    last().adjustMode = mode;
+    last().icon       = icons::PlusMinus;
+    return *this;
+}
+int adjustAmount(int mode, Modifiers m) {
+    int amount = 1;
+    if (mode == 1) {
+        if (m.ctrl) amount *= 100;
+        if (m.shift) amount *= 10;
+        if (m.alt) amount *= 5;
+    } else {
+        if (m.shift) amount *= 8;
+        if (m.alt) amount *= 4;
+    }
+    return amount;
 }
 RowSection rowSection(Row const& row) {
     if (row.kind == RowKind::File) return RowSection::File;
@@ -133,6 +211,37 @@ std::optional<std::array<double, 4>> parseColor(std::string text) {
     if (!input.eof()) return {};
     return result;
 }
+std::string formatHexColor(std::array<double, 4> const& color) {
+    auto byte = [](double v) { return static_cast<unsigned>(std::lround(std::clamp(v, 0., 1.) * 255)); };
+    char text[16];
+    std::snprintf(
+        text,
+        sizeof(text),
+        "#%02X%02X%02X%02X",
+        byte(color[3]),
+        byte(color[0]),
+        byte(color[1]),
+        byte(color[2])
+    );
+    return text;
+}
+std::optional<std::array<double, 4>> parseHexColor(std::string text) {
+    while (!text.empty() && text.front() == ' ') text.erase(text.begin());
+    while (!text.empty() && text.back() == ' ') text.pop_back();
+    if (!text.empty() && text.front() == '#') text.erase(text.begin());
+    else if (text.size() > 2 && text[0] == '0' && (text[1] == 'x' || text[1] == 'X')) text.erase(0, 2);
+    if (text.size() == 6) text = "FF" + text;
+    if (text.size() != 8) return parseColor(text);
+    unsigned value    = 0;
+    auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), value, 16);
+    if (error != std::errc{} || end != text.data() + text.size()) return {};
+    return std::array<double, 4>{
+        ((value >> 16) & 255) / 255.,
+        ((value >> 8) & 255) / 255.,
+        (value & 255) / 255.,
+        ((value >> 24) & 255) / 255.
+    };
+}
 int clampLayerInput(std::string_view text, int previous, int minimum, int maximum) {
     long long value;
     auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), value);
@@ -165,9 +274,9 @@ std::string PageBuilder::validate(Page const& page) {
         if (row.kind == RowKind::Range && !row.submit2) return "Missing range callback: " + row.id;
         if (row.kind == RowKind::File && !row.activate) return "Missing file action: " + row.id;
         if (row.kind == RowKind::KeyBinding && (!row.reset || !row.clear)) return "Missing key action: " + row.id;
-        if (row.kind == RowKind::Choice && (row.choices.empty() || row.choices.size() > 4))
+        if (row.kind == RowKind::Choice && (row.choices.empty() || row.choices.size() > 8))
             return "Invalid choice count: " + row.id;
     }
     return {};
 }
-}
+} // namespace levischematic::ui

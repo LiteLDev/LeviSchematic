@@ -31,6 +31,7 @@ namespace {
 struct PendingAction {
     ActionId id;
     uint64_t generation;
+    bool     gui = false;
 };
 struct Runtime {
     std::mutex                mutex;
@@ -49,6 +50,12 @@ bool gameplay(IClientInstance& client) {
     return process == GetCurrentProcessId() && client.getLocalPlayer() && client.getMouseGrabbed()
         && client.isInWorldAndNotShowingAnyMenuScreens() && !ui::isOpen();
 }
+bool inGui(IClientInstance& client) {
+    DWORD process = 0;
+    GetWindowThreadProcessId(GetForegroundWindow(), &process);
+    return process == GetCurrentProcessId() && client.getLocalPlayer() && !client.isInWorldAndNotShowingAnyMenuScreens()
+        && !ui::isOpen();
+}
 bool hasTool(IClientInstance& client, app::AppKernel& session) {
     auto player = client.getLocalPlayer();
     return session.tools().state().enabled && player && app::isToolItem(player->getSelectedItem());
@@ -65,6 +72,7 @@ bool feed(int key, bool down, bool textFocused = false) {
     auto session  = app::accessSession();
     auto client   = ll::service::getClientInstance();
     bool active   = session && client && gameplay(*client) && !textFocused;
+    bool gui      = !active && session && client && !textFocused && inGui(*client);
     auto bindings = ui::inputBindings();
     if (active) {
         auto cfg           = app::configStore().snapshot().survival;
@@ -87,12 +95,13 @@ bool feed(int key, bool down, bool textFocused = false) {
     }
     auto&           r = runtime();
     std::lock_guard lock(r.mutex);
-    auto decision = r.chords.feed(canonicalKey(key), down, active, active && hasTool(*client, *session), bindings);
+    auto            context = active ? InputContext::InGame : gui ? InputContext::Gui : InputContext::None;
+    auto decision = r.chords.feed(canonicalKey(key), down, context, active && hasTool(*client, *session), bindings);
     if (decision.action && r.pending.size() < 128)
-        r.pending.push_back({*decision.action, session->sessionGeneration()});
+        r.pending.push_back({*decision.action, session->sessionGeneration(), decision.gui});
     return decision.consume;
 }
-}
+} // namespace
 
 void registerInputDefinitions() {
     auto& r = runtime();
@@ -160,12 +169,16 @@ void InputHandler::pump(IClientInstance& client, uint64_t generation) {
     {
         auto&           r = runtime();
         std::lock_guard lock(r.mutex);
-        if (!gameplay(client)) {
+        bool            game = gameplay(client), gui = !game && inGui(client);
+        if (!game && !gui) {
             r.chords.deactivate();
             r.pending.clear();
             return;
         }
-        actions.swap(r.pending);
+        for (auto const& action : r.pending)
+            if (game || action.gui) actions.push_back(action);
+        std::erase_if(r.pending, [&](PendingAction const& a) { return game || a.gui; });
+        if (gui) std::erase_if(r.pending, [](PendingAction const& a) { return !a.gui; });
     }
     auto* tools  = mContext.toolService;
     auto* player = client.getLocalPlayer();
@@ -173,7 +186,8 @@ void InputHandler::pump(IClientInstance& client, uint64_t generation) {
     for (auto const& action : actions) {
         if (action.generation != generation) continue;
         auto const& spec = actionSpec(action.id);
-        if (spec.tool && (!tools->state().enabled || !app::isToolItem(player->getSelectedItem()))) continue;
+        if (spec.tool && (action.gui || !tools->state().enabled || !app::isToolItem(player->getSelectedItem())))
+            continue;
         switch (action.id) {
         case ActionId::WorldOperations:
             ui::requestOpen(ui::PageId::WorldOperations);
@@ -367,4 +381,4 @@ void InputHandler::pump(IClientInstance& client, uint64_t generation) {
         }
     }
 }
-}
+} // namespace levischematic::input

@@ -33,8 +33,8 @@ std::vector<std::string> RuntimeContext::listAvailableSchematics() const {
         if (!entry.is_regular_file()) {
             continue;
         }
-        if (entry.path().extension() == ".mcstructure" || entry.path().extension() == ".litematic"
-            || entry.path().filename().string().ends_with(".schemset.json")) {
+        auto extension = entry.path().extension();
+        if (extension == ".mcstructure" || extension == ".litematic" || extension == ".levischematic") {
             auto value = entry.path().lexically_relative(mSchematicDirectory).generic_u8string();
             files.emplace_back(reinterpret_cast<char const*>(value.data()), value.size());
         }

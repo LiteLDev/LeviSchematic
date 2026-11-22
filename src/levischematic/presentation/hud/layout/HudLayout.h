@@ -22,4 +22,4 @@ inline void moveHud(app::Config::HudPanel& panel, UiRect safe, UiRect bounds, fl
     panel.x = std::clamp((x - safe.x) / std::max(1.f, safe.width - bounds.width), 0.f, 1.f);
     panel.y = std::clamp((y - safe.y) / std::max(1.f, safe.height - bounds.height), 0.f, 1.f);
 }
-}
+} // namespace levischematic::ui

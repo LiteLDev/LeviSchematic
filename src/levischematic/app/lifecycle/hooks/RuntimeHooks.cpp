@@ -37,4 +37,4 @@ void unregisterRuntimeHooks() {
     render::diagnostics::unregisterHooks();
 }
 
-}
+} // namespace levischematic::hook

@@ -222,7 +222,7 @@ public:
 private:
     std::string mOut;
 };
-}
+} // namespace
 
 Tag const* Compound::find(std::string_view key) const {
     for (auto const& [name, tag] : entries)
@@ -274,4 +274,4 @@ std::string writeBigEndian(NamedRoot const& root) {
     writer.payload(root.tag);
     return writer.take();
 }
-}
+} // namespace levischematic::convert::nbt

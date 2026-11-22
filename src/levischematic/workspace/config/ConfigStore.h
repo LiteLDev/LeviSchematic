@@ -42,4 +42,4 @@ private:
     std::optional<Config> mPending;
 };
 ConfigStore& configStore();
-}
+} // namespace levischematic::app

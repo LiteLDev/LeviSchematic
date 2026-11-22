@@ -18,4 +18,4 @@ void refreshCurrentClientProjectionState(AppKernel& session) {
     auto* player = client ? client->getLocalPlayer() : nullptr;
     refreshProjectionStateForDimension(session, player ? &player->getDimension() : nullptr);
 }
-}
+} // namespace levischematic::app

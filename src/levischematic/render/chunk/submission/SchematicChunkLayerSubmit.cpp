@@ -244,7 +244,7 @@ bool submitChunkLayer(
     return true;
 }
 
-}
+} // namespace
 
 char const* chunkLayerName(std::size_t index) noexcept {
     if (index < std::size(kTerrainLayerSequence)) return kTerrainLayerSequence[index].name.data();
@@ -381,4 +381,4 @@ ChunkLayerSubmitStats submitChunkLayers(
     return stats;
 }
 
-}
+} // namespace levischematic::render

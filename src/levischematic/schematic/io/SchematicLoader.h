@@ -22,4 +22,4 @@ public:
                 readTag(CompoundTag const&, std::filesystem::path const&, std::stop_token);
     static bool advance(AssetPreparation& pending, Level& level, util::WorkBudget const& budget);
 };
-}
+} // namespace levischematic::placement

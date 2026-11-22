@@ -1,4 +1,5 @@
 #include "levischematic/presentation/command/registration/Command.h"
+#include "levischematic/shared/i18n/I18n.h"
 
 #include "levischematic/app/bootstrap/LeviSchematic.h"
 #include "levischematic/presentation/command/shared/CommandShared.h"
@@ -12,7 +13,7 @@ namespace {
 
 auto& getLogger() { return levischematic::LeviSchematic::getInstance().getSelf().getLogger(); }
 
-}
+} // namespace
 
 void registerCommands(bool isClient) {
     auto& schemCmd = getOrCreateSchemCommand(isClient);
@@ -23,29 +24,33 @@ void registerCommands(bool isClient) {
         output.success(ui::exportLayout());
     });
     for (auto const& [name, page] : {
-             std::pair{"load",       ui::PageId::Load       },
-             {"tasks",      ui::PageId::Tasks      },
-             {"placements", ui::PageId::Projection },
-             {"settings",   ui::PageId::Settings   },
-             {"keys",       ui::PageId::KeyBindings},
-             {"main",       ui::PageId::MainMenu   },
-             {"hud",        ui::PageId::HudLayout  },
-             {"placement",  ui::PageId::Placement  },
-             {"selection",  ui::PageId::Selection  },
-             {"materials",  ui::PageId::Materials  },
-             {"survival",   ui::PageId::Survival   }
+             std::pair{"load",       ui::PageId::Load            },
+             {"tasks",      ui::PageId::Tasks           },
+             {"placements", ui::PageId::Projection      },
+             {"settings",   ui::PageId::Settings        },
+             {"keys",       ui::PageId::KeyBindings     },
+             {"main",       ui::PageId::MainMenu        },
+             {"hud",        ui::PageId::HudLayout       },
+             {"placement",  ui::PageId::Placement       },
+             {"selection",  ui::PageId::Selection       },
+             {"materials",  ui::PageId::Materials       },
+             {"survival",   ui::PageId::Survival        },
+             {"manager",    ui::PageId::SchematicManager},
+             {"areas",      ui::PageId::AreaSelections  },
+             {"subregion",  ui::PageId::SubRegion       },
+             {"grid",       ui::PageId::PlacementGrid   }
     })
         schemCmd.overload().text("ui").text(name).execute([page](CommandOrigin const&, CommandOutput& output) {
             auto session = acquireSession(output);
             if (!session) return;
             ui::requestOpen(page);
-            output.success("Requested UI page.");
+            output.success(tr("cmd.registration.requested_ui_page"));
         });
     schemCmd.overload().text("ui").execute([](CommandOrigin const&, CommandOutput& output) {
         auto session = acquireSession(output);
         if (!session) return;
         ui::requestOpen();
-        output.success("Requested projection UI.");
+        output.success(tr("cmd.registration.requested_ui"));
     });
     registerSchemLoadCommands(schemCmd);
     registerSchemTransformCommands(schemCmd);
@@ -61,4 +66,4 @@ void registerCommands(bool isClient) {
     getLogger().info("LeviSchematic commands registered");
 }
 
-}
+} // namespace levischematic::command

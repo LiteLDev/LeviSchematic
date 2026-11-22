@@ -89,4 +89,4 @@ void createSchematicBlockEntity(
         if (lead.mDeferredPairLoad && lead.mDeferredPairX == pos.x && lead.mDeferredPairZ == pos.z) resolvePair(lead);
     }
 }
-}
+} // namespace levischematic::render

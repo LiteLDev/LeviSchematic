@@ -599,7 +599,7 @@ LL_STATIC_HOOK(
         optionalColor
     );
 }
-}
+} // namespace
 
 bool registerProjectionHighlightPipeline() {
     if (installed) return true;
@@ -680,4 +680,4 @@ void unregisterProjectionHighlightPipeline() {
 bool validationMarkerHighlightAvailable() { return installed && selectionTransparentEntry != 0; }
 
 bool projectionBlendDepthAvailable() { return installed; }
-}
+} // namespace levischematic::render

@@ -14,4 +14,4 @@ void createSchematicBlockEntity(
     Block const*,
     std::optional<BlockPos> source
 );
-}
+} // namespace levischematic::render

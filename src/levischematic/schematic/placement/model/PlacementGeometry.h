@@ -100,4 +100,4 @@ inline float transformYaw(PlacementInstance const& p, float yaw) {
     if (p.mirror == PlacementInstance::Mirror::MIRROR_Z) yaw = 180 - yaw;
     return std::remainder(yaw + 90 * static_cast<int>(p.rotation), 360.0f);
 }
-}
+} // namespace levischematic::placement

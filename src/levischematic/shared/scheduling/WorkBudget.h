@@ -19,4 +19,4 @@ private:
     Clock::time_point mStart;
     Clock::time_point mEnd;
 };
-}
+} // namespace levischematic::util

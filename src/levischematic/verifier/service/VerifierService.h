@@ -89,4 +89,4 @@ private:
     VerificationPollSchedule::Clock::time_point mAirNext{};
     std::unordered_map<uint64_t, placement::OverrideEntry>::const_iterator mOverride;
 };
-}
+} // namespace levischematic::verifier

@@ -11,4 +11,4 @@ namespace levischematic::render {
 using SchematicRenderChunkInstanced    = ::RenderChunkInstanced;
 using SchematicRenderChunkInstancedPtr = std::unique_ptr<::RenderChunkInstanced>;
 
-}
+} // namespace levischematic::render

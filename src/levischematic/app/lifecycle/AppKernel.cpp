@@ -35,7 +35,7 @@ T& req(T* p, char const* n) {
     if (!p) throw std::logic_error(std::string("session unavailable: ") + n);
     return *p;
 }
-}
+} // namespace
 AppKernel::AppKernel() : mGate(gSessionGate) {}
 AppKernel::~AppKernel() = default;
 render::ActorProjection& AppKernel::actors() { return req(mSession.get(), "actors").actors; }
@@ -156,4 +156,4 @@ void AppKernel::invalidateRenderResources() {
     mResourceGeneration.fetch_add(1);
 }
 
-}
+} // namespace levischematic::app

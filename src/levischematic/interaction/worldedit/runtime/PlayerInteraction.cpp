@@ -2,6 +2,7 @@
 #include "levischematic/interaction/survival/inventory/InventoryAccess.h"
 #include "levischematic/interaction/worldedit/runtime/DataPick.h"
 #include "levischematic/interaction/worldedit/runtime/PlacementInteraction.h"
+#include "levischematic/shared/i18n/I18n.h"
 #include "mc/client/player/LocalPlayer.h"
 #include "mc/world/actor/player/Inventory.h"
 #include "mc/world/gamemode/GameMode.h"
@@ -34,12 +35,12 @@ Outcome PlayerInteraction::acquireSourceItem(LocalPlayer& player, Target& target
         auto receipt      = DataPick::receipt();
         bool acknowledged = receipt.sequence > mPickTicket && receipt.slot >= 0 && receipt.slot < 9;
         if ((target.sourceDataUnknown && !acknowledged) || now - mStarted < 300)
-            return wait("Waiting for original data-pick response / 等待原版带数据取物响应");
+            return wait(tr("msg.worldedit.waiting_for_original_data_pick"));
         auto const& picked = acknowledged ? player.getInventory().getItem(receipt.slot) : player.getSelectedItem();
         if (target.sourceDataUnknown
                 ? (!picked || survival::itemKey(picked).name != survival::itemKey(target.item).name)
                 : !survival::buildItemMatches(picked, target.item, survival::ItemMatch::Complete))
-            return wait("Waiting for server data item / 等待服务端物品同步");
+            return wait(tr("msg.worldedit.waiting_for_server_data_item"));
         target.item              = ItemStack(picked);
         target.sourceDataUnknown = false;
         mStage                   = Stage::Select;
@@ -62,7 +63,7 @@ Outcome PlayerInteraction::acquireSourceItem(LocalPlayer& player, Target& target
             return Outcome::InFlight;
         }
         if (selected == survival::InventoryResult::NoSlot || selected == survival::InventoryResult::Unsupported) {
-            detail = "No usable slot for source data item / 无可用槽位保存带数据物品";
+            detail = tr("msg.worldedit.no_usable_slot_for_source_data_item");
             return Outcome::Unsupported;
         }
         if (selected == survival::InventoryResult::Missing) {
@@ -78,7 +79,7 @@ Outcome PlayerInteraction::acquireSourceItem(LocalPlayer& player, Target& target
             double length =
                 std::sqrt(double(delta.x) * delta.x + double(delta.y) * delta.y + double(delta.z) * delta.z);
             if (length > player.getPickRange() || length < .01)
-                return wait("Move within source pick reach / 请靠近源方块取物");
+                return wait(tr("msg.worldedit.move_within_source_pick_reach"));
             auto hit = source.clip(
                 eye,
                 center + delta * static_cast<float>(.1 / length),
@@ -92,7 +93,7 @@ Outcome PlayerInteraction::acquireSourceItem(LocalPlayer& player, Target& target
                 false
             );
             if (hit.mType != HitResultType::Tile || hit.mBlock != at)
-                return wait("Source pick line of sight blocked / 源方块取物视线受阻");
+                return wait(tr("msg.worldedit.source_pick_line_of_sight_blocked"));
             mPickTicket = DataPick::receipt().sequence;
             mStage      = Stage::Pick;
             mStarted    = now;
@@ -109,14 +110,14 @@ Outcome PlayerInteraction::advance(LocalPlayer& player, Target& target, uint64_t
         detail = std::move(why);
         return pending() ? Outcome::InFlight : Outcome::Waiting;
     };
-    if (!source.hasChunksAt(pos, 0, false)) return wait("Chunk unavailable / 等待区块加载");
+    if (!source.hasChunksAt(pos, 0, false)) return wait(tr("msg.worldedit.chunk_unavailable"));
     if (pending() && now - mStarted > 3000) {
         auto stage = mStage;
         stop(player);
         reset();
-        detail = stage == Stage::Pick      ? "Server data pick unconfirmed / 服务端带数据取物未确认"
-               : stage == Stage::Inventory ? "Inventory item unconfirmed / 背包物品未确认"
-                                           : "World change unconfirmed / 世界修改未确认";
+        detail = stage == Stage::Pick      ? tr("msg.worldedit.server_data_pick_unconfirmed")
+               : stage == Stage::Inventory ? tr("msg.worldedit.inventory_item_unconfirmed")
+                                           : tr("msg.worldedit.world_change_unconfirmed");
         return Outcome::Rejected;
     }
     if (target.pickSource && mStage != Stage::World) {
@@ -137,10 +138,10 @@ Outcome PlayerInteraction::advance(LocalPlayer& player, Target& target, uint64_t
         }
         if (!matches) {
             mMatched = 0;
-            return wait("Waiting for world update / 等待世界更新");
+            return wait(tr("msg.worldedit.waiting_for_world_update"));
         }
         if (!mMatched) mMatched = now;
-        if (now - mMatched < 350) return wait("Observing world result / 等待结果稳定");
+        if (now - mMatched < 350) return wait(tr("msg.worldedit.observing_world_result"));
         reset();
         return Outcome::Observed;
     }
@@ -152,7 +153,7 @@ Outcome PlayerInteraction::advance(LocalPlayer& player, Target& target, uint64_t
     float reach = player.getPickRange();
     Vec3  center{pos.x + .5f, pos.y + .5f, pos.z + .5f};
     auto  dx = center.x - eye.x, dy = center.y - eye.y, dz = center.z - eye.z;
-    if (dx * dx + dy * dy + dz * dz > (reach + .8f) * (reach + .8f)) return wait("Move within reach / 请靠近目标");
+    if (dx * dx + dy * dy + dz * dz > (reach + .8f) * (reach + .8f)) return wait(tr("msg.worldedit.move_within_reach"));
     auto hit = source.clip(
         eye,
         eye + direction * reach,
@@ -166,7 +167,7 @@ Outcome PlayerInteraction::advance(LocalPlayer& player, Target& target, uint64_t
         false
     );
     if (hit.mType != HitResultType::Tile || hit.mFacing >= 6)
-        return wait("Aim at target/support face / 请瞄准目标或支撑面");
+        return wait(tr("msg.worldedit.aim_at_target_support_face"));
     auto mode = player.mGameMode.get();
     if (!mode) return wait("Game mode unavailable");
     if (!target.block->isAir()) {
@@ -176,8 +177,8 @@ Outcome PlayerInteraction::advance(LocalPlayer& player, Target& target, uint64_t
         }
         if (mStage == Stage::Inventory) {
             if (!survival::buildItemMatches(player.getSelectedItem(), target.item, survival::ItemMatch::Complete))
-                return wait("Waiting for data item / 等待带数据物品");
-            if (now - mStarted < 300) return wait("Waiting for inventory update / 等待背包更新");
+                return wait(tr("msg.worldedit.waiting_for_data_item"));
+            if (now - mStarted < 300) return wait(tr("msg.worldedit.waiting_for_inventory_update"));
             mStage = Stage::Select;
         }
         auto selected = survival::selectBuildItem(player, target.item, {0, 1, 2, 3, 4}, survival::ItemMatch::Complete);
@@ -193,7 +194,7 @@ Outcome PlayerInteraction::advance(LocalPlayer& player, Target& target, uint64_t
         }
     }
     if (!source.getBlock(pos).isAir()) {
-        if (hit.mBlock != pos) return wait("Aim at block to remove / 请瞄准待清理方块");
+        if (hit.mBlock != pos) return wait(tr("msg.worldedit.aim_at_block_to_remove"));
         bool destroyed = false;
         if (!mode->startDestroyBlock(pos, hit.mFacing, destroyed) && !destroyed) {
             detail = "Vanilla destruction declined";
@@ -214,4 +215,4 @@ Outcome PlayerInteraction::advance(LocalPlayer& player, Target& target, uint64_t
     mMatched = 0;
     return Outcome::InFlight;
 }
-}
+} // namespace levischematic::worldedit

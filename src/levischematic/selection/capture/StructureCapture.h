@@ -25,4 +25,4 @@ private:
     std::unordered_map<std::string, int> mPalette;
     std::unordered_set<uint64_t>         mEntities;
 };
-}
+} // namespace levischematic::selection

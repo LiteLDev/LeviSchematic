@@ -53,6 +53,7 @@ public:
     PlacementMutationResult renamePlacement(placement::PlacementId, std::string);
     PlacementMutationResult setPlacementLocks(placement::PlacementId, bool, std::array<bool, 3>);
     PlacementMutationResult setPlacementEntities(placement::PlacementId, bool);
+    PlacementMutationResult setPlacementBox(placement::PlacementId, bool);
     PlacementMutationResult setPlacementGrid(placement::PlacementId, placement::GridSettings);
     PlacementMutationResult setPlacementRegion(placement::PlacementId, std::string const&, placement::RegionSettings);
     std::vector<std::reference_wrapper<placement::PlacementInstance const>> managedPlacements() const;
@@ -113,4 +114,4 @@ private:
     ResourceService            mResources;
 };
 
-}
+} // namespace levischematic::app

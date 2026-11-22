@@ -36,4 +36,4 @@ public:
     bool                          submitting() const;
     void                          sample(IClientInstance&, bool secondary);
 };
-}
+} // namespace levischematic::app

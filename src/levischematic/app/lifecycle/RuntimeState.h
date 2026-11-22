@@ -18,4 +18,4 @@ extern ll::event::ListenerPtr     gClientCommandListener;
 extern ll::event::ListenerPtr     gServerCommandListener;
 bool                              resourceLoadingComplete(ClientInstance&);
 
-}
+} // namespace levischematic::app

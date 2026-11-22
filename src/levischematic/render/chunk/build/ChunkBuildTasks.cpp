@@ -66,7 +66,7 @@
 namespace levischematic::render {
 namespace {
 auto& getLogger() { return levischematic::LeviSchematic::getInstance().getSelf().getLogger(); }
-}
+} // namespace
 void SchematicChunkRenderer::_pollChunkTask(
     SchematicRendererInstanceData& entry,
     ScreenContext&                 screenContext,
@@ -114,4 +114,4 @@ std::size_t SchematicChunkRenderer::_pendingChunkBuildCount() const {
 }
 
 
-}
+} // namespace levischematic::render

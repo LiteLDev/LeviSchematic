@@ -118,6 +118,10 @@ bool SelectionService::renameRegion(uint32_t id, std::string name) {
         }
     return false;
 }
+void SelectionService::setName(std::string name) {
+    mState.selection.name = std::move(name);
+    touchSelectionState();
+}
 void SelectionService::setOrigin(std::optional<BlockPos> origin) {
     mState.selection.customOrigin = origin;
     touchSelectionState();
@@ -289,4 +293,4 @@ void SelectionService::touchSelectionState() {
     ++mState.selection.revision;
 }
 
-}
+} // namespace levischematic::app

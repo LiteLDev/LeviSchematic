@@ -1,4 +1,5 @@
 #include "levischematic/presentation/command/shared/CommandShared.h"
+#include "levischematic/shared/i18n/I18n.h"
 
 #include "levischematic/schematic/placement/model/PlacementModel.h"
 
@@ -25,12 +26,12 @@ void registerSchemTransformCommands(ll::command::CommandHandle& schemCmd) {
 
                     flushPlacementRefreshAndReply(*session, origin, output, [&](CommandOutput& out) {
                         out.success(
-                            "Moved '{}' by ({},{},{}) -> ({})",
-                            selected.name,
-                            param.dx,
-                            param.dy,
-                            param.dz,
-                            moved.value() ? moved.value()->origin.toString() : selected.origin.toString()
+                            tr("cmd.transform.moved",
+                               selected.name,
+                               param.dx,
+                               param.dy,
+                               param.dz,
+                               moved.value() ? moved.value()->origin.toString() : selected.origin.toString())
                         );
                     });
                 },
@@ -53,7 +54,7 @@ void registerSchemTransformCommands(ll::command::CommandHandle& schemCmd) {
                 }
 
                 flushPlacementRefreshAndReply(*session, origin, output, [&](CommandOutput& out) {
-                    out.success("Set origin of '{}' to ({})", selected.name, blockPos.toString());
+                    out.success(tr("cmd.transform.origin", selected.name, blockPos.toString()));
                 });
             });
         }
@@ -92,9 +93,9 @@ void registerSchemTransformCommands(ll::command::CommandHandle& schemCmd) {
 
             flushPlacementRefreshAndReply(*session, origin, output, [&](CommandOutput& out) {
                 out.success(
-                    "Rotated '{}' -> {}",
-                    selected.name,
-                    updated.value() ? updated.value()->describeTransform() : selected.describeTransform()
+                    tr("cmd.transform.rotated",
+                       selected.name,
+                       updated.value() ? updated.value()->describeTransform() : selected.describeTransform())
                 );
             });
         });
@@ -133,9 +134,9 @@ void registerSchemTransformCommands(ll::command::CommandHandle& schemCmd) {
 
             flushPlacementRefreshAndReply(*session, origin, output, [&](CommandOutput& out) {
                 out.success(
-                    "Mirror '{}' -> {}",
-                    selected.name,
-                    updated.value() ? updated.value()->describeTransform() : selected.describeTransform()
+                    tr("cmd.transform.mirror",
+                       selected.name,
+                       updated.value() ? updated.value()->describeTransform() : selected.describeTransform())
                 );
             });
         });
@@ -154,13 +155,13 @@ void registerSchemTransformCommands(ll::command::CommandHandle& schemCmd) {
 
             flushPlacementRefreshAndReply(*session, origin, output, [&](CommandOutput& out) {
                 out.success(
-                    "Reset transform for '{}' -> {}",
-                    selected.name,
-                    updated.value() ? updated.value()->describeTransform() : selected.describeTransform()
+                    tr("cmd.transform.reset",
+                       selected.name,
+                       updated.value() ? updated.value()->describeTransform() : selected.describeTransform())
                 );
             });
         });
     });
 }
 
-}
+} // namespace levischematic::command

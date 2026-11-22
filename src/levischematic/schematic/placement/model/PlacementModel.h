@@ -115,6 +115,7 @@ struct PlacementInstance {
     bool                                            locked        = false;
     std::array<bool, 3>                             axisLocked{};
     bool                                            entitiesEnabled = true;
+    bool                                            boxVisible      = false;
     GridSettings                                    grid;
     std::unordered_map<std::string, RegionSettings> regions;
     PlacementId                                     parentId = 0;
@@ -171,4 +172,4 @@ rotateBy(PlacementInstance::Rotation base, PlacementInstance::Rotation delta) {
 
 [[nodiscard]] std::pair<BlockPos, BlockPos> computeEnclosingBox(PlacementInstance const& placement);
 
-}
+} // namespace levischematic::placement

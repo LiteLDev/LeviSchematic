@@ -3,6 +3,7 @@
 #include "levischematic/interaction/tool/ToolItem.h"
 #include "levischematic/presentation/hud/ProjectionHud.h"
 #include "levischematic/presentation/ui/i18n/UiI18n.h"
+#include "levischematic/verifier/service/VerificationTask.h"
 #include "ll/api/memory/Hook.h"
 #include "ll/api/service/Bedrock.h"
 #include "mc/client/game/ClientInstance.h"
@@ -25,6 +26,30 @@ namespace {
 bool registered = false;
 
 RectangleArea rectangle(float x, float y, float width, float height) { return {x, x + width, y, y + height}; }
+mce::Color    hudColor(ui::HudColor color) {
+    switch (color) {
+    case ui::HudColor::Green:
+        return {85.f / 255, 1.f, 85.f / 255, 1.f};
+    case ui::HudColor::Gold:
+        return {1.f, 170.f / 255, 0.f, 1.f};
+    case ui::HudColor::Red:
+        return {1.f, 85.f / 255, 85.f / 255, 1.f};
+    case ui::HudColor::Aqua:
+        return {85.f / 255, 1.f, 1.f, 1.f};
+    case ui::HudColor::Gray:
+        return {170.f / 255, 170.f / 255, 170.f / 255, 1.f};
+    default:
+        return {1.f, 1.f, 1.f, 1.f};
+    }
+}
+std::vector<ui::HudLine> plainLines(std::vector<std::string> const& lines) {
+    std::vector<ui::HudLine> result;
+    for (auto const& line : lines)
+        result.push_back({
+            {line, ui::HudColor::White}
+        });
+    return result;
+}
 
 
 struct HudRenderState {
@@ -42,7 +67,7 @@ struct HudRenderState {
         context.restoreSavedClippingRectangle();
     }
 };
-}
+} // namespace
 
 
 LL_TYPE_INSTANCE_HOOK(
@@ -74,27 +99,31 @@ drawProjectionHuds(UIRenderContext& context, app::Config::Hud const& config, boo
 
 
     if (!session || !session->hudReady() || !player) return canvas;
-    std::array<std::vector<std::string>, 4> panels;
-    auto&                                   lines = panels[0];
+    std::array<std::vector<ui::HudLine>, 4> panels;
     if (app::isToolItem(player->getSelectedItem())) {
         auto snapshot = app::projectionHudSnapshot(*session);
-        if (snapshot) lines = ui::projectionHudLines(*snapshot, ui::tr);
+        if (snapshot) panels[0] = ui::projectionHudLines(*snapshot, [](std::string_view key) { return ui::tr(key); });
     }
     auto extra = session->survival().hudLines();
     auto split = std::min(extra.size(), session->survival().targetHudLineCount());
-    panels[1].assign(extra.begin(), extra.begin() + split);
-    panels[2].assign(extra.begin() + split, extra.end());
+    panels[1]  = plainLines({extra.begin(), extra.begin() + split});
+    panels[2]  = plainLines({extra.begin() + split, extra.end()});
     if (app::configStore().snapshot().survival.verifierHud) {
         auto selected = session->placement().selectedPlacementId();
         if (selected) {
-            auto report = session->verifier().report(*selected, BlockPos(player->getPosition()), 3);
-            panels[3].push_back(report.running ? "Verifier / 校验中" : "Verifier / 校验已停止");
+            auto                     report = session->verifier().report(*selected, BlockPos(player->getPosition()), 3);
+            std::vector<std::string> lines{ui::tr(report.running ? "hud.verifier.running" : "hud.verifier.stopped")};
             for (auto const& location : report.nearby)
-                panels[3].push_back(
-                    std::string(verifier::verificationStatusLabel(location.status)) + ": "
-                    + std::to_string(location.position.x) + ", " + std::to_string(location.position.y) + ", "
-                    + std::to_string(location.position.z)
+                lines.push_back(
+                    ui::tr(
+                        "hud.verifier.location",
+                        ui::tr(verifier::verificationStatusKey(location.status)),
+                        location.position.x,
+                        location.position.y,
+                        location.position.z
+                    )
                 );
+            panels[3] = plainLines(lines);
         }
     }
 
@@ -102,6 +131,11 @@ drawProjectionHuds(UIRenderContext& context, app::Config::Hud const& config, boo
     auto& font       = *fontHandle.mDefaultFont;
     auto  measure    = [&](std::string const& text) {
         return static_cast<float>(context.getLineLength(font, text, 1, false));
+    };
+    auto lineWidth = [&](ui::HudLine const& line) {
+        float width = 0;
+        for (auto const& segment : line) width += measure(segment.text);
+        return width;
     };
     auto area = context.getFullClippingRectangle();
 
@@ -118,23 +152,30 @@ drawProjectionHuds(UIRenderContext& context, app::Config::Hud const& config, boo
     float bottom = std::min(area._y1, area._y0 + safe._y1 * scaleY);
     canvas.safe  = {left + 8, top + 8, std::max(0.f, right - left - 16), std::max(0.f, bottom - top - 16)};
     if (canvas.safe.width < 16 || canvas.safe.height < 16) return canvas;
-    static char const* titles[] = {"投影信息 / Projection", "目标方块 / Target", "材料 / Materials", "校验 / Verifier"};
-    float              stackedBottom = std::max(canvas.safe.y, bottom - 48);
-    float              columnOffset = 0, columnWidth = 0;
-    HudRenderState     state(context);
+    static char const* titles[] =
+        {"hud.panel.projection", "hud.panel.target", "hud.panel.materials", "hud.panel.verifier"};
+    float          stackedBottom = std::max(canvas.safe.y, bottom - 48);
+    float          columnOffset = 0, columnWidth = 0;
+    HudRenderState state(context);
     for (size_t i = 0; i < panels.size(); ++i) {
         auto& content = panels[i];
         if (preview) {
-            if (content.empty()) content = {ui::localizedText("示例 / Example"), "X: 0  Y: 64  Z: 0"};
-            content.insert(content.begin(), ui::localizedText(titles[i]));
+            if (content.empty()) content = plainLines({ui::tr("hud.panel.example"), "X: 0  Y: 64  Z: 0"});
+            content.insert(
+                content.begin(),
+                ui::HudLine{
+                    {ui::tr(titles[i]), ui::HudColor::White}
+            }
+            );
         }
+        bool jeStyle = i == 0;
         if (content.empty()) continue;
         float scale      = config.panels[i].scalePercent / 100.f;
         float padding    = 4 * scale;
         float lineHeight = (std::ceil(font.getWrapHeight()) + 2) * scale;
         float maxWidth   = 0;
-        for (auto const& line : content) maxWidth = std::max(maxWidth, measure(line) * scale);
-        float panelWidth  = std::min(maxWidth + 2 * padding, canvas.safe.width * .45f);
+        for (auto const& line : content) maxWidth = std::max(maxWidth, lineWidth(line) * scale);
+        float panelWidth  = std::min(maxWidth + 2 * padding, canvas.safe.width * (jeStyle ? 1.f : .45f));
         float panelHeight = lineHeight * content.size() + 2 * padding;
         if (config.panels[i].x < 0 && stackedBottom - panelHeight < canvas.safe.y && columnWidth > 0) {
             columnOffset  += columnWidth + 4;
@@ -158,7 +199,20 @@ drawProjectionHuds(UIRenderContext& context, app::Config::Hud const& config, boo
             stackedBottom     = r.y - 4;
         }
         if (!paint) continue;
-        context.fillRectangle(rectangle(r.x, r.y, r.width, r.height), mce::Color{0.f, 0.f, 0.f, 1.f}, .55f);
+        bool alignRight = config.position == "bottom_right";
+        if (jeStyle) {
+            float y = r.y + padding;
+            for (auto const& line : content) {
+                float width = std::min(lineWidth(line) * scale + 2 * padding, r.width);
+                float x     = alignRight ? r.x + r.width - width : r.x;
+                context.fillRectangle(
+                    rectangle(x, y - padding / 2, width, lineHeight),
+                    mce::Color{80.f / 255, 80.f / 255, 80.f / 255, 1.f},
+                    .63f
+                );
+                y += lineHeight;
+            }
+        } else context.fillRectangle(rectangle(r.x, r.y, r.width, r.height), mce::Color{0.f, 0.f, 0.f, 1.f}, .55f);
         if (preview) {
             auto color =
                 selected == static_cast<int>(i) ? mce::Color{1.f, .85f, .2f, 1.f} : mce::Color{.7f, .7f, .7f, 1.f};
@@ -172,20 +226,31 @@ drawProjectionHuds(UIRenderContext& context, app::Config::Hud const& config, boo
         }
         context.setClippingRectangle(rectangle(r.x, r.y, r.width, r.height));
         context.enableScissorTest(rectangle(r.x, r.y, r.width, r.height));
-        TextMeasureData const  textData{scale, 0.f, false, false, false, ::ui::TextAlignment::Left};
+        TextMeasureData const  textData{scale, 0.f, jeStyle, false, false, ::ui::TextAlignment::Left};
         CaretMeasureData const caretData{-1, false};
-        float                  y = r.y + padding;
+        float                  y         = r.y + padding;
+        float                  available = std::max(0.f, r.width - 2 * padding);
         for (auto const& line : content) {
-            context.drawText(
-                font,
-                rectangle(r.x + padding, y, std::max(0.f, r.width - 2 * padding), lineHeight),
-                ui::fitHudText(line, std::max(0.f, r.width - 2 * padding) / scale, measure),
-                mce::Color{143.f / 255, 191.f / 255, 135.f / 255, 1.f},
-                1,
-                ::ui::TextAlignment::Left,
-                textData,
-                caretData
-            );
+            float drawnWidth = std::min(lineWidth(line) * scale, available);
+            float x          = jeStyle && alignRight ? r.x + r.width - padding - drawnWidth : r.x + padding;
+            float used       = 0;
+            for (auto const& segment : line) {
+                float remaining = available - used;
+                if (remaining <= 0) break;
+                auto  text  = ui::fitHudText(segment.text, remaining / scale, measure);
+                float width = measure(text) * scale;
+                context.drawText(
+                    font,
+                    rectangle(x + used, y, remaining, lineHeight),
+                    std::move(text),
+                    jeStyle ? hudColor(segment.color) : mce::Color{143.f / 255, 191.f / 255, 135.f / 255, 1.f},
+                    1,
+                    ::ui::TextAlignment::Left,
+                    textData,
+                    caretData
+                );
+                used += width;
+            }
             y += lineHeight;
         }
         context.flushText(0, std::nullopt);
@@ -205,4 +270,4 @@ void unregisterProjectionHudHooks() {
     ProjectionHudRenderHook::unhook();
     registered = false;
 }
-}
+} // namespace levischematic::hook

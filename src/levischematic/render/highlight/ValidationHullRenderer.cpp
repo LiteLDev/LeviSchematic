@@ -6,6 +6,7 @@
 #include "levischematic/render/highlight/BoxFaces.h"
 
 #include "levischematic/render/chunk/model/SchematicRenderAlgorithms.h"
+#include "levischematic/schematic/placement/model/PlacementGeometry.h"
 #include "levischematic/schematic/placement/service/PlacementService.h"
 #include "levischematic/schematic/world/FakeWorld.h"
 #include "levischematic/selection/model/SelectionState.h"
@@ -44,8 +45,16 @@
 #include "mc/deps/minecraft_renderer/renderer/RenderMaterial.h"
 #include "mc/deps/minecraft_renderer/renderer/TexturePtr.h"
 #include "mc/world/level/BlockSource.h"
+#include "mc/world/level/block/Block.h"
+#include "mc/world/level/block/BlockType.h"
+#include "mc/world/phys/AABB.h"
+
+#include <array>
+#include <cmath>
+#include <utility>
 
 #include <optional>
+#include <set>
 
 
 #include "levischematic/shared/memory/ScopeExit.h"
@@ -57,6 +66,7 @@ void ValidationHullRenderer::clear() noexcept {
     mBatches.clear();
     mSelectionMesh.reset();
     mSelectionSize.reset();
+    mPlacementBoxes.clear();
     mMaterial.reset();
     mTexture         = {};
     mTextureResolved = false;
@@ -67,29 +77,49 @@ void ValidationHullRenderer::clear() noexcept {
     mBuildStart = 0;
 }
 
+namespace {
+std::pair<std::array<float, 3>, std::array<float, 3>> blockModelBounds(Block const* block) {
+    std::array<float, 3> lo{0.0f, 0.0f, 0.0f};
+    std::array<float, 3> hi{1.0f, 1.0f, 1.0f};
+    if (!block) return {lo, hi};
+    AABB                       buffer{};
+    auto const&                shape = block->getBlockType().getVisualShape(*block, buffer);
+    std::array<float, 3> const min{shape.min.x, shape.min.y, shape.min.z};
+    std::array<float, 3> const max{shape.max.x, shape.max.y, shape.max.z};
+    int                        extents = 0;
+    for (std::size_t axis = 0; axis < 3; ++axis) {
+        if (!std::isfinite(min[axis]) || !std::isfinite(max[axis]) || max[axis] < min[axis] || min[axis] < -1.0f
+            || max[axis] > 2.0f)
+            return {lo, hi};
+        if (max[axis] - min[axis] > 1e-4f) ++extents;
+    }
+    if (extents < 2) return {lo, hi};
+    return {min, max};
+}
+} // namespace
+
 void ValidationHullRenderer::appendCube(
     std::vector<Vertex>& vertices,
     std::vector<Vertex>& edges,
     BlockPos const&      position,
+    Block const*         block,
     mce::Color           color
 ) {
-    float const expansion = mCache.style.expansion;
-    appendBox(
-        vertices,
-        {static_cast<float>(position.x) - expansion,
-         static_cast<float>(position.y) - expansion,
-         static_cast<float>(position.z) - expansion},
-        {static_cast<float>(position.x + 1) + expansion,
-         static_cast<float>(position.y + 1) + expansion,
-         static_cast<float>(position.z + 1) + expansion},
-        color
-    );
+    float const expansion           = mCache.style.expansion;
+    auto const [shapeMin, shapeMax] = blockModelBounds(block);
+    std::array<float, 3> const lo{
+        static_cast<float>(position.x) + shapeMin[0] - expansion,
+        static_cast<float>(position.y) + shapeMin[1] - expansion,
+        static_cast<float>(position.z) + shapeMin[2] - expansion
+    };
+    std::array<float, 3> const hi{
+        static_cast<float>(position.x) + shapeMax[0] + expansion,
+        static_cast<float>(position.y) + shapeMax[1] + expansion,
+        static_cast<float>(position.z) + shapeMax[2] + expansion
+    };
+    appendBox(vertices, {lo[0], lo[1], lo[2]}, {hi[0], hi[1], hi[2]}, color);
     color.a = 1.0f;
-    for (auto const& edge : detail::makeBoxEdges(
-             {position.x - expansion, position.y - expansion, position.z - expansion},
-             {position.x + 1 + expansion, position.y + 1 + expansion, position.z + 1 + expansion},
-             0.0f
-         )) {
+    for (auto const& edge : detail::makeBoxEdges(lo, hi, 0.0f)) {
         edges.push_back({edge.minimum[0], edge.minimum[1], edge.minimum[2], {}, color});
         edges.push_back({edge.maximum[0], edge.maximum[1], edge.maximum[2], {}, color});
     }
@@ -162,6 +192,61 @@ void ValidationHullRenderer::drawSelection(
     );
     OffscreenCaptureDescription captureDescription{};
     mSelectionMesh->renderMesh(screenContext, material, texture, 0, 0, captureDescription, nullptr);
+}
+
+void ValidationHullRenderer::drawPlacementBoxes(
+    ScreenContext&               screenContext,
+    Tessellator&                 tessellator,
+    mce::MaterialPtr const&      material,
+    TextureVariant const&        texture,
+    Vec3 const&                  cameraPosition,
+    app::PlacementService const& placements,
+    int                          dimensionId
+) {
+    std::set<uint32_t> visible;
+    for (auto const& ref : placements.orderedPlacements()) {
+        auto const& p = ref.get();
+        if (!p.boxVisible || p.dimensionId != dimensionId || !p.asset || p.parentId) continue;
+        auto const& size = p.asset->size;
+        if (size.x <= 0 || size.y <= 0 || size.z <= 0) continue;
+        std::optional<BlockPos> minimum, maximum;
+        for (int corner = 0; corner < 8; ++corner) {
+            BlockPos local{corner & 1 ? size.x - 1 : 0, corner & 2 ? size.y - 1 : 0, corner & 4 ? size.z - 1 : 0};
+            auto     world = placement::toWorld(p, local);
+            if (!world) continue;
+            minimum = minimum ? BlockPos{std::min(minimum->x, world->x), std::min(minimum->y, world->y), std::min(minimum->z, world->z)}
+                              : *world;
+            maximum = maximum ? BlockPos{std::max(maximum->x, world->x), std::max(maximum->y, world->y), std::max(maximum->z, world->z)}
+                              : *world;
+        }
+        if (!minimum || !maximum) continue;
+        BlockPos extent{maximum->x - minimum->x + 1, maximum->y - minimum->y + 1, maximum->z - minimum->z + 1};
+        visible.insert(p.id);
+        auto& box = mPlacementBoxes[p.id];
+        if (!box.mesh || box.size != extent) {
+            std::vector<Vertex> vertices;
+            constexpr float     expansion = 0.004f;
+            appendBox(
+                vertices,
+                {-expansion, -expansion, -expansion},
+                {static_cast<float>(extent.x) + expansion,
+                 static_cast<float>(extent.y) + expansion,
+                 static_cast<float>(extent.z) + expansion},
+                mce::Color{0.35f, 0.75f, 1.0f, 0.12f}
+            );
+            box.mesh = buildMesh(screenContext, tessellator, material, texture, vertices);
+            box.size = extent;
+        }
+        if (!box.mesh) continue;
+        auto matrix            = screenContext.camera.worldMatrixStack->push(false);
+        matrix.stack->_isDirty = true;
+        matrix.mat->translate(
+            glm::vec3{minimum->x - cameraPosition.x, minimum->y - cameraPosition.y, minimum->z - cameraPosition.z}
+        );
+        OffscreenCaptureDescription captureDescription{};
+        box.mesh->renderMesh(screenContext, material, texture, 0, 0, captureDescription, nullptr);
+    }
+    std::erase_if(mPlacementBoxes, [&](auto const& entry) { return !visible.contains(entry.first); });
 }
 
 std::unique_ptr<mce::Mesh> ValidationHullRenderer::buildMesh(
@@ -331,6 +416,7 @@ void ValidationHullRenderer::draw(
     tessellator.mPostTransformScale                 = Vec3{1.0f, 1.0f, 1.0f};
     tessellator.mApplyTransform                     = false;
     drawSelection(screenContext, tessellator, material, texture, cameraPosition, selection, config.selection);
+    drawPlacementBoxes(screenContext, tessellator, material, texture, cameraPosition, placements, currentDimensionId);
     if (state.clearing) return;
     std::size_t builds = 0;
     for (auto const& candidate : candidates) {
@@ -352,13 +438,16 @@ void ValidationHullRenderer::draw(
             if (cell.status == verifier::VerificationStatus::MissingBlock) color = config.hull.missingColor;
             if (cell.status == verifier::VerificationStatus::ExtraBlock) color = config.hull.extraColor;
 
-            BlockPos local{pos.x - candidate.origin.x, pos.y - candidate.origin.y, pos.z - candidate.origin.z};
+            BlockPos     local{pos.x - candidate.origin.x, pos.y - candidate.origin.y, pos.z - candidate.origin.z};
+            Block const* shapeBlock = cell.status == verifier::VerificationStatus::MissingBlock
+                                        ? cell.expected
+                                        : (cell.observed ? cell.observed : cell.expected);
             if (cell.status == verifier::VerificationStatus::BlockMismatch
                 || cell.status == verifier::VerificationStatus::MissingBlock
                 || cell.status == verifier::VerificationStatus::ExtraBlock)
-                appendCube(batch.block, batch.edges, local, {color[0], color[1], color[2], color[3]});
+                appendCube(batch.block, batch.edges, local, shapeBlock, {color[0], color[1], color[2], color[3]});
             else if (cell.status == verifier::VerificationStatus::PropertyMismatch)
-                appendCube(batch.property, batch.edges, local, {color[0], color[1], color[2], color[3]});
+                appendCube(batch.property, batch.edges, local, shapeBlock, {color[0], color[1], color[2], color[3]});
         }
         if (batch.cursor != candidate.chunk->cells.end()) continue;
         if (batch.block.empty() && batch.property.empty() && batch.edges.empty()) {
@@ -552,6 +641,7 @@ void ValidationHullRenderer::renderPass(
     if (mDeferred && *mDeferred != deferred) {
         mBatches.clear();
         mSelectionMesh.reset();
+        mPlacementBoxes.clear();
     }
     mDeferred                                 = deferred;
     auto const&             outlineMaterial   = rendererPlayer->mOutlineSelectionMaterial.get();
@@ -612,4 +702,4 @@ void ValidationHullRenderer::renderPass(
     mDrawable = true;
 }
 
-}
+} // namespace levischematic::render

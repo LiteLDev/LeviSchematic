@@ -1,4 +1,5 @@
 #include "levischematic/presentation/command/shared/CommandShared.h"
+#include "levischematic/shared/i18n/I18n.h"
 #include "levischematic/verifier/service/VerifierService.h"
 
 #include "levischematic/app/bootstrap/LeviSchematic.h"
@@ -79,10 +80,8 @@ void registerSchemRendererCommands(ll::command::CommandHandle& schemCmd) {
         auto session = acquireSession(output);
         if (!session) return;
         session->resetRenderer();
-        output.success(
-            "Schematic preview runtime reset. Placements retained; resources rebuild on the next valid frame."
-        );
+        output.success(tr("cmd.renderer.reset"));
     });
 }
 
-}
+} // namespace levischematic::command

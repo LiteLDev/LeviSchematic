@@ -42,4 +42,4 @@ public:
     void                          cancel();
     ContentProgress               progress() const { return mProgress; }
 };
-}
+} // namespace levischematic::app

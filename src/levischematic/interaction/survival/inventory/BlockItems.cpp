@@ -1,9 +1,12 @@
 #include "levischematic/interaction/survival/inventory/BlockItems.h"
+#include "levischematic/shared/i18n/I18n.h"
 #include "mc/deps/nbt/ByteTag.h"
 #include "mc/deps/nbt/CompoundTag.h"
 #include "mc/deps/nbt/IntTag.h"
 #include "mc/world/item/Item.h"
 #include "mc/world/item/ItemInstance.h"
+#include "mc/world/item/registry/ItemRegistryManager.h"
+#include "mc/world/item/registry/ItemRegistryRef.h"
 #include "mc/world/level/levelgen/structure/StructureBlockPalette.h"
 #include "mc/world/level/levelgen/structure/StructureTemplate.h"
 #include "mc/world/level/levelgen/structure/StructureTemplateData.h"
@@ -12,10 +15,35 @@ namespace levischematic::survival {
 ItemKey itemKey(ItemStackBase const& item) {
     return {item.getTypeName(), item.mItem && item.mItem->isStackedByData() ? item.getAuxValue() : 0};
 }
+namespace {
+std::map<std::string, int> blockStates(Block const& block) {
+    std::map<std::string, int> states;
+    for (auto const& state : verifier::buildCompareSpecFromBlock(block).exactStates) states[state.name] = state.value;
+    return states;
+}
+bool makeItem(ItemStack& stack, std::string const& name) {
+    auto item = ItemRegistryManager::getItemRegistry().lookupByNameNoAlias(std::string_view(name));
+    if (!item) return false;
+    stack.reinit(*item, 1, 0);
+    return static_cast<bool>(stack);
+}
+} // namespace
+std::optional<ItemRequirement> secondLayerItem(Block const& block) {
+    if (block.isAir()) return {};
+    auto name   = block.getBlockType().mNameInfo->mFullName->getString();
+    auto states = blockStates(block);
+    if (name != "minecraft:water" && name != "minecraft:flowing_water" && name != "minecraft:lava"
+        && name != "minecraft:flowing_lava" && name != "minecraft:bubble_column")
+        return {};
+    auto      substitute = substituteItem(name, states);
+    ItemStack stack;
+    if (!substitute || substitute->empty() || !makeItem(stack, *substitute)) return {};
+    return ItemRequirement{itemKey(stack), stack.getDescriptionName(), 1};
+}
 BlockItems resolveBlockItems(placement::PlacementInstance const& p, placement::ExpectedPosition const& expected) {
     BlockItems result;
     if (!expected.block) {
-        result.unsupported = "Unresolved palette / 未解析方块";
+        result.unsupported = tr("msg.survival.unresolved_palette");
         return result;
     }
     auto const& block = *expected.block;
@@ -26,9 +54,18 @@ BlockItems resolveBlockItems(placement::PlacementInstance const& p, placement::E
     if (spec.bedDirection) states["direction"] = static_cast<int>(*spec.bedDirection);
     auto name   = block.getBlockType().mNameInfo->mFullName->getString();
     result.rule = buildRule(name, states);
-    auto item   = block.getBlockType().asItemInstance(block, nullptr);
+    if (auto substitute = substituteItem(name, states)) {
+        if (substitute->empty()) return result;
+        if (!makeItem(result.pick, *substitute)) {
+            result.unsupported = tr("msg.survival.no_build_item") + *substitute;
+            return result;
+        }
+        result.materials.push_back({itemKey(result.pick), result.pick.getDescriptionName(), 1});
+        return result;
+    }
+    auto item = block.getBlockType().asItemInstance(block, nullptr);
     if (!item || !item.mItem) {
-        result.unsupported = "No build item / 无对应物品: " + name;
+        result.unsupported = tr("msg.survival.no_build_item") + name;
         return result;
     }
     int aux = item.getAuxValue();
@@ -51,18 +88,18 @@ BlockItems resolveBlockItems(placement::PlacementInstance const& p, placement::E
             }
         }
         if (!found) {
-            result.unsupported = "Bed color NBT unavailable / 床颜色数据缺失";
+            result.unsupported = tr("msg.survival.bed_color_nbt_unavailable");
             return result;
         }
     }
     result.pick.reinit(*item.mItem, 1, aux);
     if (!result.pick) {
-        result.unsupported = "Item conversion failed / 物品解析失败";
+        result.unsupported = tr("msg.survival.item_conversion_failed");
         return result;
     }
     result.materials.push_back({itemKey(result.pick), result.pick.getDescriptionName(), result.rule.count});
     if (name.find("flower_pot") != std::string::npos || name.find("cauldron") != std::string::npos) {
-        result.unsupported = "Container contents require manual accounting / 容器内容需手工核对";
+        result.unsupported = tr("msg.survival.container_contents_require_manual");
     }
     return result;
 }
@@ -90,4 +127,4 @@ bool placementOrientationMatches(Block const& expected, Block const& predicted) 
     for (auto const& state : b.exactStates) statesB[state.name] = state.value;
     return placementOrientationMatches(statesA, statesB);
 }
-}
+} // namespace levischematic::survival

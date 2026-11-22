@@ -308,6 +308,14 @@ bool PlacementStore::setEntitiesEnabled(PlacementId id, bool enabled) {
     touchPlacement(*p, false);
     return true;
 }
+bool PlacementStore::setBoxVisible(PlacementId id, bool visible) {
+    std::scoped_lock lock(mState.mutex);
+    auto*            p = get(id);
+    if (!p) return false;
+    p->boxVisible = visible;
+    touchPlacement(*p, false);
+    return true;
+}
 bool PlacementStore::setGrid(PlacementId id, GridSettings grid) {
     std::scoped_lock lock(mState.mutex);
     auto*            p = get(id);
@@ -428,4 +436,4 @@ void PlacementStore::touchPlacement(PlacementInstance& placement, bool contentCh
     touchState();
 }
 
-}
+} // namespace levischematic::placement

@@ -38,4 +38,4 @@ std::pair<std::string, std::vector<std::pair<std::string, std::string>>> splitJa
 
 LitematicDocument decodeLitematic(nbt::NamedRoot const& root, std::stop_token stop = {});
 nbt::NamedRoot    encodeLitematic(LitematicDocument const& document);
-}
+} // namespace levischematic::convert

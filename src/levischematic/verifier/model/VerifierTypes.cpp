@@ -55,4 +55,4 @@ BlockCompareSpec buildCompareSpecFromBlock(Block const& block) {
     return spec;
 }
 
-}
+} // namespace levischematic::verifier

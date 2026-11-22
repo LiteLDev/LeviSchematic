@@ -23,4 +23,4 @@ public:
         mReceipt.slot = slot;
     }
 };
-}
+} // namespace levischematic::worldedit

@@ -62,4 +62,4 @@ bool blockMatches(BlockSource& source, BlockPos const& pos, Block const* expecte
     auto item = worldBlockItem(source, pos);
     return survival::buildItemMatches(item, data, survival::ItemMatch::Complete);
 }
-}
+} // namespace levischematic::worldedit

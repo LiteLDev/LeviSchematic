@@ -38,4 +38,4 @@ void clipboardWrite(std::string const& value) {
     if (!SetClipboardData(CF_UNICODETEXT, h)) GlobalFree(h);
     CloseClipboard();
 }
-}
+} // namespace levischematic::ui

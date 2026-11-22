@@ -57,4 +57,4 @@ public:
     StatusResult<std::string> paste(ProjectServices const&, ClientInstance&);
     void                      cancel(ProjectServices const&);
 };
-}
+} // namespace levischematic::app

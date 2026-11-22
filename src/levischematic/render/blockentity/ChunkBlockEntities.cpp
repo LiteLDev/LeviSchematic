@@ -66,7 +66,7 @@
 namespace levischematic::render {
 namespace {
 auto& getLogger() { return levischematic::LeviSchematic::getInstance().getSelf().getLogger(); }
-}
+} // namespace
 std::size_t SchematicChunkRenderer::_renderBlockEntities(
     BaseActorRenderContext& renderContext,
     FakeWorld const&        world,
@@ -263,4 +263,4 @@ std::size_t SchematicChunkRenderer::_renderBlockEntities(
 }
 
 
-}
+} // namespace levischematic::render

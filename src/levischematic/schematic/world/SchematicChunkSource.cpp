@@ -22,7 +22,7 @@ namespace {
 
 auto& getLogger() { return levischematic::LeviSchematic::getInstance().getSelf().getLogger(); }
 
-}
+} // namespace
 
 SchematicChunkSource::SchematicChunkSource(
     ::Dimension&                                   dimension,
@@ -104,4 +104,4 @@ std::shared_ptr<::LevelChunk> SchematicChunkSource::getExistingChunk(::ChunkPos 
     return it == mChunksByPosition.end() ? nullptr : it->second;
 };
 
-}
+} // namespace levischematic::schematic

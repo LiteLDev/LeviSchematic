@@ -89,4 +89,4 @@ struct Painter {
         }
     }
 };
-}
+} // namespace levischematic::ui

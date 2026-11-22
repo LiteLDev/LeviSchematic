@@ -3,6 +3,7 @@
 #include "levischematic/schematic/io/SchematicLoader.h"
 #include "levischematic/schematic/io/SchematicSetIO.h"
 #include "levischematic/schematic/placement/model/PlacementGeometry.h"
+#include "levischematic/shared/i18n/I18n.h"
 #include "levischematic/shared/io/AtomicFile.h"
 #include "levischematic/shared/io/Utf8Path.h"
 #include "levischematic/workspace/session/model/SessionDocument.h"
@@ -87,7 +88,8 @@ Json captureDimension(editor::EditorState const& state, int dimension) {
             {"local_overrides", true                        },
             {"locked",          p.locked                    },
             {"axis_locks",      p.axisLocked                },
-            {"entities",        p.entitiesEnabled           }
+            {"entities",        p.entitiesEnabled           },
+            {"box_visible",     p.boxVisible                }
         };
         value["grid"] = {
             {"enabled",  p.grid.enabled },
@@ -136,7 +138,7 @@ Json captureDimension(editor::EditorState const& state, int dimension) {
     }
     return result;
 }
-}
+} // namespace
 struct SessionPersistence::Impl {
     editor::EditorState&                  state;
     placement::PlacementStore&            store;
@@ -276,6 +278,7 @@ struct SessionPersistence::Impl {
             value.locked          = item.value("locked", false);
             value.axisLocked      = item.value("axis_locks", std::array<bool, 3>{});
             value.entitiesEnabled = item.value("entities", true);
+            value.boxVisible      = item.value("box_visible", false);
             if (item.contains("grid")) {
                 auto const& grid = item.at("grid");
                 value.grid       = {
@@ -357,7 +360,7 @@ struct SessionPersistence::Impl {
         status.pending   = false;
         status.restoring = false;
         preparing.reset();
-        status.detail = "已恢复当前维度 / Current dimension restored";
+        status.detail = tr("msg.session.current_dimension_restored");
         capture();
     }
 };
@@ -376,7 +379,7 @@ void                     SessionPersistence::cancelRestore() {
     auto& s = *mImpl;
     s.stop.request_stop();
     s.preparing.reset();
-    if (s.status.restoring) s.status.detail = "恢复已取消 / Restore cancelled";
+    if (s.status.restoring) s.status.detail = tr("msg.session.restore_cancelled");
     s.status.restoring = false;
 }
 bool SessionPersistence::requestRestore() {
@@ -409,7 +412,7 @@ bool SessionPersistence::requestRestore() {
         return result;
     });
     s.status.restoring = true;
-    s.status.detail    = "暂存恢复资源 / Preparing restore";
+    s.status.detail    = tr("msg.session.preparing_restore");
     s.prepareCursor    = 0;
     s.restoreRevisions =
         {s.state.placements.revision, s.state.selection.revision, s.state.view.revision, s.state.tool.revision};
@@ -420,7 +423,7 @@ void SessionPersistence::keepCurrent() {
     cancelRestore();
     s.pending.erase(s.dimension);
     s.status.pending = false;
-    s.status.detail  = "使用当前维度状态 / Keeping current state";
+    s.status.detail  = tr("msg.session.keeping_current_state");
     s.capture();
 }
 void SessionPersistence::tick(ClientInstance& client, util::WorkBudget const& budget) {
@@ -431,7 +434,7 @@ void SessionPersistence::tick(ClientInstance& client, util::WorkBudget const& bu
         if (!s.initialized) {
             auto identity = session::worldIdentity(client);
             if (identity.empty()) {
-                s.status.detail = "稳定世界/服务器身份不可用 / Stable identity unavailable";
+                s.status.detail = tr("msg.session.stable_identity_unavailable");
                 return;
             }
             s.status.identity = identity;
@@ -480,8 +483,8 @@ void SessionPersistence::tick(ClientInstance& client, util::WorkBudget const& bu
             s.status.pending = s.pending.contains(dimension);
             s.status.placements =
                 s.status.pending ? s.document["dimensions"].at(std::to_string(dimension)).at("placements").size() : 0;
-            s.status.detail = s.status.pending ? "发现会话记录，请在会话菜单手动恢复 / Saved session available"
-                                               : "会话存档就绪 / Session storage ready";
+            s.status.detail =
+                s.status.pending ? tr("msg.session.saved_session_available") : tr("msg.session.session_storage_ready");
             if (s.status.pending) player->displayClientMessage(s.status.detail, std::nullopt);
             s.revisions[0] = UINT64_MAX;
         }
@@ -494,7 +497,7 @@ void SessionPersistence::tick(ClientInstance& client, util::WorkBudget const& bu
                        s.state.tool.revision
                    }) {
             cancelRestore();
-            s.status.detail = "恢复期间状态已变化，请重新确认 / State changed during restore; retry";
+            s.status.detail = tr("msg.session.state_changed_during_restore_retry");
         }
         if (s.status.restoring && s.reader.valid()
             && s.reader.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
@@ -567,4 +570,4 @@ void SessionPersistence::flush() noexcept {
         s.status.detail = e.what();
     }
 }
-}
+} // namespace levischematic::app

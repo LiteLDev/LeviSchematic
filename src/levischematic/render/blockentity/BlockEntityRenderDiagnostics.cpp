@@ -111,7 +111,7 @@ LL_TYPE_INSTANCE_HOOK(
     origin(context, metadata, controller, subLayer, materials, textures, sorted, previous, mers, shadow, dithering);
 }
 
-}
+} // namespace
 
 BlockEntityTraceScope::BlockEntityTraceScope(BlockEntityTrace* trace) noexcept : mPrevious(activeTrace) {
     activeTrace = trace;
@@ -144,4 +144,4 @@ void unregisterHooks() {
     registered = false;
 }
 
-}
+} // namespace levischematic::render::diagnostics

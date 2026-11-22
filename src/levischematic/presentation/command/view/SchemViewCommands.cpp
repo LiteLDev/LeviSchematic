@@ -1,4 +1,5 @@
 #include "levischematic/presentation/command/shared/CommandShared.h"
+#include "levischematic/shared/i18n/I18n.h"
 
 namespace levischematic::command {
 
@@ -16,7 +17,7 @@ void registerSchemViewCommands(ll::command::CommandHandle& schemCmd) {
 
             refreshProjectionStateForOrigin(*session, origin);
             auto const& range = viewService.currentLayerRange();
-            output.success("Layer range enabled: Y {}..{}", range.minY, range.maxY);
+            output.success(tr("cmd.view.range_enabled", range.minY, range.maxY));
         }
     );
 
@@ -33,7 +34,7 @@ void registerSchemViewCommands(ll::command::CommandHandle& schemCmd) {
 
             refreshProjectionStateForOrigin(*session, origin);
             auto const& range = viewService.currentLayerRange();
-            output.success("Layer range enabled: Y {}..{}", range.minY, range.maxY);
+            output.success(tr("cmd.view.range_enabled", range.minY, range.maxY));
         }
     );
 
@@ -54,7 +55,7 @@ void registerSchemViewCommands(ll::command::CommandHandle& schemCmd) {
             }
 
             refreshProjectionStateForOrigin(*session, origin);
-            output.success("Layer range enabled: Y {}..{}", param.minY, param.maxY);
+            output.success(tr("cmd.view.range_enabled", param.minY, param.maxY));
         });
 
     schemCmd.overload().text("view").text("y").text("enable").execute([&](CommandOrigin const& origin,
@@ -66,7 +67,7 @@ void registerSchemViewCommands(ll::command::CommandHandle& schemCmd) {
         refreshProjectionStateForOrigin(*session, origin);
 
         auto const& range = viewService.currentLayerRange();
-        output.success("Layer range enabled: Y {}..{}", range.minY, range.maxY);
+        output.success(tr("cmd.view.range_enabled", range.minY, range.maxY));
     });
 
     schemCmd.overload().text("view").text("y").text("disable").execute([&](CommandOrigin const& origin,
@@ -78,7 +79,7 @@ void registerSchemViewCommands(ll::command::CommandHandle& schemCmd) {
         refreshProjectionStateForOrigin(*session, origin);
 
         auto const& range = viewService.currentLayerRange();
-        output.success("Layer range disabled. Stored range: Y {}..{}", range.minY, range.maxY);
+        output.success(tr("cmd.view.range_disabled", range.minY, range.maxY));
     });
 
     schemCmd.overload().text("view").text("y").text("info").execute([&](CommandOrigin const&, CommandOutput& output) {
@@ -95,4 +96,4 @@ void registerSchemViewCommands(ll::command::CommandHandle& schemCmd) {
     });
 }
 
-}
+} // namespace levischematic::command

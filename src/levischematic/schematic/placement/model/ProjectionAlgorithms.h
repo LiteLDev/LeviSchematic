@@ -33,4 +33,4 @@ inline std::optional<std::array<int, 3>> inverseProjectionPosition(
     if (lx < 0 || y < 0 || lz < 0 || lx >= size[0] || y >= size[1] || lz >= size[2]) return {};
     return std::array<int, 3>{static_cast<int>(lx), static_cast<int>(y), static_cast<int>(lz)};
 }
-}
+} // namespace levischematic::placement

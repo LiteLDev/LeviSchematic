@@ -1,6 +1,7 @@
 #pragma once
 
 #include "levischematic/app/lifecycle/AppKernel.h"
+#include "levischematic/shared/i18n/I18n.h"
 
 #include "ll/api/command/CommandHandle.h"
 
@@ -24,7 +25,7 @@ namespace levischematic::command {
 inline app::SessionAccess acquireSession(CommandOutput& output) {
     auto session = app::accessSession();
     if (!session) {
-        output.error("LeviSchematic is unavailable outside an active world session.");
+        output.error(tr("cmd.no_session"));
     }
     return session;
 }

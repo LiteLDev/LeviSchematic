@@ -17,7 +17,7 @@ void logBuildStamp() {
     );
 }
 
-}
+} // namespace
 
 LeviSchematic& LeviSchematic::getInstance() {
     static LeviSchematic instance;
@@ -57,6 +57,6 @@ bool LeviSchematic::disable() {
     return true;
 }
 
-}
+} // namespace levischematic
 
 LL_REGISTER_MOD(levischematic::LeviSchematic, levischematic::LeviSchematic::getInstance());

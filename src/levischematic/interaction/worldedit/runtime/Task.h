@@ -46,6 +46,23 @@ inline char const* phaseName(Phase p) {
     };
     return names[static_cast<int>(p)];
 }
+inline char const* phaseKey(Phase p) {
+    constexpr char const* keys[]{
+        "worldedit.phase.idle",
+        "worldedit.phase.preparing",
+        "worldedit.phase.ready",
+        "worldedit.phase.running",
+        "worldedit.phase.waiting",
+        "worldedit.phase.paused",
+        "worldedit.phase.verifying",
+        "worldedit.phase.cleaning",
+        "worldedit.phase.complete",
+        "worldedit.phase.partial",
+        "worldedit.phase.failed",
+        "worldedit.phase.cancelled"
+    };
+    return keys[static_cast<int>(p)];
+}
 inline bool shouldWrite(ReplacePolicy policy, bool sourceAir, bool targetAir) {
     return policy == ReplacePolicy::All || (policy == ReplacePolicy::TargetAir ? targetAir && !sourceAir : !sourceAir);
 }
@@ -137,4 +154,4 @@ private:
         if (value == Outcome::Rejected) adjust(progress.rejected);
     }
 };
-}
+} // namespace levischematic::worldedit

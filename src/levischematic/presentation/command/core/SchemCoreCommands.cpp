@@ -1,5 +1,6 @@
 #include "levischematic/presentation/command/shared/CommandShared.h"
 #include "levischematic/presentation/ui/model/Ui.h"
+#include "levischematic/shared/i18n/I18n.h"
 #include "mc/world/level/dimension/Dimension.h"
 
 namespace levischematic::command {
@@ -22,7 +23,7 @@ void registerSchemCoreCommands(ll::command::CommandHandle& command) {
             auto s = acquireSession(output);
             if (!s) return;
             ui::requestOpen(page);
-            output.success("Requested core workflow UI.");
+            output.success(tr("cmd.core.requested_ui"));
         });
     command.overload<LayerModeParam>().text("layer").text("mode").required("value").execute(
         [](CommandOrigin const& origin, CommandOutput& output, LayerModeParam const& parameter) {
@@ -36,7 +37,7 @@ void registerSchemCoreCommands(ll::command::CommandHandle& command) {
                 return;
             }
             refreshProjectionStateForOrigin(*s, origin);
-            output.success("Layer mode updated.");
+            output.success(tr("cmd.core.layer_mode_updated"));
         }
     );
     command.overload<LayerAxisParam>().text("layer").text("axis").required("value").execute(
@@ -51,7 +52,7 @@ void registerSchemCoreCommands(ll::command::CommandHandle& command) {
                 return;
             }
             refreshProjectionStateForOrigin(*s, origin);
-            output.success("Layer axis updated.");
+            output.success(tr("cmd.core.layer_axis_updated"));
         }
     );
     command.overload<SchemViewYValueParam>()
@@ -69,20 +70,20 @@ void registerSchemCoreCommands(ll::command::CommandHandle& command) {
                 return;
             }
             refreshProjectionStateForOrigin(*s, origin);
-            output.success("Layer boundary updated.");
+            output.success(tr("cmd.core.layer_boundary_updated"));
         });
     command.overload().text("layer").text("info").execute([](CommandOrigin const&, CommandOutput& output) {
         auto s = acquireSession(output);
         if (!s) return;
         auto r = s->view().currentLayerRange();
         output.success(
-            "Layers: axis={} mode={} boundary={} range={}..{} follow={}",
-            "XYZ"[static_cast<int>(r.axis)],
-            static_cast<int>(r.mode),
-            r.boundary(),
-            r.minY,
-            r.maxY,
-            r.followPlayer
+            tr("cmd.core.layers_info",
+               "XYZ"[static_cast<int>(r.axis)],
+               static_cast<int>(r.mode),
+               r.boundary(),
+               r.minY,
+               r.maxY,
+               r.followPlayer)
         );
     });
     for (auto [name, layers] : {
@@ -97,11 +98,12 @@ void registerSchemCoreCommands(ll::command::CommandHandle& command) {
                 auto dimension = origin.getDimension();
                 if (!selected || !dimension
                     || selected.value()->dimensionId != static_cast<int>(dimension->getDimensionId())) {
-                    output.error("Select a placement in the current dimension.");
+                    output.error(tr("cmd.core.select_placement_in_dimension"));
                     return;
                 }
-                if (!s->verifier().startTask(selected.value()->id, layers)) output.error("Placement is disabled.");
-                else output.success("Verification started for placement {}.", selected.value()->id);
+                if (!s->verifier().startTask(selected.value()->id, layers))
+                    output.error(tr("cmd.core.placement_disabled"));
+                else output.success(tr("cmd.core.verification_started", selected.value()->id));
             }
         );
     for (auto operation : {"stop", "reset", "info"})
@@ -111,30 +113,29 @@ void registerSchemCoreCommands(ll::command::CommandHandle& command) {
                 if (!s) return;
                 auto id = s->placement().selectedPlacementId();
                 if (!id) {
-                    output.error("No placement selected.");
+                    output.error(tr("cmd.core.no_placement_selected"));
                     return;
                 }
                 if (std::string_view(operation) == "stop") s->verifier().stopTask(*id);
                 if (std::string_view(operation) == "reset") s->verifier().resetTask(*id);
                 auto r = s->verifier().report(*id, BlockPos(origin.getWorldPosition()), 0);
                 output.success(
-                    "Verifier #{}: running={} building={} stale={} scanned={}/{} Unknown={} Matched={} Missing={} "
-                    "WrongState={} WrongBlock={} Extra={} Ignored={}",
-                    *id,
-                    r.running,
-                    r.building,
-                    r.stale,
-                    r.scanned,
-                    r.total,
-                    r.counts[0],
-                    r.counts[1],
-                    r.counts[2],
-                    r.counts[3],
-                    r.counts[4],
-                    r.counts[5],
-                    r.ignored
+                    tr("cmd.core.verifier_info",
+                       *id,
+                       r.running,
+                       r.building,
+                       r.stale,
+                       r.scanned,
+                       r.total,
+                       r.counts[0],
+                       r.counts[1],
+                       r.counts[2],
+                       r.counts[3],
+                       r.counts[4],
+                       r.counts[5],
+                       r.ignored)
                 );
             }
         );
 }
-}
+} // namespace levischematic::command

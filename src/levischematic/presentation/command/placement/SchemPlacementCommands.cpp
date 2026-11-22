@@ -1,4 +1,5 @@
 #include "levischematic/presentation/command/shared/CommandShared.h"
+#include "levischematic/shared/i18n/I18n.h"
 
 #include "levischematic/schematic/placement/model/PatchOp.h"
 #include "levischematic/schematic/placement/model/PlacementModel.h"
@@ -15,7 +16,7 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
         auto& placementService = session->placement();
         auto  placements       = placementService.managedPlacements();
         if (placements.empty()) {
-            output.success("No placements loaded.");
+            output.success(tr("cmd.placement.none_loaded"));
             return;
         }
 
@@ -51,7 +52,7 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
             }
 
             flushPlacementRefreshAndReply(*session, origin, output, [&](CommandOutput& out) {
-                out.success("Removed placement '{}' [ID: {}]", result.value().name, result.value().id);
+                out.success(tr("cmd.placement.removed", result.value().name, result.value().id));
             });
         }
     );
@@ -68,7 +69,7 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
             }
 
             flushPlacementRefreshAndReply(*session, origin, output, [&](CommandOutput& out) {
-                out.success("Removed placement '{}' [ID: {}]", result.value().name, result.value().id);
+                out.success(tr("cmd.placement.removed", result.value().name, result.value().id));
             });
         });
     });
@@ -90,7 +91,7 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
                 return;
             }
 
-            output.success("Selected placement '{}' [ID: {}]", selected.value()->name, param.id);
+            output.success(tr("cmd.placement.selected", selected.value()->name, param.id));
         }
     );
 
@@ -107,9 +108,9 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
 
             flushPlacementRefreshAndReply(*session, origin, output, [&](CommandOutput& out) {
                 out.success(
-                    "Render for '{}': {}",
-                    selected.name,
-                    updated.value() && updated.value()->renderEnabled ? "ON" : "OFF"
+                    tr("cmd.placement.render_for",
+                       selected.name,
+                       updated.value() && updated.value()->renderEnabled ? "ON" : "OFF")
                 );
             });
         });
@@ -128,9 +129,9 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
 
             flushPlacementRefreshAndReply(*session, origin, output, [&](CommandOutput& out) {
                 out.success(
-                    "Placement '{}': {}",
-                    selected.name,
-                    updated.value() && updated.value()->enabled ? "ENABLED" : "DISABLED"
+                    tr("cmd.placement.state",
+                       selected.name,
+                       updated.value() && updated.value()->enabled ? "ENABLED" : "DISABLED")
                 );
             });
         });
@@ -151,7 +152,7 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
                 }
 
                 flushPlacementRefreshAndReply(*session, origin, output, [&](CommandOutput& out) {
-                    out.success("Hidden block at ({}) for '{}'.", worldPos.toString(), selected.name);
+                    out.success(tr("cmd.placement.hidden_block", worldPos.toString(), selected.name));
                 });
             });
         }
@@ -174,7 +175,7 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
                 auto worldPos    = BlockPos(origin.getExecutePosition(cmd.mVersion, param.pos));
                 auto blockResult = param.blockName.resolveBlock(param.title_date);
                 if (!blockResult.mBlock) {
-                    output.error("Failed to resolve block '{}'.", param.blockName.getBlockName());
+                    output.error(tr("cmd.placement.resolve_failed", param.blockName.getBlockName()));
                     return;
                 }
 
@@ -190,10 +191,10 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
 
                 flushPlacementRefreshAndReply(*session, origin, output, [&](CommandOutput& out) {
                     out.success(
-                        "Set block at ({}) for '{}' to '{}'.",
-                        worldPos.toString(),
-                        selected.name,
-                        param.blockName.getBlockName()
+                        tr("cmd.placement.set_block",
+                           worldPos.toString(),
+                           selected.name,
+                           param.blockName.getBlockName())
                     );
                 });
             });
@@ -215,7 +216,7 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
                 auto worldPos    = BlockPos(origin.getExecutePosition(cmd.mVersion, param.pos));
                 auto blockResult = param.blockName.resolveBlock(0);
                 if (!blockResult.mBlock) {
-                    output.error("Failed to resolve block '{}'.", param.blockName.getBlockName());
+                    output.error(tr("cmd.placement.resolve_failed", param.blockName.getBlockName()));
                     return;
                 }
 
@@ -231,10 +232,10 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
 
                 flushPlacementRefreshAndReply(*session, origin, output, [&](CommandOutput& out) {
                     out.success(
-                        "Set block at ({}) for '{}' to '{}'.",
-                        worldPos.toString(),
-                        selected.name,
-                        param.blockName.getBlockName()
+                        tr("cmd.placement.set_block",
+                           worldPos.toString(),
+                           selected.name,
+                           param.blockName.getBlockName())
                     );
                 });
             });
@@ -255,7 +256,7 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
                 }
 
                 flushPlacementRefreshAndReply(*session, origin, output, [&](CommandOutput& out) {
-                    out.success("Cleared block override at ({}) for '{}'.", worldPos.toString(), selected.name);
+                    out.success(tr("cmd.placement.cleared_override", worldPos.toString(), selected.name));
                 });
             });
         }
@@ -294,77 +295,11 @@ void registerSchemPlacementCommands(ll::command::CommandHandle& schemCmd) {
         session->loads().cancelAll();
         placementService.clearPlacements();
         flushPlacementRefreshAndReply(*session, origin, output, [&](CommandOutput& out) {
-            out.success("Cleared {} placement(s).", count);
+            out.success(tr("cmd.placement.cleared", count));
         });
     });
 
-    schemCmd.overload().execute([&](CommandOrigin const&, CommandOutput& output) {
-        std::string help  = "LeviSchematic Commands:\n";
-        help             += "  /schem ui - Open the Litematica-style main menu (M / F7)\n";
-        help += "  /schem ui <main|load|placements|placement|selection|settings|keys|materials|survival|tasks|hud> "
-                "- UI pages\n";
-        help += "  /schem ui layout - Export the last completed menu frame geometry\n";
-        help += "  /schem ui <world|projects|signs> - P4 workflow pages\n";
-        help += "  /schem world <paste|gridpaste|fill|replace|delete|clone|move> - Select actual-world tool\n";
-        help += "  /schem world <prepare|start|pause|resume|cancel|status> - Preflight and task control\n";
-        help += "  /schem world offset <dx dy dz> | policy <air|nonair|all> | sample <primary|secondary>\n";
-        help += "  /schem project <create|open|rename|save|work> <name>; checkout <version>; "
-                "list|status|paste|cancel\n";
-        help += "  /schem sign <copy|copyback|paste|cancel> - Next native sign editor paste\n";
-        help += "  /schem ui status - Show C++ UI backend and lifecycle diagnostics\n";
-        help += "  /schem ui <save|layers|verifier|session|resources|edit> - Open a workflow page\n";
-        help += "  /schem resource <status|save|reload-discard|cancel> | saveas <file> "
-                "(.mcstructure|.schemset.json|.litematic)\n";
-        help += "  /schem edit set <x y z> <block> - Edit shared schematic content\n";
-        help += "  /schem grid enabled <bool> | grid <x|y|z> <spacing> <negative> <positive>\n";
-        help += "  /schem selection normal <bool> | add <name> | region <id>\n";
-        help += "  /schem save <file> - Queue progressive world selection capture (no overwrite); "
-                "<file>.litematic saves Litematica format\n";
-        help += "  /schem save-status | save-cancel - Inspect/cancel selection capture\n";
-        help += "  /schem verify <start|layers|stop|reset|info> - Selected placement verification\n";
-        help += "  /schem layer mode <all|single|range|below|above> - Set layer mode\n";
-        help += "  /schem layer axis <x|y|z> | boundary <value> | info\n";
-        help += "  M: menu; Ctrl+Alt+S: save; M+V: verifier; M+PageUp/PageDown: layer mode\n";
-        help += "  /schem load <file> [x y z] - Queue schematic load (.mcstructure, .schemset.json, .litematic)\n";
-        help += "  /schem load status <taskId> - Show load progress\n";
-        help += "  /schem load cancel <taskId> - Cancel an unfinished load\n";
-        help += "  /schem config reload - Validate and apply config.json on next tick\n";
-        help += "  Config: projection.color RGBA tint; hull.missingColor/blockColor/propertyColor/extraColor; "
-                "hull.alwaysShowMissing, hull.alwaysShowExtra (default ON); tool.item (minecraft:stick)\n";
-        help += "  /schem config save - Save effective/pending configuration\n";
-        help += "  /schem move <dx> <dy> <dz> - Move placement\n";
-        help += "  /schem origin <x> <y> <z> - Set origin\n";
-        help += "  /schem rotate <cw90|ccw90|r180> - Rotate\n";
-        help += "  /schem mirror <x|z|none> - Mirror\n";
-        help += "  /schem list - List placements\n";
-        help += "  /schem select <id> - Select placement\n";
-        help += "  /schem remove [id] - Remove placement\n";
-        help += "  /schem toggle [render] - Toggle placement state\n";
-        help += "  /schem info - Show placement info\n";
-        help += "  /schem block hide <x y z> - Hide a projected block\n";
-        help += "  /schem block set <x y z> <block> - Override one projected block\n";
-        help += "  /schem block clear <x y z> - Clear one block override\n";
-        help += "  /schem files - List available files\n";
-        help += "  /schem convert|convert-overwrite <source> <target> - Convert between .litematic, .mcstructure and "
-                ".schemset.json (blocks only)\n";
-        help += "  /schem convert-status | convert-cancel - Inspect/cancel the file conversion\n";
-        help += "  /schem reset - Reset transform\n";
-        help += "  /schem clear - Clear placements and cancel unfinished loads\n";
-        help += "  /schem pos1 [x y z] - Set selection corner 1\n";
-        help += "  /schem pos2 [x y z] - Set selection corner 2\n";
-        help += "  /schem selection clear - Clear selection\n";
-        help += "  /schem selection mode - Toggle selection mode\n";
-        help += "  /schem selection info - Show selection info\n";
-        help += "  /schem view y min <value> - Set minimum visible Y and enable filtering\n";
-        help += "  /schem view y max <value> - Set maximum visible Y and enable filtering\n";
-        help += "  /schem view y range <min> <max> - Set visible Y range and enable filtering\n";
-        help += "  /schem view y enable - Enable Y range filtering\n";
-        help += "  /schem view y disable - Disable Y range filtering\n";
-        help += "  /schem view y info - Show Y range filter state\n";
-        help += "  /schem renderer stats - Show preview state and block-entity highlight routing\n";
-        help += "  /schem renderer reset - Release preview resources; keep placements and rebuild next frame\n";
-        output.success(help);
-    });
+    schemCmd.overload().execute([&](CommandOrigin const&, CommandOutput& output) { output.success(tr("cmd.help")); });
 }
 
-}
+} // namespace levischematic::command

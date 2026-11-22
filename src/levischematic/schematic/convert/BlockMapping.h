@@ -54,4 +54,4 @@ private:
     std::unordered_map<std::string, std::string> mBedrockToJava;
     std::unordered_map<std::string, std::string> mBedrockNameToJava;
 };
-}
+} // namespace levischematic::convert

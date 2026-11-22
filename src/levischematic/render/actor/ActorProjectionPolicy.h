@@ -14,4 +14,4 @@ constexpr std::optional<std::array<float, 2>> vanillaDisplayMinecartSize(std::st
     return std::nullopt;
 }
 
-}
+} // namespace levischematic::render::detail

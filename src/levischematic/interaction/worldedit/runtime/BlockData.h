@@ -8,4 +8,4 @@ ItemStack worldBlockItem(BlockSource&, BlockPos const&);
 ItemStack copyItem(ItemStackBase const&);
 ItemStack projectionBlockItem(placement::PlacementInstance const&, placement::ExpectedPosition const&, Dimension&);
 bool      blockMatches(BlockSource&, BlockPos const&, Block const*, ItemStack const& data);
-}
+} // namespace levischematic::worldedit

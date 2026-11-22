@@ -44,4 +44,4 @@ std::vector<uint32_t> unpackLitematicBits(std::span<int64_t const> longs, uint32
     }
     return result;
 }
-}
+} // namespace levischematic::convert

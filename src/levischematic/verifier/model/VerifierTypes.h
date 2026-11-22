@@ -102,4 +102,4 @@ struct VerifierState {
                 && (cell->status == VerificationStatus::Unknown || cell->status == VerificationStatus::MissingBlock));
     }
 };
-}
+} // namespace levischematic::verifier

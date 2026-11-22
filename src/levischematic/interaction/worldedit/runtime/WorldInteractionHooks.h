@@ -2,4 +2,4 @@
 namespace levischematic::hook {
 void registerWorldInteractionHooks();
 void unregisterWorldInteractionHooks();
-}
+} // namespace levischematic::hook

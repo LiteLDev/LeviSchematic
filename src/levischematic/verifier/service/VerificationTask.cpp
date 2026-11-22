@@ -16,21 +16,21 @@ std::string verificationGroupId(VerificationCell const& cell) {
     return std::to_string(static_cast<int>(cell.status)) + ":" + verificationBlockLabel(cell.expected) + " -> "
          + verificationBlockLabel(cell.observed);
 }
-char const* verificationStatusLabel(VerificationStatus status) {
+char const* verificationStatusKey(VerificationStatus status) {
     switch (status) {
     case VerificationStatus::Unknown:
-        return "未知 / Unknown";
+        return "verifier.status.unknown";
     case VerificationStatus::Matched:
-        return "匹配 / Matched";
+        return "verifier.status.matched";
     case VerificationStatus::MissingBlock:
-        return "缺失 / Missing";
+        return "verifier.status.missing";
     case VerificationStatus::PropertyMismatch:
-        return "状态错误 / Wrong state";
+        return "verifier.status.wrong_state";
     case VerificationStatus::BlockMismatch:
-        return "类型错误 / Wrong block";
+        return "verifier.status.wrong_block";
     case VerificationStatus::ExtraBlock:
-        return "多余 / Extra";
+        return "verifier.status.extra";
     }
-    return "Unknown";
+    return "verifier.status.unknown";
 }
-}
+} // namespace levischematic::verifier

@@ -1,5 +1,6 @@
 #include "levischematic/schematic/io/SchematicLoader.h"
 #include "levischematic/schematic/convert/LitematicConverter.h"
+#include "levischematic/schematic/io/LeviSchematicFile.h"
 #include "levischematic/schematic/io/SchematicSetIO.h"
 #include "levischematic/schematic/placement/model/PlacementGeometry.h"
 #include "levischematic/shared/io/Utf8Path.h"
@@ -46,15 +47,28 @@ SchematicLoader::read(std::filesystem::path const& path, std::stop_token stop) {
             BlockPos                                       pos;
             Expected<AssetPreparation, LoadPlacementError> child;
         };
-        if (path.filename().string().ends_with(".schemset.json")) {
-            auto                 manifest = readSchematicSetManifest(path);
+        if (schematic::isLeviSchematicPath(path)) {
+            auto document = schematic::readLeviSchematic(path, stop);
+            auto stamp    = fileStamp(path);
+            auto parse    = [&](CompoundTag const& tag) {
+                auto child = readTag(tag, path, stop);
+                if (child) {
+                    child.value().asset->sourcePath  = path;
+                    child.value().asset->sourceStamp = stamp;
+                }
+                return child;
+            };
+            if (document.regions.size() == 1) {
+                auto result = parse(*document.regions.front().tag);
+                if (result) result.value().asset->defaultName = document.name;
+                return result;
+            }
             std::vector<Pending> regions;
-            for (auto const& entry : manifest.regions) {
-                if (stop.stop_requested()) throw std::runtime_error("Cancelled.");
-                regions.push_back({entry.id, entry.name, entry.offset, read(entry.file, stop)});
+            for (auto& r : document.regions) {
+                regions.push_back({r.id, r.name, r.offset, parse(*r.tag)});
                 if (!regions.back().child) return Result::failure(regions.back().child.error());
             }
-            return assemble(manifest.name, regions);
+            return assemble(document.name, regions);
         }
         if (convert::isLitematicPath(path)) {
             convert::ConversionReport report;
@@ -187,4 +201,4 @@ bool SchematicLoader::advance(AssetPreparation& pending, Level& level, util::Wor
     }
     return pending.blockCursor == indices.size();
 }
-}
+} // namespace levischematic::placement

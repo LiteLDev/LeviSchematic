@@ -18,4 +18,4 @@ public:
     std::string const&             text() const { return mText; }
     std::string const&             detail() const { return mDetail; }
 };
-}
+} // namespace levischematic::app

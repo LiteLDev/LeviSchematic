@@ -1,34 +1,30 @@
 #include "levischematic/app/bootstrap/LeviSchematic.h"
 #include "levischematic/app/lifecycle/AppKernel.h"
+#include "levischematic/presentation/hud/ProjectionHud.h"
 #include "levischematic/presentation/ui/bindings/Bindings.h"
 #include "levischematic/presentation/ui/i18n/UiI18n.h"
 #include "levischematic/presentation/ui/model/Ui.h"
 #include "levischematic/presentation/ui/pages/advanced/AdvancedPages.h"
+#include "levischematic/presentation/ui/pages/browser/BrowserPages.h"
+#include "levischematic/presentation/ui/pages/common/PageCommon.h"
 #include "levischematic/presentation/ui/pages/core/CorePages.h"
 #include "levischematic/presentation/ui/pages/organization/OrganizationPages.h"
+#include "levischematic/presentation/ui/pages/placement/PlacementPages.h"
+#include "levischematic/presentation/ui/pages/selection/SelectionPages.h"
 #include "levischematic/presentation/ui/pages/survival/SurvivalPages.h"
-#include "levischematic/schematic/placement/view/ProjectionRefresh.h"
+#include "levischematic/shared/i18n/I18n.h"
 #include "ll/api/Config.h"
-#include "ll/api/input/KeyRegistry.h"
 #include "ll/api/service/Bedrock.h"
 #include "mc/client/game/ClientInstance.h"
-#include "mc/client/input/ClientInputHandler.h"
-#include "mc/client/input/KeyboardRemappingLayout.h"
-#include "mc/client/input/Keymapping.h"
-#include "mc/client/options/IOptionRegistry.h"
-#include "mc/client/player/LocalPlayer.h"
 #include "mc/world/item/Item.h"
 #include "mc/world/item/registry/ItemRegistryManager.h"
-#include "mc/world/level/dimension/Dimension.h"
 #include <algorithm>
-#include <charconv>
-#include <fstream>
 #include <map>
+#include <sstream>
 
 namespace levischematic::ui {
 namespace {
-using J  = nlohmann::ordered_json;
-using PI = placement::PlacementInstance;
+using J = nlohmann::ordered_json;
 J configJson(app::Config const& config) {
     auto result = ll::reflection::serialize<J>(config);
     if (!result) throw std::runtime_error("Cannot serialize configuration");
@@ -36,379 +32,60 @@ J configJson(app::Config const& config) {
 }
 std::string fieldLabel(std::string const& path) {
     std::map<std::string, std::string> const labels{
-        {"/visibility/renderDistanceBlocks",    tr("ui.title.distance")                            },
-        {"/visibility/frustumCulling",          tr("ui.title.frustum")                             },
-        {"/projection/alpha",                   tr("ui.title.alpha")                               },
-        {"/tool/item",                          "工具物品（minecraft:完整标识） / Tool item"       },
-        {"/hull/alwaysShowMissing",             "始终显示缺失方块标示 / Always show missing blocks"},
-        {"/hull/alwaysShowExtra",               "始终显示多余方块标示 / Always show extra blocks"  },
-        {"/hull/expansion",                     tr("ui.title.expansion")                           },
-        {"/hull/depthBias",                     tr("ui.title.depth")                               },
-        {"/hull/slopeBias",                     tr("ui.title.slope")                               },
-        {"/performance/tickBudgetMs",           tr("ui.title.tick")                                },
-        {"/performance/frameBudgetMs",          tr("ui.title.frame")                               },
-        {"/performance/maxLoadRequests",        tr("ui.title.loads")                               },
-        {"/performance/geometryBuildsPerFrame", tr("ui.title.builds")                              },
-        {"/performance/cameraResortsPerFrame",  tr("ui.title.resorts")                             },
-        {"/performance/queuedChunkBuilds",      tr("ui.title.queue")                               },
-        {"/diagnostics",                        tr("ui.title.diagnostics")                         },
-        {"/hud/enabled",                        tr("ui.title.hud_enabled")                         },
-        {"/survival/pickBlock",                 "取物辅助 / Pick block"                            },
-        {"/survival/easyPlace",                 "辅助放置 / Easy Place"                            },
-        {"/survival/placementRestriction",      "放置限制 / Placement restriction"                 },
-        {"/survival/holdToPlace",               "按住持续放置 / Hold to place"                     },
-        {"/survival/materialHud",               "材料 HUD / Material HUD"                          },
-        {"/survival/verifierHud",               "校验 HUD / Verifier HUD"                          },
-        {"/survival/swapDelayMs",               "换物间隔（毫秒） / Swap delay (ms)"               },
+        {"/visibility/renderDistanceBlocks",    tr("ui.title.distance")                   },
+        {"/visibility/frustumCulling",          tr("ui.title.frustum")                    },
+        {"/projection/alpha",                   tr("ui.title.alpha")                      },
+        {"/tool/item",                          tr("ui.config.tool_item")                 },
+        {"/hull/alwaysShowMissing",             tr("ui.config.always_show_missing_blocks")},
+        {"/hull/alwaysShowExtra",               tr("ui.config.always_show_extra_blocks")  },
+        {"/hull/expansion",                     tr("ui.title.expansion")                  },
+        {"/hull/depthBias",                     tr("ui.title.depth")                      },
+        {"/hull/slopeBias",                     tr("ui.title.slope")                      },
+        {"/performance/tickBudgetMs",           tr("ui.title.tick")                       },
+        {"/performance/frameBudgetMs",          tr("ui.title.frame")                      },
+        {"/performance/maxLoadRequests",        tr("ui.title.loads")                      },
+        {"/performance/geometryBuildsPerFrame", tr("ui.title.builds")                     },
+        {"/performance/cameraResortsPerFrame",  tr("ui.title.resorts")                    },
+        {"/performance/queuedChunkBuilds",      tr("ui.title.queue")                      },
+        {"/diagnostics",                        tr("ui.title.diagnostics")                },
+        {"/hud/enabled",                        tr("ui.title.hud_enabled")                },
+        {"/survival/pickBlock",                 tr("ui.config.pick_block")                },
+        {"/survival/easyPlace",                 tr("ui.config.easy_place")                },
+        {"/survival/placementRestriction",      tr("ui.config.placement_restriction")     },
+        {"/survival/holdToPlace",               tr("ui.config.hold_to_place")             },
+        {"/survival/materialHud",               tr("ui.config.material_list_hud")         },
+        {"/survival/verifierHud",               tr("ui.config.verifier_hud")              },
+        {"/survival/swapDelayMs",               tr("ui.config.swap_delay_ms")             },
     };
     if (auto it = labels.find(path); it != labels.end()) return it->second;
-    for (auto const& [prefix, label] : {
-             std::pair{"/selection/faceColor/", tr("ui.title.selection_color")},
-             {"/hull/blockColor/",     tr("ui.title.block_color")    },
-             {"/hull/propertyColor/",  tr("ui.title.property_color") },
-             {"/hull/extraColor/",     tr("ui.title.extra_color")    }
-    }) {
-        if (path.starts_with(prefix) && path.back() >= '0' && path.back() <= '3')
-            return std::string(label) + " / " + "RGBA"[path.back() - '0'] + tr("ui.unit_color");
-    }
-    if (path.starts_with("/survival/hotbarSlots/"))
-        return localizedText("快捷栏槽位 / Hotbar slot") + " " + path.substr(path.find_last_of('/') + 1);
     auto label = path.substr(path.find_last_of('/') + 1);
     for (size_t i = 1; i < label.size(); ++i)
         if (label[i] >= 'A' && label[i] <= 'Z') label.insert(i++, 1, ' ');
     return label;
 }
-bool integer(std::string const& text, int& value) {
-    auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), value);
-    return error == std::errc{} && end == text.data() + text.size();
-}
-void confirm(std::shared_ptr<Page> const& p, std::string text, std::function<void()> action) {
-    beginModal(p, std::move(text));
-    PageBuilder{p}
-        .button(
-            "yes",
-            tr("ui.confirm"),
-            [p, action = std::move(action)] {
-                dismissModal(p);
-                action();
-                p->refresh = {};
-            }
-        )
-        .button("cancel", tr("ui.cancel"), [p] { dismissModal(p); });
-}
-void projection(std::shared_ptr<Page> const& p) {
-    auto s = app::accessSession();
-    if (!s) {
-        p->message = tr("ui.no_session");
-        return;
-    }
-    p->title = p->placementSettings ? "当前放置 / Selected placement" : tr("ui.tab.projection");
-    PageBuilder b{p};
-
-
-    if (!p->placementSettings) {
-        b.button("refresh", tr("ui.refresh"), [p] {
-            p->rows.clear();
-            projection(p);
-        });
-        b.input("file", tr("ui.file_name"), p->fileName, [p](std::string text) {
-            p->fileName = std::move(text);
-            for (auto& row : p->rows)
-                if (row.id == "file") row.value = p->fileName;
-        });
-        p->rows.back().kind     = RowKind::File;
-        p->rows.back().activate = [p] {
-            if (p->fileName.empty()) {
-                p->message = tr("ui.file_required");
-                return;
-            }
-            auto session = app::accessSession();
-            auto client  = ll::service::getClientInstance();
-            if (!session || !client || !client->getLocalPlayer()) return;
-            auto* player = client->getLocalPlayer();
-            auto  result = session->loads().request(
-                session->runtime().resolveSchematicPath(p->fileName),
-                BlockPos(player->getPosition()),
-                static_cast<int>(player->getDimensionId()),
-                session->sessionGeneration(),
-                app::configStore().snapshot().performance.maxLoadRequests
-            );
-            if (!result) {
-                p->message = result.error();
-                return;
-            }
-            auto task  = result.value();
-            p->message = tr("ui.load_queued") + std::to_string(task);
-            PageBuilder{p}
-                .button(
-                    "task:" + std::to_string(task),
-                    tr("ui.task_status") + std::to_string(task),
-                    [p, task] {
-                        auto active = app::accessSession();
-                        if (!active) return;
-                        auto status = active->loads().status(task, active->sessionGeneration());
-                        p->message =
-                            status ? tr("ui.phase." + status->phase) + ": " + status->detail : tr("ui.task_missing");
-                    }
-                )
-                .button("cancel:" + std::to_string(task), tr("ui.task_cancel") + std::to_string(task), [p, task] {
-                    auto active = app::accessSession();
-                    if (!active) return;
-                    p->message = active->loads().cancel(task, active->sessionGeneration()) ? tr("ui.cancelled")
-                                                                                           : tr("ui.task_finished");
-                });
-        };
-        auto        files    = s->runtime().listAvailableSchematics();
-        std::string fileList = tr("ui.available_files");
-        if (files.empty()) fileList += "\n" + tr("ui.no_files");
-        for (auto const& file : files) fileList += "\n" + file;
-        if (p->route == PageId::Load) {
-            if (files.empty()) b.info("files", tr("ui.no_files"));
-            for (auto const& file : files) {
-                b.button("file:" + file, file, [p, file] {
-                    p->fileName = file;
-                    for (auto& row : p->rows)
-                        if (row.id == "file") row.value = file;
-                        else if (row.id.starts_with("file:")) row.selected = row.id == "file:" + file;
-                });
-                p->rows.back().kind = RowKind::TableRow;
-            }
-            p->title = "加载结构 / Load schematics";
-            return;
-        }
-        for (auto const& ref : s->placement().managedPlacements()) {
-            auto const& item = ref.get();
-            auto        id   = item.id;
-            b.button("placement:" + std::to_string(id), tr("ui.select") + item.name, [p, id] {
-                auto session = app::accessSession();
-                if (!session) return;
-                auto result = session->placement().selectPlacement(id);
-                p->message  = result ? tr("ui.selected") + std::to_string(id) : result.error().describe();
-                p->rows.clear();
-                projection(p);
-            });
-        }
-    }
-    auto id = s->placement().selectedPlacementId();
-    if (p->placementSettings && !id) p->message = "没有选中放置 / No placement selected";
-    if (id) {
-        auto mutate = [p, id = *id](auto operation) {
-            auto session = app::accessSession();
-            if (!session) return;
-            auto result = operation(session->placement(), id);
-            if (!result) {
-                p->message = result.error().describe();
-                return;
-            }
-            app::refreshCurrentClientProjectionState(*session);
-            p->message = tr("ui.updated");
-            p->rows.clear();
-            projection(p);
-        };
-        auto const* current = s->placement().findPlacement(*id);
-        appendPlacementOrganization(p, *id);
-        b.input("enabled", tr("ui.enabled"), current && current->enabled ? "true" : "false", [mutate](std::string) {
-            mutate([](auto& svc, auto i) { return svc.togglePlacementEnabled(i); });
-        });
-        p->rows.back().kind = RowKind::Toggle;
-        b.input("render", tr("ui.render"), current && current->renderEnabled ? "true" : "false", [mutate](std::string) {
-            mutate([](auto& svc, auto i) { return svc.togglePlacementRender(i); });
-        });
-        p->rows.back().kind = RowKind::Toggle;
-        b.input(
-            "rotate",
-            tr("ui.rotate"),
-            std::to_string(current ? static_cast<int>(current->rotation) : 0),
-            [mutate](std::string text) {
-                int choice;
-                if (!integer(text, choice) || choice < 0 || choice > 3) return;
-                mutate([choice](auto& svc, auto i) {
-                    auto item = svc.findPlacement(i);
-                    auto delta =
-                        static_cast<PI::Rotation>((choice - (item ? static_cast<int>(item->rotation) : 0) + 4) % 4);
-                    return svc.rotatePlacement(i, delta);
-                });
-            }
-        );
-        p->rows.back().kind           = RowKind::Choice;
-        p->rows.back().choices        = {"0", "90", "180", "270"};
-        auto const* selectedPlacement = s->placement().findPlacement(*id);
-        b.input(
-            "mirror",
-            tr("ui.mirror"),
-            std::to_string(selectedPlacement ? static_cast<int>(selectedPlacement->mirror) : 0),
-            [mutate](std::string text) {
-                int choice;
-                if (!integer(text, choice) || choice < 0 || choice > 2) return;
-                mutate([choice](auto& svc, auto i) {
-                    return svc.setPlacementMirror(i, static_cast<PI::Mirror>(choice));
-                });
-            }
-        );
-        p->rows.back().kind    = RowKind::Choice;
-        p->rows.back().choices = {tr("ui.mirror.none"), tr("ui.mirror.x"), tr("ui.mirror.z")};
-        b.button("reset", tr("ui.transform_reset"), [mutate] {
-            mutate([](auto& svc, auto i) { return svc.resetPlacementTransform(i); });
-        });
-        for (int axis = 0; axis < 3; ++axis) {
-            b.input(
-                "move" + std::to_string(axis),
-                std::string{tr("ui.move")} + "XYZ"[axis],
-                "0",
-                [p, mutate, axis](std::string text) {
-                    int n;
-                    if (!integer(text, n)) {
-                        p->message = tr("ui.integer");
-                        return;
-                    }
-                    mutate([axis, n](auto& svc, auto i) {
-                        return svc.movePlacement(i, axis == 0 ? n : 0, axis == 1 ? n : 0, axis == 2 ? n : 0);
-                    });
-                }
-            );
-            auto const* selected   = s->placement().findPlacement(*id);
-            int         coordinate = selected ? (axis == 0   ? selected->origin.x
-                                                 : axis == 1 ? selected->origin.y
-                                                             : selected->origin.z)
-                                              : 0;
-            b.input(
-                "origin" + std::to_string(axis),
-                std::string{tr("ui.origin")} + "XYZ"[axis],
-                std::to_string(coordinate),
-                [p, id = *id, axis](std::string text) {
-                    int n;
-                    if (!integer(text, n)) {
-                        p->message = tr("ui.integer");
-                        return;
-                    }
-                    auto active = app::accessSession();
-                    if (!active) return;
-                    auto* item = active->placement().findPlacement(id);
-                    if (!item) {
-                        p->message = tr("ui.placement_missing");
-                        return;
-                    }
-                    auto origin = item->origin;
-                    if (axis == 0) origin.x = n;
-                    else if (axis == 1) origin.y = n;
-                    else origin.z = n;
-                    auto result = active->placement().setPlacementOrigin(id, origin);
-                    p->message  = result ? tr("ui.origin_updated") : result.error().describe();
-                    if (result) {
-                        app::refreshCurrentClientProjectionState(*active);
-                        p->rows.clear();
-                        projection(p);
-                    }
-                }
-            );
-        }
-        b.button("delete", tr("ui.delete"), [p, id = *id] {
-            confirm(p, tr("ui.delete_confirm"), [p, id] {
-                auto session = app::accessSession();
-                if (!session) return;
-                auto result = session->placement().removePlacement(id);
-                p->message  = result ? tr("ui.deleted") : result.error().describe();
-                if (result) app::refreshCurrentClientProjectionState(*session);
-                p->rows.clear();
-                projection(p);
-            });
-        });
-    }
-    b.button("clear_all", tr("ui.clear"), [p] {
-        confirm(p, tr("ui.clear_confirm"), [p] {
-            auto active = app::accessSession();
-            if (!active) return;
-            active->loads().cancelAll();
-            active->placement().clearPlacements();
-            app::refreshCurrentClientProjectionState(*active);
-            p->message = tr("ui.cleared");
-            p->rows.clear();
-            projection(p);
-        });
-    });
-    auto range = s->view().currentLayerRange();
-    b.input("layers", tr("ui.layers"), range.enabled ? "true" : "false", [p](std::string) {
-        auto session = app::accessSession();
-        if (!session) return;
-        if (session->view().currentLayerRange().enabled) (void)session->view().disableLayerRange();
-        else (void)session->view().enableLayerRange();
-        app::refreshCurrentClientProjectionState(*session);
-        p->rows.clear();
-        projection(p);
-    });
-    p->rows.back().kind = RowKind::Toggle;
-    auto submitLayer    = [p](bool minimum, std::string text) {
-        auto active = app::accessSession();
-        auto client = ll::service::getClientInstance();
-        if (!active || !client || !client->getLocalPlayer()) return;
-        auto const& heights = client->getLocalPlayer()->getDimension().mHeightRange.get();
-        int         bottom  = heights.mMin;
-        int         top     = static_cast<int>(heights.mMax) - 1;
-        if (bottom > top) return;
-        auto current = active->view().currentLayerRange();
-
-        int low  = std::clamp(current.minY, bottom, top);
-        int high = std::clamp(current.maxY, low, top);
-        if (minimum) low = clampLayerInput(text, low, bottom, high);
-        else high = clampLayerInput(text, high, low, top);
-        auto result = active->view().setRange(low, high);
-        p->message  = result ? tr("ui.layers_updated") : result.error().describe();
-        if (result) app::refreshCurrentClientProjectionState(*active);
-        for (auto& row : p->rows)
-            if (row.id == "layer_range") {
-                row.value  = std::to_string(low);
-                row.value2 = std::to_string(high);
-            }
+std::string fieldTip(std::string const& path) {
+    std::map<std::string, std::string> const tips{
+        {"/survival/pickBlock",            tr("ui.config.pick_block_tip")                      },
+        {"/survival/easyPlace",            tr("ui.config.the_use_key_places_the_projection_s") },
+        {"/survival/placementRestriction", tr("ui.config.only_allow_placing_blocks_that_match")},
+        {"/survival/holdToPlace",          tr("ui.config.keep_placing_while_the_use_key_is")   },
+        {"/survival/materialHud",          tr("ui.config.show_the_most_missing_materials_on")  },
+        {"/survival/verifierHud",          tr("ui.config.show_nearby_verifier_errors_on")      },
+        {"/survival/swapDelayMs",          tr("ui.config.delay_after_swapping_hotbar_slots")   },
+        {"/tool/item",                     tr("ui.config.item_used_as_the_schematic_tool")     },
     };
-    b.input("layer_range", tr("ui.layer_range"), std::to_string(range.minY), [submitLayer](std::string text) {
-        submitLayer(true, std::move(text));
-    });
-    p->rows.back().kind    = RowKind::Range;
-    p->rows.back().value2  = std::to_string(range.maxY);
-    p->rows.back().submit2 = [submitLayer](std::string text) { submitLayer(false, std::move(text)); };
-    moveActionsToFooter(*p, {"clear_all"});
+    auto it = tips.find(path);
+    return it == tips.end() ? std::string{} : it->second;
 }
+
 void settings(std::shared_ptr<Page> const& p, std::shared_ptr<J> const& draft) {
     p->rows.clear();
-    p->title = tr("ui.tab.settings");
+    p->title  = tr("ui.config.configuration");
+    p->layout = PageLayout::Config;
     PageBuilder b{p};
-    b.button("hud_layout", "HUD 布局 / HUD layout", [] { requestOpen(PageId::HudLayout); });
-    b.button(
-         "apply",
-         tr("ui.apply"),
-         [p, draft] {
-             app::Config config;
-             auto        decoded = ll::reflection::deserialize(config, *draft);
-             if (!decoded) {
-                 p->message = tr("ui.invalid_config");
-                 return;
-             }
-             auto error = app::configStore().submit(config);
-             if (!error.empty()) {
-                 p->message = error;
-                 return;
-             }
-             error      = app::configStore().save();
-             p->dirty   = !error.empty();
-             p->message = error.empty() ? tr("ui.config_saved") : tr("ui.config_save_failed") + error;
-         }
-    )
-        .button(
-            "defaults",
-            tr("ui.defaults"),
-            [p, draft] {
-                *draft   = configJson(app::Config{});
-                p->dirty = true;
-                settings(p, draft);
-            }
-        )
-        .button("reload", tr("ui.reload"), [p, draft] {
-            confirm(p, tr("ui.reload_confirm"), [p, draft] {
-                *draft   = configJson(app::configStore().snapshot());
-                p->dirty = false;
-                settings(p, draft);
-            });
-        });
+    b.button("hud_layout", tr("ui.config.edit_hud_layout"), [] {
+         requestOpen(PageId::HudLayout);
+     }).tip(tr("ui.config.drag_the_info_panels_to_move_and"));
     auto flat = draft->flatten();
     b.input(
         "hud_position",
@@ -418,7 +95,6 @@ void settings(std::shared_ptr<Page> const& p, std::shared_ptr<J> const& draft) {
             if (text != "0" && text != "1") return;
             (*draft)["hud"]["position"] = text == "1" ? "bottom_right" : "bottom_left";
             p->dirty                    = true;
-            p->message                  = tr("ui.draft");
             for (auto& row : p->rows)
                 if (row.id == "hud_position") row.value = text;
         }
@@ -429,7 +105,8 @@ void settings(std::shared_ptr<Page> const& p, std::shared_ptr<J> const& draft) {
         if (path == "/projection/texture" || path.starts_with("/projection/color/")
             || path.starts_with("/hull/missingColor/") || path == "/version" || path.starts_with("/hud/")
             || path.starts_with("/selection/faceColor/") || path.starts_with("/hull/blockColor/")
-            || path.starts_with("/hull/propertyColor/") || path.starts_with("/hull/extraColor/"))
+            || path.starts_with("/hull/propertyColor/") || path.starts_with("/hull/extraColor/")
+            || path.starts_with("/survival/hotbarSlots/"))
             continue;
         b.input(
             path,
@@ -444,7 +121,6 @@ void settings(std::shared_ptr<Page> const& p, std::shared_ptr<J> const& draft) {
                     }
                     (*draft)[J::json_pointer(path)] = parsed;
                     p->dirty                        = true;
-                    p->message                      = tr("ui.draft");
                     for (auto& row : p->rows)
                         if (row.id == path) row.value = parsed.is_string() ? parsed.get<std::string>() : parsed.dump();
                 } catch (std::exception const& e) {
@@ -455,7 +131,6 @@ void settings(std::shared_ptr<Page> const& p, std::shared_ptr<J> const& draft) {
         auto& row = p->rows.back();
         if (value.is_boolean()) row.kind = RowKind::Toggle;
         else if (value.is_number()) {
-
             if (path == "/projection/alpha") {
                 row.kind         = RowKind::Slider;
                 row.displayScale = 100;
@@ -473,6 +148,26 @@ void settings(std::shared_ptr<Page> const& p, std::shared_ptr<J> const& draft) {
             }
         }
     }
+    std::string slots;
+    for (auto const& slot : (*draft)["survival"]["hotbarSlots"]) {
+        if (!slots.empty()) slots += ",";
+        slots += std::to_string(slot.get<int>() + 1);
+    }
+    b.input("/survival/hotbarSlotsText", tr("ui.config.pick_hotbar_slots"), slots, [p, draft](std::string text) {
+         std::vector<int>   values;
+         std::istringstream stream(text);
+         std::string        part;
+         while (std::getline(stream, part, ',')) {
+             int n;
+             if (!parseInt(part, n)) {
+                 p->message = tr("ui.config.comma_separated_slots_1_9");
+                 return;
+             }
+             values.push_back(n - 1);
+         }
+         (*draft)["survival"]["hotbarSlots"] = values;
+         p->dirty                            = true;
+     }).tip(tr("ui.config.hotbar_slots_pick_block_may_replace"));
     for (auto const& [path, title] : {
              std::pair{"/projection/color",    "ui.title.projection_color"},
              {"/selection/faceColor", "ui.title.selection_color" },
@@ -482,46 +177,41 @@ void settings(std::shared_ptr<Page> const& p, std::shared_ptr<J> const& draft) {
              {"/hull/extraColor",     "ui.title.extra_color"     }
     }) {
         auto color = (*draft)[J::json_pointer(path)].get<std::array<double, 4>>();
-        b.input(path, tr(title), formatColor(color), [p, draft, path = std::string(path)](std::string text) {
-            auto color = parseColor(std::move(text));
+        b.input(path, tr(title), formatHexColor(color), [p, draft, path = std::string(path)](std::string text) {
+            auto color = parseHexColor(std::move(text));
             if (!color) {
-                p->message = tr("ui.invalid_color");
+                p->message = tr("ui.config.color_format_aarrggbb");
                 return;
             }
             (*draft)[J::json_pointer(path)] = *color;
             p->dirty                        = true;
-            p->message                      = tr("ui.draft");
             for (auto& row : p->rows)
                 if (row.id == path) {
                     row.color = *color;
-                    row.value = formatColor(*color);
+                    row.value = formatHexColor(*color);
                 }
         });
         auto& row       = p->rows.back();
         row.kind        = RowKind::Color;
         row.color       = color;
-        row.colorSubmit = [p, draft, path = std::string(path)](int channel, double value) {
-            if (channel < 0 || channel > 3 || !std::isfinite(value)) return;
-            (*draft)[J::json_pointer(path)][channel] = std::clamp(value, 0., 1.);
-            p->dirty                                 = true;
-            p->message                               = tr("ui.draft");
-            for (auto& row : p->rows)
-                if (row.id == path) {
-                    row.color[channel] = std::clamp(value, 0., 1.);
-                    row.value          = formatColor(row.color);
-                }
-        };
+        row.colorSubmit = [](int, double) {};
+        row.tooltip     = tr("ui.config.format_aarrggbb_aa_is_the_opacity");
     }
-    auto colorRow =
-        std::find_if(p->rows.begin(), p->rows.end(), [](auto const& r) { return r.id == "/projection/color"; });
-    if (colorRow != p->rows.end()) {
-        auto row = std::move(*colorRow);
-        p->rows.erase(colorRow);
-        auto alpha =
-            std::find_if(p->rows.begin(), p->rows.end(), [](auto const& r) { return r.id == "/projection/alpha"; });
-        if (alpha != p->rows.end()) p->rows.insert(std::next(alpha), std::move(row));
+    for (auto& row : p->rows) {
+        if (row.tooltip.empty()) {
+            row.tooltip = fieldTip(row.id);
+            if (row.tooltip.empty() && row.id.starts_with('/')) row.tooltip = describeRow(row);
+        }
+        if (row.id.starts_with('/') && row.id != "/survival/hotbarSlotsText") {
+            row.reset = [p, draft, path = row.id] {
+                auto defaults                   = configJson(app::Config{});
+                (*draft)[J::json_pointer(path)] = defaults[J::json_pointer(path)];
+                settings(p, draft);
+                p->dirty = true;
+            };
+        }
     }
-    moveActionsToFooter(*p, {"apply", "defaults", "reload"});
+    mainMenuButton(b);
 
     auto published = std::make_shared<J>(configJson(app::configStore().snapshot()));
     auto valid     = std::make_shared<bool>(true);
@@ -535,7 +225,7 @@ void settings(std::shared_ptr<Page> const& p, std::shared_ptr<J> const& draft) {
         auto        error   = decoded ? app::validateConfig(config) : tr("ui.invalid_config");
         if (error.empty() && app::accessSession()
             && !ItemRegistryManager::getItemRegistry().lookupByNameNoAlias(std::string_view(config.tool.item)))
-            error = "工具物品不存在 / Unknown tool item: " + config.tool.item;
+            error = tr("ui.config.unknown_tool_item", config.tool.item);
         if (error.empty()) error = app::configStore().submit(config);
         *valid = error.empty();
         if (!*valid) {
@@ -544,7 +234,7 @@ void settings(std::shared_ptr<Page> const& p, std::shared_ptr<J> const& draft) {
         }
         *published = *draft;
         p->dirty   = true;
-        p->message = "已生效，离页保存 / Active; saved on leaving";
+        p->message.clear();
     };
     p->save = [p, valid] {
         if (p->refresh) p->refresh();
@@ -558,245 +248,381 @@ void settings(std::shared_ptr<Page> const& p, std::shared_ptr<J> const& draft) {
         p->dirty = false;
         return true;
     };
-    for (auto& row : p->rows) {
-        if (row.kind == RowKind::ActionBar) std::erase_if(row.actions, [](Row const& a) { return a.id == "apply"; });
-        if (row.id.starts_with('/')) {
-            row.reset = [p, draft, path = row.id] {
-                auto defaults                   = configJson(app::Config{});
-                (*draft)[J::json_pointer(path)] = defaults[J::json_pointer(path)];
-                settings(p, draft);
-                p->dirty = true;
-            };
-        }
+}
+std::vector<SpritePart> settingParts(input::KeySettings const& s, bool modified) {
+    using input::Activation;
+    using input::KeyContext;
+    std::vector<SpritePart> parts;
+    if (s.context == KeyContext::InGame) parts.push_back({38, 26, 8, 5, 1, 7});
+    else if (s.context == KeyContext::Gui) parts.push_back({83, 2, 5, 5, 2, 7});
+    else parts.push_back({38, 8, 8, 5, 1, 7});
+    if (s.activateOn == Activation::Press) parts.push_back({11, 8, 6, 5, 11, 8});
+    else if (s.activateOn == Activation::Release) parts.push_back({11, 26, 6, 5, 11, 8});
+    else {
+        parts.push_back({11, 26, 6, 5, 11, 6});
+        parts.push_back({11, 8, 6, 5, 11, 11});
     }
+    if (s.cancel) parts.push_back({83, 20, 5, 5, 12, 0});
+    if (modified) {
+        parts.push_back({21, 14, 5, 2, 1, 14});
+        parts.push_back({28, 14, 5, 2, 7, 14});
+    } else parts.push_back({21, 32, 5, 2, 1, 14});
+    return parts;
+}
+std::string yesNo(bool value) { return value ? tr("ui.config.yes") : tr("ui.config.no"); }
+std::string activationName(input::Activation a) {
+    return a == input::Activation::Press   ? tr("ui.config.press")
+         : a == input::Activation::Release ? tr("ui.config.release")
+                                           : tr("ui.config.both");
+}
+std::string contextName(input::KeyContext c) {
+    return c == input::KeyContext::InGame ? tr("ui.config.in_game")
+         : c == input::KeyContext::Gui    ? tr("ui.config.in_screens")
+                                          : tr("ui.config.anywhere");
+}
+std::string settingsTip(input::KeySettings const& s) {
+    return tr("ui.config.advanced_hotkey_settings") + "\n" + tr("ui.config.activate_on") + activationName(s.activateOn)
+         + "\n" + tr("ui.config.allow_empty") + yesNo(s.allowEmpty) + "\n" + tr("ui.config.allow_extra_keys")
+         + yesNo(s.allowExtraKeys) + "\n" + tr("ui.config.order_sensitive") + yesNo(s.orderSensitive) + "\n"
+         + tr("ui.config.cancel_further_processing") + yesNo(s.cancel) + "\n" + tr("ui.config.exclusive")
+         + yesNo(s.exclusive) + "\n" + tr("ui.config.context") + contextName(s.context) + "\n\n"
+         + tr("ui.config.left_click_configure_right_click");
+}
+void keys(std::shared_ptr<Page> const& p);
+void keySettingsDialog(std::shared_ptr<Page> const& p, input::ActionId id) {
+    auto const& spec     = input::actionSpec(id);
+    auto        settings = bindingSettings(id);
+    beginModal(p, {});
+    p->modalTitle = tr("ui.config.advanced_settings", tr(spec.label));
+    auto apply    = [p, id](auto change) {
+        auto c = ll::service::getClientInstance();
+        if (!c) return;
+        auto value = bindingSettings(id);
+        change(value);
+        auto error = saveBindingSettings(*c, id, value);
+        dismissModal(p);
+        p->rows.clear();
+        keys(p);
+        keySettingsDialog(p, id);
+        if (!error.empty()) p->message = error;
+    };
+    PageBuilder b{p};
+    b.input(
+         "activate_on",
+         tr("ui.config.activate_on_2"),
+         std::to_string(static_cast<int>(settings.activateOn)),
+         [apply](std::string text) {
+             int n;
+             if (parseInt(text, n) && n >= 0 && n <= 2)
+                 apply([n](input::KeySettings& s) { s.activateOn = static_cast<input::Activation>(n); });
+         }
+    )
+        .kind(RowKind::Choice)
+        .tip(tr("ui.config.press_when_the_last_key_goes_down"));
+    b.last().choices = {tr("ui.config.press"), tr("ui.config.release"), tr("ui.config.both")};
+    b.input(
+         "context",
+         tr("ui.config.context_2"),
+         std::to_string(static_cast<int>(settings.context)),
+         [apply](std::string text) {
+             int n;
+             if (parseInt(text, n) && n >= 0 && n <= 2)
+                 apply([n](input::KeySettings& s) { s.context = static_cast<input::KeyContext>(n); });
+         }
+    )
+        .kind(RowKind::Choice)
+        .tip(tr("ui.config.in_game_no_screen_open_in_screens"));
+    b.last().choices = {tr("ui.config.in_game"), tr("ui.config.in_screens"), tr("ui.config.anywhere")};
+    auto flag        = [&](char const*        key,
+                           std::string const& label,
+                           bool               value,
+                           bool input::KeySettings::* member,
+                           std::string const&         tip) {
+        b.toggle(key, label, value, [apply, member] {
+             apply([member](input::KeySettings& s) { s.*member = !(s.*member); });
+         }).tip(tip);
+        b.last().yesNo = true;
+    };
+    flag(
+        "allow_empty",
+        tr("ui.config.allow_empty_2"),
+        settings.allowEmpty,
+        &input::KeySettings::allowEmpty,
+        tr("ui.config.when_unbound_activates_when_the_last")
+    );
+    flag(
+        "allow_extra",
+        tr("ui.config.allow_extra_keys_2"),
+        settings.allowExtraKeys,
+        &input::KeySettings::allowExtraKeys,
+        tr("ui.config.activates_even_when_other_keys_are")
+    );
+    flag(
+        "order_sensitive",
+        tr("ui.config.order_sensitive_2"),
+        settings.orderSensitive,
+        &input::KeySettings::orderSensitive,
+        tr("ui.config.keys_must_be_pressed_in_the_bound")
+    );
+    flag(
+        "exclusive",
+        tr("ui.config.exclusive_2"),
+        settings.exclusive,
+        &input::KeySettings::exclusive,
+        tr("ui.config.does_not_activate_while_another")
+    );
+    flag(
+        "cancel",
+        tr("ui.config.cancel_further_processing_2"),
+        settings.cancel,
+        &input::KeySettings::cancel,
+        tr("ui.config.the_key_is_not_passed_on_to_the_game")
+    );
+    b.button("cancel_dialog", tr("ui.config.done"), [p] { dismissModal(p); });
+    b.last().id = "cancel";
 }
 void keys(std::shared_ptr<Page> const& p) {
-    p->title = tr("ui.tab.keys");
+    p->title  = tr("ui.config.configuration");
+    p->layout = PageLayout::Config;
     for (auto const& spec : input::actionSpecs()) {
         if (spec.id == input::ActionId::InfoRelease || spec.id == input::ActionId::EasyPlaceRelease) continue;
-        auto action = bindingActionName(spec.id);
-        PageBuilder{p}
-            .input(action, std::string(spec.label), describeBinding(bindingKeys(spec.id)), [p, action](std::string) {
-                p->capturing  = true;
-                p->message    = "按住组合键，松开保存；Esc 取消 / Hold keys, release to save; Esc cancels";
-                auto captured = std::make_shared<std::vector<int>>();
-                p->rawKey     = [p, action, captured](int key, int type, bool down) {
-                    int code = type == 1 ? -key : type == 2 ? input::WheelUp : type == 3 ? input::WheelDown : key;
-                    if (type != 1 && type != 2 && type != 3 && type != 4) return;
-                    if (code == 160 || code == 161) code = 16;
-                    if (code == 162 || code == 163) code = 17;
-                    if (code == 164 || code == 165) code = 18;
-                    if (down) {
-                        if (std::find(captured->begin(), captured->end(), code) == captured->end())
-                            captured->push_back(code);
-                        if (type != 2 && type != 3) return;
-                    }
-                    if (captured->empty()) return;
-                    auto c = ll::service::getClientInstance();
-                    if (!c) return;
-                    auto error = saveBinding(*c, action, *captured);
-                    if (!error.empty()) {
-                        p->message = error;
-                        captured->clear();
-                        return;
-                    }
-                    p->capturing = false;
-                    p->message   = tr("ui.key_saved");
-                    p->rows.clear();
-                    keys(p);
-                };
-            });
-        auto& row = p->rows.back();
-        row.kind  = RowKind::KeyBinding;
-        row.clear = [p, action] {
+        auto action  = bindingActionName(spec.id);
+        auto id      = spec.id;
+        auto current = bindingKeys(spec.id);
+        auto refresh = [p](std::string message) {
+            p->message = std::move(message);
+            p->rows.clear();
+            keys(p);
+        };
+        PageBuilder{p}.input(action, tr(spec.label), describeBinding(current), [p, action, refresh](std::string) {
+            p->capturing     = true;
+            p->message       = tr("ui.config.hold_keys_release_to_save_esc_clears");
+            p->captureEscape = [action, refresh] {
+                auto c = ll::service::getClientInstance();
+                if (!c) return;
+                auto error = saveBinding(*c, action, {});
+                refresh(error.empty() ? tr("ui.key_cleared") : error);
+            };
+            auto captured = std::make_shared<std::vector<int>>();
+            p->rawKey     = [p, action, captured, refresh](int key, int type, bool down) {
+                int code = type == 1 ? -key : type == 2 ? input::WheelUp : type == 3 ? input::WheelDown : key;
+                if (type != 1 && type != 2 && type != 3 && type != 4) return;
+                if (code == 160 || code == 161) code = 16;
+                if (code == 162 || code == 163) code = 17;
+                if (code == 164 || code == 165) code = 18;
+                if (down) {
+                    if (std::find(captured->begin(), captured->end(), code) == captured->end())
+                        captured->push_back(code);
+                    if (type != 2 && type != 3) return;
+                }
+                if (captured->empty()) return;
+                auto c = ll::service::getClientInstance();
+                if (!c) return;
+                auto error = saveBinding(*c, action, *captured);
+                if (!error.empty()) {
+                    p->message = error;
+                    captured->clear();
+                    return;
+                }
+                p->capturing     = false;
+                p->captureEscape = {};
+                refresh(tr("ui.key_saved"));
+            };
+        });
+        auto& row        = p->rows.back();
+        auto  settings   = bindingSettings(spec.id);
+        bool  customised = settings != input::defaultKeySettings(spec);
+        row.kind         = RowKind::KeyBinding;
+        row.textColor    = current != spec.keys ? colors::Gold : colors::Default;
+        row.tooltip      = tr("ui.config.click_then_press_the_new_key");
+        row.parts        = settingParts(settings, customised);
+        row.partsTooltip = settingsTip(settings);
+        row.activate     = [p, id] { keySettingsDialog(p, id); };
+        row.secondary    = [id, refresh] {
+            auto c = ll::service::getClientInstance();
+            if (!c) return;
+            auto error = saveBindingSettings(*c, id, input::defaultKeySettings(input::actionSpec(id)));
+            refresh(error.empty() ? tr("ui.config.advanced_settings_reset") : error);
+        };
+        row.clear = [action, refresh] {
             auto c = ll::service::getClientInstance();
             if (!c) return;
             auto error = saveBinding(*c, action, {});
-            p->message = error.empty() ? tr("ui.key_cleared") : error;
-            p->rows.clear();
-            keys(p);
+            refresh(error.empty() ? tr("ui.key_cleared") : error);
         };
-        row.reset = [p, action, defaults = spec.keys] {
+        row.reset = [action, defaults = spec.keys, refresh] {
             auto c = ll::service::getClientInstance();
             if (!c) return;
             auto error = saveBinding(*c, action, defaults);
-            p->message = error.empty() ? tr("ui.key_restored") : error;
-            p->rows.clear();
-            keys(p);
+            refresh(error.empty() ? tr("ui.key_restored") : error);
         };
     }
-}
-void selectionPage(std::shared_ptr<Page> const& p) {
-    p->title = "选区编辑器 / Selection editor";
-    auto s   = app::accessSession();
-    if (!s) return;
     PageBuilder b{p};
-    appendSelectionOrganization(p);
-    for (int corner = 0; corner < 2; ++corner)
-        for (int axis = 0; axis < 3; ++axis) {
-            auto value      = corner ? s->selection().state().corner2 : s->selection().state().corner1;
-            int  coordinate = value ? (axis == 0 ? value->x : axis == 1 ? value->y : value->z) : 0;
-            b.input(
-                "corner" + std::to_string(corner) + std::to_string(axis),
-                localizedText("角点 / Corner") + " " + std::to_string(corner + 1) + " " + "XYZ"[axis],
-                std::to_string(coordinate),
-                [p, corner, axis](std::string text) {
-                    int n;
-                    if (!integer(text, n)) {
-                        p->message = tr("ui.integer");
-                        return;
-                    }
-                    auto session = app::accessSession();
-                    if (!session) return;
-                    auto previous =
-                        corner ? session->selection().state().corner2 : session->selection().state().corner1;
-                    BlockPos pos = previous.value_or(BlockPos{0, 0, 0});
-                    if (axis == 0) pos.x = n;
-                    else if (axis == 1) pos.y = n;
-                    else pos.z = n;
-                    if (corner) session->selection().setSelectionCorner2(pos);
-                    else session->selection().setSelectionCorner1(pos);
-                    p->message = tr("ui.updated");
-                }
-            );
-        }
-    b.button(
-        "submode",
-        s->selection().state().cornerMode == selection::tool::CornerMode::Corners ? "Corners → Expand"
-                                                                                  : "Expand → Corners",
-        [p] {
-            auto session = app::accessSession();
-            if (!session) return;
-            session->selection().cycleCornerMode();
-            p->rows.clear();
-            selectionPage(p);
-        }
-    );
-    b.button("clear_selection", "清空选区 / Clear selection", [p] {
-        auto session = app::accessSession();
-        if (!session) return;
-        session->selection().clearSelection();
-        p->rows.clear();
-        selectionPage(p);
-    });
-    b.button("main_menu", "主菜单 / Main menu", [] { requestOpen(PageId::MainMenu); });
-}
-void mainMenu(std::shared_ptr<Page> const& p) {
-    p->title = "主菜单 / Main menu";
-    PageBuilder b{p};
-    for (auto const& [id, label] : {
-             std::pair{PageId::Projection,      "放置列表 / Placements"          },
-             {PageId::Settings,        "配置菜单 / Configuration"       },
-             {PageId::Resources,       "已加载结构 / Loaded schematics" },
-             {PageId::Placement,       "当前放置 / Selected placement"  },
-             {PageId::Load,            "加载结构 / Load schematics"     },
-             {PageId::Selection,       "选区编辑器 / Selection editor"  },
-             {PageId::SaveSelection,   "保存选区 / Save selection"      },
-             {PageId::Layers,          "分层渲染 / Render layers"       },
-             {PageId::Verifier,        "校验器 / Verifier"              },
-             {PageId::Materials,       "材料清单 / Materials"           },
-             {PageId::Survival,        "生存辅助 / Survival assistance" },
-             {PageId::Session,         "会话恢复 / Session recovery"    },
-             {PageId::Edit,            "编辑投影 / Edit schematic"      },
-             {PageId::WorldOperations, "创造世界操作 / World operations"},
-             {PageId::Projects,        "建筑项目 / Projects"            },
-             {PageId::Signs,           "告示牌文本 / Sign text"         },
-             {PageId::Tasks,           "任务管理 / Task manager"        },
-             {PageId::KeyBindings,     "按键绑定 / Key bindings"        }
-    })
-        b.button("navigate" + std::to_string(static_cast<int>(id)), label, [id] { requestOpen(id); });
-    b.button("tool_toggle", "工具开关 / Toggle tool", [p] {
-        auto s = app::accessSession();
-        if (!s) return;
-        s->tools().toggle();
-        p->message = s->tools().state().enabled ? "工具已开启 / Tool ON" : "工具已关闭 / Tool OFF";
-    });
-    b.button("tool_mode", "工具模式 / Tool mode", [p] {
-        auto s = app::accessSession();
-        if (s) {
-            s->tools().cycle();
-            p->message = std::to_string(static_cast<int>(s->tools().state().activeTool));
-        }
-    });
-    p->refresh = [weak = std::weak_ptr<Page>(p)] {
-        auto page = weak.lock();
-        auto s    = app::accessSession();
-        if (!page || !s) return;
-        constexpr char const* names[] = {
-            "None / 无",
-            "Placement / 放置",
-            "Selection / 选区",
-            "Edit / 编辑",
-            "Paste / 粘贴",
-            "Grid paste / 网格粘贴",
-            "Fill / 填充",
-            "Replace / 替换",
-            "Delete / 删除",
-            "Clone / 复制",
-            "Move / 移动"
-        };
-        for (auto& row : page->rows) {
-            if (row.id == "tool_mode")
-                row.label = localizedText("工具模式 / Tool mode") + ": "
-                          + localizedText(names[static_cast<int>(s->tools().state().activeTool)]);
-            if (row.id == "tool_toggle")
-                row.label = localizedText("工具 / Tool") + ": "
-                          + tr(s->tools().state().enabled ? "ui.state_on" : "ui.state_off");
-            if (row.id == "navigate" + std::to_string(static_cast<int>(PageId::Placement)))
-                row.enabled = s->placement().selectedPlacementId().has_value();
-        }
-    };
-    p->refresh();
+    mainMenuButton(b);
 }
 
+void mainMenu(std::shared_ptr<Page> const& p) {
+    p->title      = tr("ui.config.main_menu");
+    p->layout     = PageLayout::Menu;
+    p->searchable = false;
+    PageBuilder b{p};
+    auto        entry =
+        [&](PageId id, std::string const& label, int column, int slot, IconRef icon, std::string const& tip = {}) {
+            b.button("navigate" + std::to_string(static_cast<int>(id)), label, [id] { requestOpen(id); }).icon(icon);
+            b.last().x = static_cast<float>(column);
+            b.last().y = static_cast<float>(slot);
+            if (!tip.empty()) b.last().tooltip = tip;
+        };
+    entry(PageId::Projection, tr("ui.config.schematic_placements"), 0, 0, icons::MenuPlacements);
+    entry(PageId::Resources, tr("ui.config.loaded_schematics"), 0, 1, icons::MenuLoaded);
+    entry(PageId::Load, tr("ui.config.load_schematics"), 0, 2, icons::MenuLoad);
+    entry(PageId::Selection, tr("ui.config.area_editor"), 0, 4, icons::MenuAreaEditor);
+    entry(PageId::AreaSelections, tr("ui.config.area_selection_browser"), 0, 5, icons::MenuAreaSelections);
+    entry(PageId::Settings, tr("ui.config.configuration_menu"), 1, 0, icons::MenuConfig);
+    entry(PageId::SchematicManager, tr("ui.config.schematic_manager"), 1, 4, icons::MenuManager);
+    entry(PageId::Tasks, tr("ui.config.task_manager"), 1, 5, icons::MenuTasks);
+    entry(PageId::Projects, tr("ui.config.building_projects"), 1, 6, {}, tr("ui.config.multi_schematic_projects_and"));
+    entry(PageId::Edit, tr("ui.config.edit_schematic"), 0, 7, {}, tr("ui.config.edit_the_projection_s_blocks_with"));
+    entry(
+        PageId::WorldOperations,
+        tr("ui.config.world_operations"),
+        1,
+        7,
+        {},
+        tr("ui.config.paste_fill_replace_and_other_world")
+    );
+    entry(PageId::Signs, tr("ui.config.sign_text"), 0, 8, {}, tr("ui.config.fill_in_the_projection_s_sign_text"));
+    entry(PageId::Session, tr("ui.config.session_recovery"), 1, 8, {}, tr("ui.config.restore_or_keep_the_previous"));
+    auto s      = app::accessSession();
+    bool normal = s && s->selection().state().normal;
+    b.input(
+         "selection_mode",
+         tr("ui.config.selection_mode"),
+         normal ? "1" : "0",
+         [](std::string) {
+             if (auto s = app::accessSession()) s->selection().setNormal(!s->selection().state().normal);
+             requestOpen(PageId::MainMenu);
+         }
+    )
+        .kind(RowKind::Choice)
+        .tip(tr("ui.config.simple_one_box_normal_several_named"));
+    b.last().choices = {tr("ui.config.simple"), tr("ui.config.normal")};
+    b.last().x       = 0;
+    b.last().y       = 6;
+    auto mode        = s ? s->tools().state().activeTool : editor::ToolMode::None;
+    bool enabled     = s && s->tools().state().enabled;
+    b.button(
+         "tool_mode",
+         tr("ui.config.tool_mode", tr(app::toolNameKey(mode))),
+         [] {
+             if (auto s = app::accessSession()) s->tools().cycle(1);
+             requestOpen(PageId::MainMenu);
+         }
+    )
+        .in(Slot::FooterLeft)
+        .right([] {
+            if (auto s = app::accessSession()) s->tools().cycle(-1);
+            requestOpen(PageId::MainMenu);
+        })
+        .tip(tr("ui.config.left_click_next_mode_right_click"));
+    b.toggle(
+         "tool_toggle",
+         tr("ui.config.tool"),
+         enabled,
+         [] {
+             if (auto s = app::accessSession()) s->tools().toggle();
+             requestOpen(PageId::MainMenu);
+         }
+    )
+        .in(Slot::FooterLeft)
+        .tip(tr("ui.config.when_off_the_tool_item_does_nothing"));
 }
+
+void tasks(std::shared_ptr<Page> const& p) {
+    p->title  = tr("ui.config.task_manager");
+    p->layout = PageLayout::List;
+    PageBuilder b{p};
+    b.button("refresh", tr("ui.config.refresh"), [] { requestOpen(PageId::Tasks); }).in(Slot::TopBar);
+    mainMenuButton(b);
+    auto session = app::accessSession();
+    if (!session) return;
+    auto entry = [&](std::string key, std::string text, std::vector<Row> actions = {}) {
+        b.button(key, text, [] {});
+        b.last().kind    = RowKind::TableRow;
+        b.last().actions = std::move(actions);
+    };
+    auto action = [](std::string id, std::string label, std::function<void()> fn) {
+        Row r;
+        r.id     = std::move(id);
+        r.label  = std::move(label);
+        r.submit = [fn = std::move(fn)](std::string) { fn(); };
+        return r;
+    };
+    auto save = session->saves().progress();
+    entry(
+        "save_progress",
+        tr("ui.config.schematic_save") + ": " + save.phase + " " + std::to_string(save.completed) + "/"
+            + std::to_string(save.total) + " " + save.detail,
+        {action("save_details", tr("ui.config.details"), [] { requestOpen(PageId::SaveSelection); })}
+    );
+    auto world = session->worldEdit().progress();
+    entry(
+        "world_progress",
+        tr("ui.config.world_operation") + ": " + tr(worldedit::phaseKey(world.phase)) + " " + world.detail,
+        {action("world_details", tr("ui.config.details"), [] { requestOpen(PageId::WorldOperations); })}
+    );
+    entry(
+        "project_progress",
+        tr("ui.config.projects") + ": " + session->projects().view().detail,
+        {action("project_details", tr("ui.config.details"), [] { requestOpen(PageId::Projects); })}
+    );
+    if (auto conversion = session->conversions().status()) {
+        std::vector<Row> actions;
+        if (!conversion->terminal)
+            actions.push_back(action("conversion_cancel", tr("ui.config.cancel"), [] {
+                if (auto s = app::accessSession()) (void)s->conversions().cancel();
+                requestOpen(PageId::Tasks);
+            }));
+        entry(
+            "conversion",
+            tr("ui.config.conversion") + ": " + conversion->phase + " " + conversion->detail,
+            std::move(actions)
+        );
+    }
+    auto jobs = session->loads().statuses(session->sessionGeneration());
+    if (jobs.empty()) b.info("empty", tr("ui.config.no_loading_tasks")).color(colors::Gray);
+    for (auto const& job : jobs) {
+        auto             key = "task:" + std::to_string(job.id);
+        std::vector<Row> actions;
+        if (!job.terminal)
+            actions.push_back(action(key + ":cancel", tr("ui.config.cancel"), [task = job.id] {
+                if (auto s = app::accessSession()) (void)s->loads().cancel(task, s->sessionGeneration());
+                requestOpen(PageId::Tasks);
+            }));
+        entry(
+            key,
+            tr("ui.config.load") + " #" + std::to_string(job.id) + " " + tr("ui.phase." + job.phase) + " " + job.detail,
+            std::move(actions)
+        );
+    }
+}
+} // namespace
+
 std::shared_ptr<Page> buildPage(PageId id) {
     auto page   = std::make_shared<Page>();
     page->route = id;
     switch (id) {
     case PageId::HudLayout:
-        page->title = "HUD 布局 / HUD layout";
+        page->title = tr("ui.config.hud_layout");
         break;
     case PageId::Load:
-        projection(page);
+    case PageId::SchematicManager:
+    case PageId::AreaSelections:
+        populateBrowserPage(page, id);
         break;
-    case PageId::Tasks: {
-        page->title = "任务管理 / Task manager";
-        PageBuilder b{page};
-        b.button("refresh", "刷新 / Refresh", [] { requestOpen(PageId::Tasks); });
-        if (auto session = app::accessSession()) {
-            auto save = session->saves().progress();
-            b.info(
-                "save_progress",
-                localizedText("结构保存 / Schematic save") + ": " + save.phase + " " + std::to_string(save.completed)
-                    + "/" + std::to_string(save.total) + " " + save.detail
-            );
-            b.button("save_details", "查看保存任务 / Save task details", [] { requestOpen(PageId::SaveSelection); });
-            auto world = session->worldEdit().progress();
-            b.info(
-                "world_progress",
-                localizedText("世界操作 / World operation") + ": " + worldedit::phaseName(world.phase) + " "
-                    + world.detail
-            );
-            b.button("world_details", "查看世界任务 / World task details", [] {
-                requestOpen(PageId::WorldOperations);
-            });
-            b.info("project_progress", session->projects().view().detail);
-            b.button("project_details", "查看项目任务 / Project task details", [] { requestOpen(PageId::Projects); });
-            auto jobs = session->loads().statuses(session->sessionGeneration());
-            if (jobs.empty()) b.info("empty", "没有加载任务 / No loading tasks");
-            for (auto const& job : jobs) {
-                auto key = "task:" + std::to_string(job.id);
-                b.info(key, std::to_string(job.id) + " " + tr("ui.phase." + job.phase) + " " + job.detail);
-                if (!job.terminal)
-                    b.button(key + ":cancel", "取消 / Cancel", [task = job.id] {
-                        if (auto s = app::accessSession()) (void)s->loads().cancel(task, s->sessionGeneration());
-                        requestOpen(PageId::Tasks);
-                    });
-            }
-        }
+    case PageId::Tasks:
+        tasks(page);
         break;
-    }
     case PageId::WorldOperations:
     case PageId::Projects:
     case PageId::Signs:
@@ -816,33 +642,11 @@ std::shared_ptr<Page> buildPage(PageId id) {
     case PageId::Session:
         populateCorePage(page, id);
         break;
-    case PageId::Placement:
-        page->placementSettings = true;
-        projection(page);
-        break;
     case PageId::Projection:
-        page->title = "结构放置 / Schematic placements";
-        if (auto s = app::accessSession()) {
-            PageBuilder b{page};
-            b.button("load", "加载结构 / Load schematics", [] { requestOpen(PageId::Load); });
-            for (auto const& ref : s->placement().managedPlacements()) {
-                auto const& item = ref.get();
-                auto        key  = "placement:" + std::to_string(item.id);
-                b.button(key, item.name, [id = item.id] {
-                    if (auto s = app::accessSession()) (void)s->placement().selectPlacement(id);
-                    requestOpen(PageId::Placement);
-                });
-                page->rows.back().selected = s->placement().selectedPlacementId() == item.id;
-                page->rows.back().kind     = RowKind::TableRow;
-                page->rows.back().columns  = {
-                    item.name,
-                    item.enabled ? localizedText("启用 / Enabled") : localizedText("停用 / Disabled"),
-                    std::to_string(item.origin.x) + ", " + std::to_string(item.origin.y) + ", "
-                        + std::to_string(item.origin.z)
-                };
-            }
-            if (s->placement().managedPlacements().empty()) b.info("empty", "没有放置 / No placements");
-        }
+    case PageId::Placement:
+    case PageId::SubRegion:
+    case PageId::PlacementGrid:
+        populatePlacementPage(page, id);
         break;
     case PageId::Settings: {
         auto draft = std::make_shared<J>(configJson(app::configStore().editableSnapshot()));
@@ -853,35 +657,12 @@ std::shared_ptr<Page> buildPage(PageId id) {
         mainMenu(page);
         break;
     case PageId::Selection:
-        selectionPage(page);
+        populateSelectionPage(page);
         break;
     case PageId::KeyBindings:
         keys(page);
         break;
     }
-    if (id == PageId::Resources) {
-        std::vector<Row> grouped;
-        for (auto& row : page->rows) {
-            if (!row.id.starts_with("resource:")) {
-                grouped.push_back(std::move(row));
-                continue;
-            }
-            auto end = row.id.find(':', 9);
-            auto key = row.id.substr(0, end);
-            if (row.kind == RowKind::Info) {
-                auto split = row.label.find('\n');
-                Row  entry;
-                entry.id    = key;
-                entry.label = row.label.substr(0, split);
-                entry.value = split == row.label.npos ? "" : row.label.substr(split + 1);
-                std::replace(entry.value.begin(), entry.value.end(), '\n', ' ');
-                entry.kind   = RowKind::Entry;
-                entry.submit = [](std::string) {};
-                grouped.push_back(std::move(entry));
-            } else if (!grouped.empty() && grouped.back().id == key) grouped.back().actions.push_back(std::move(row));
-        }
-        page->rows = std::move(grouped);
-    }
     return page;
 }
-}
+} // namespace levischematic::ui

@@ -14,7 +14,7 @@ Block const* airBlock() {
     auto air = Block::tryGetFromRegistry(HashedString{"minecraft:air"});
     return air ? &*air : nullptr;
 }
-}
+} // namespace
 Block const* projectedBlock(PlacementInstance const& p, Block const* block) {
     if (!block || block->isAir()) return block;
     return VanillaBlockStateTransformUtils::transformBlock(
@@ -115,4 +115,4 @@ bool nearProjection(PlacementList const& list, int dimension, BlockPos const& po
     }
     return false;
 }
-}
+} // namespace levischematic::placement

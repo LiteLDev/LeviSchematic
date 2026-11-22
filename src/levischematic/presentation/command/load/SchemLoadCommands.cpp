@@ -1,5 +1,6 @@
 #include "levischematic/presentation/command/shared/CommandShared.h"
 #include "levischematic/schematic/io/SchematicPathResolver.h"
+#include "levischematic/shared/i18n/I18n.h"
 #include "levischematic/shared/io/Utf8Path.h"
 #include "levischematic/workspace/config/ConfigStore.h"
 #include "mc/server/commands/Command.h"
@@ -17,7 +18,7 @@ void enqueueConvert(CommandOutput& output, SchemConvertParam const& param, bool 
     auto session = acquireSession(output);
     if (!session) return;
     if (!session->runtimeReady()) {
-        output.error("Schematic directory is unavailable.");
+        output.error(tr("cmd.load.directory_unavailable"));
         return;
     }
     auto source = session->runtime().resolveSchematicPath(param.source);
@@ -28,18 +29,13 @@ void enqueueConvert(CommandOutput& output, SchemConvertParam const& param, bool 
         output.error(result.error());
         return;
     }
-    output.success(
-        "Converting '{}' -> '{}' [task: {}]. Use /schem convert-status.",
-        source.filename().string(),
-        target.filename().string(),
-        result.value()
-    );
+    output.success(tr("cmd.load.converting", source.filename().string(), target.filename().string(), result.value()));
 }
 void enqueueLoad(CommandOutput& output, std::string const& filename, BlockPos pos, int dimension) {
     auto session = acquireSession(output);
     if (!session) return;
     if (!session->runtimeReady()) {
-        output.error("Schematic directory is unavailable.");
+        output.error(tr("cmd.load.directory_unavailable"));
         return;
     }
     auto result = session->loads().request(
@@ -53,9 +49,9 @@ void enqueueLoad(CommandOutput& output, std::string const& filename, BlockPos po
         output.error(result.error());
         return;
     }
-    output.success("Schematic load queued [task: {}]. Use /schem load status <taskId>.", result.value());
+    output.success(tr("cmd.load.queued", result.value()));
 }
-}
+} // namespace
 void registerSchemLoadCommands(ll::command::CommandHandle& schemCmd) {
     schemCmd.overload<SchemLoadParam>()
         .text("load")
@@ -90,16 +86,11 @@ void registerSchemLoadCommands(ll::command::CommandHandle& schemCmd) {
             if (!session) return;
             auto status = session->loads().status(param.taskId, session->sessionGeneration());
             if (!status) {
-                output.error("Load task not found in this session.");
+                output.error(tr("cmd.load.task_not_found"));
                 return;
             }
             output.success(
-                "Load #{}: {} ({}/{}) {}",
-                status->id,
-                status->phase,
-                status->completed,
-                status->total,
-                status->detail
+                tr("cmd.load.status", status->id, status->phase, status->completed, status->total, status->detail)
             );
         }
     );
@@ -107,8 +98,9 @@ void registerSchemLoadCommands(ll::command::CommandHandle& schemCmd) {
         [](CommandOrigin const&, CommandOutput& output, LoadTaskParam const& param) {
             auto session = acquireSession(output);
             if (!session) return;
-            if (session->loads().cancel(param.taskId, session->sessionGeneration())) output.success("Load cancelled.");
-            else output.error("Load task is unknown or already finished.");
+            if (session->loads().cancel(param.taskId, session->sessionGeneration()))
+                output.success(tr("cmd.load.cancelled"));
+            else output.error(tr("cmd.load.cancel_unknown"));
         }
     );
     schemCmd.overload<SchemConvertParam>().text("convert").required("source").required("target").execute(
@@ -128,7 +120,7 @@ void registerSchemLoadCommands(ll::command::CommandHandle& schemCmd) {
         if (!session) return;
         auto status = session->conversions().status();
         if (!status) {
-            output.success("No conversion has run in this game session.");
+            output.success(tr("cmd.load.no_conversion"));
             return;
         }
         auto text = "Convert #" + std::to_string(status->id) + ": " + status->source.filename().string() + " -> "
@@ -139,24 +131,20 @@ void registerSchemLoadCommands(ll::command::CommandHandle& schemCmd) {
     schemCmd.overload().text("convert-cancel").execute([](CommandOrigin const&, CommandOutput& output) {
         auto session = acquireSession(output);
         if (!session) return;
-        if (session->conversions().cancel()) output.success("Conversion cancellation requested.");
-        else output.error("No conversion is running.");
+        if (session->conversions().cancel()) output.success(tr("cmd.load.conversion_cancel_requested"));
+        else output.error(tr("cmd.load.conversion_not_running"));
     });
     schemCmd.overload().text("files").execute([&](CommandOrigin const&, CommandOutput& output) {
         auto session = acquireSession(output);
         if (!session) return;
         if (!session->runtimeReady()) {
-            output.error("Schematic directory is unavailable for this world; retry after the world path is ready.");
+            output.error(tr("cmd.load.directory_unavailable_world"));
             return;
         }
         auto const& runtime = session->runtime();
         auto        files   = runtime.listAvailableSchematics();
         if (files.empty()) {
-            output.success(
-                "No schematic files found in: {}\nPlace .mcstructure, .litematic or .schemset.json files there "
-                "and try again.",
-                runtime.schematicDirectory().string()
-            );
+            output.success(tr("cmd.load.no_files", runtime.schematicDirectory().string()));
             return;
         }
 
@@ -170,4 +158,4 @@ void registerSchemLoadCommands(ll::command::CommandHandle& schemCmd) {
     });
 }
 
-}
+} // namespace levischematic::command

@@ -1,10 +1,14 @@
 #include "levischematic/presentation/ui/pages/core/CorePages.h"
 #include "levischematic/app/lifecycle/AppKernel.h"
+#include "levischematic/presentation/ui/pages/common/PageCommon.h"
+#include "levischematic/schematic/io/SchematicFiles.h"
 #include "levischematic/schematic/placement/view/ProjectionRefresh.h"
+#include "levischematic/shared/i18n/I18n.h"
 #include "ll/api/service/Bedrock.h"
 #include "mc/client/game/ClientInstance.h"
 #include "mc/client/player/LocalPlayer.h"
 #include <charconv>
+#include <functional>
 #include <tuple>
 
 namespace levischematic::ui {
@@ -23,43 +27,53 @@ void confirm(std::shared_ptr<Page> const& page, std::string message, PageId id, 
     PageBuilder{page}
         .button(
             "confirm",
-            "确认 / Confirm",
+            tr("ui.core.confirm"),
             [page, action = std::move(action)] {
                 dismissModal(page);
                 action();
             }
         )
-        .button("cancel", "返回 / Back", [page] { dismissModal(page); });
+        .button("cancel", tr("ui.core.back"), [page] { dismissModal(page); });
 }
-char const* modeLabel(editor::LayerMode mode) {
+std::string modeLabel(editor::LayerMode mode) {
     switch (mode) {
     case editor::LayerMode::All:
-        return "全部 / All";
+        return tr("ui.core.layer_mode.all");
     case editor::LayerMode::Single:
-        return "单层 / Single";
+        return tr("ui.core.layer_mode.single");
     case editor::LayerMode::Below:
-        return "以下 / Below";
+        return tr("ui.core.layer_mode.below");
     case editor::LayerMode::Above:
-        return "以上 / Above";
+        return tr("ui.core.layer_mode.above");
     case editor::LayerMode::Range:
-        return "范围 / Range";
+        return tr("ui.core.layer_mode.range");
     }
-    return "All";
+    return tr("ui.core.layer_mode.all");
 }
 void layers(std::shared_ptr<Page> const& p) {
-    p->title = "分层渲染 / Render layers";
-    auto s   = app::accessSession();
+    p->title  = tr("ui.core.configuration");
+    p->layout = PageLayout::Config;
+    auto s    = app::accessSession();
     if (!s) return;
     auto        range = s->view().currentLayerRange();
     PageBuilder b{p};
-    b.button("mode", modeLabel(range.mode), [p] {
+    b.input("mode", tr("ui.core.layer_mode"), std::to_string(static_cast<int>(range.mode)), [p](std::string) {
         auto s = app::accessSession();
         if (!s) return;
         s->view().cycleMode(1);
         app::refreshCurrentClientProjectionState(*s);
         refresh(p, PageId::Layers);
     });
-    b.input("axis", "坐标轴 / Axis", std::to_string(static_cast<int>(range.axis)), [p](std::string text) {
+    p->rows.back().kind    = RowKind::Choice;
+    p->rows.back().choices = {
+        modeLabel(editor::LayerMode::All),
+        modeLabel(editor::LayerMode::Single),
+        modeLabel(editor::LayerMode::Below),
+        modeLabel(editor::LayerMode::Above)
+    };
+    p->rows.back().choices.push_back(modeLabel(editor::LayerMode::Range));
+    p->rows.back().tooltip = tr("ui.core.layer_mode.tip");
+    b.input("axis", tr("ui.core.axis"), std::to_string(static_cast<int>(range.axis)), [p](std::string text) {
         int n;
         if (!integer(text, n) || n < 0 || n > 2) return;
         auto s = app::accessSession();
@@ -73,14 +87,14 @@ void layers(std::shared_ptr<Page> const& p) {
     p->rows.back().kind    = RowKind::Choice;
     p->rows.back().choices = {"X", "Y", "Z"};
     for (auto const& [id, label, value] : {
-             std::tuple{"boundary", "单层/边界 / Layer",  range.boundary()},
-             {"minimum",  "范围下界 / Minimum", range.minY      },
-             {"maximum",  "范围上界 / Maximum", range.maxY      }
+             std::tuple{"boundary", tr("ui.core.layer"),   range.boundary()},
+             {"minimum",  tr("ui.core.minimum"), range.minY      },
+             {"maximum",  tr("ui.core.maximum"), range.maxY      }
     }) {
         b.input(id, label, std::to_string(value), [p, id = std::string(id)](std::string text) {
             int n;
             if (!integer(text, n)) {
-                p->message = "请输入整数 / Integer required";
+                p->message = tr("ui.core.integer_required");
                 return;
             }
             auto s = app::accessSession();
@@ -90,29 +104,24 @@ void layers(std::shared_ptr<Page> const& p) {
             else if (id == "minimum") range.minY = n;
             else range.maxY = n;
             auto result = s->view().configure(range);
-            p->message  = result ? "已更新 / Updated" : result.error().describe();
+            p->message  = result ? tr("ui.core.updated") : result.error().describe();
             app::refreshCurrentClientProjectionState(*s);
             refresh(p, PageId::Layers);
         });
     }
-    b.input(
-        "follow",
-        "跟随玩家（单层/上下界） / Follow player",
-        range.followPlayer ? "true" : "false",
-        [p](std::string) {
-            auto s = app::accessSession();
-            if (!s) return;
-            auto range         = s->view().currentLayerRange();
-            range.followPlayer = !range.followPlayer;
-            (void)s->view().configure(range);
-            refresh(p, PageId::Layers);
-        }
-    );
+    b.input("follow", tr("ui.core.follow_player"), range.followPlayer ? "true" : "false", [p](std::string) {
+        auto s = app::accessSession();
+        if (!s) return;
+        auto range         = s->view().currentLayerRange();
+        range.followPlayer = !range.followPlayer;
+        (void)s->view().configure(range);
+        refresh(p, PageId::Layers);
+    });
     p->rows.back().kind = RowKind::Toggle;
     for (bool minimum : {true, false}) {
         b.input(
             minimum ? "move_min" : "move_max",
-            minimum ? "翻层移动下界 / Move minimum" : "翻层移动上界 / Move maximum",
+            minimum ? tr("ui.core.move_minimum") : tr("ui.core.move_maximum"),
             (minimum ? range.moveMinimum : range.moveMaximum) ? "true" : "false",
             [p, minimum](std::string) {
                 auto s = app::accessSession();
@@ -126,7 +135,7 @@ void layers(std::shared_ptr<Page> const& p) {
         );
         p->rows.back().kind = RowKind::Toggle;
     }
-    b.button("here", "设为玩家所在层 / Set here", [p] {
+    b.button("here", tr("ui.core.set_to_player_layer"), [p] {
         auto s      = app::accessSession();
         auto client = ll::service::getClientInstance();
         if (s && client && client->getLocalPlayer()) {
@@ -135,22 +144,24 @@ void layers(std::shared_ptr<Page> const& p) {
             refresh(p, PageId::Layers);
         }
     });
-    b.info("help", "PageUp/PageDown：按模式切层；M+PageUp/PageDown：切换模式。全部模式不切层。");
+    b.info("help", tr("ui.core.layer_help"));
 }
 void save(std::shared_ptr<Page> const& p, std::shared_ptr<app::SaveOptions> options) {
-    p->title = "保存世界选区 / Save world selection";
-    auto s   = app::accessSession();
+    p->title      = tr("ui.core.save_schematic");
+    p->layout     = PageLayout::List;
+    p->searchable = false;
+    auto s        = app::accessSession();
     if (!s) return;
     auto        progress = s->saves().progress();
     PageBuilder b{p};
-    b.input("filename", "文件名 / Filename", p->fileName, [p](std::string text) {
+    b.input("filename", tr("ui.core.filename"), p->fileName, [p](std::string text) {
         p->fileName = std::move(text);
         for (auto& row : p->rows)
             if (row.id == "filename") row.value = p->fileName;
     });
     b.input(
         "entities",
-        "包含实体 / Include entities",
+        tr("ui.core.include_entities"),
         options->includeEntities ? "true" : "false",
         [p, options](std::string) {
             options->includeEntities = !options->includeEntities;
@@ -174,35 +185,44 @@ void save(std::shared_ptr<Page> const& p, std::shared_ptr<app::SaveOptions> opti
                 s->sessionGeneration(),
                 request
             );
-            p->message = result ? "保存任务已提交 / Save queued" : result.error();
+            p->message = result ? tr("ui.core.save_queued") : result.error();
         } catch (std::exception const& e) {
             p->message = e.what();
         }
         p->rows.clear();
         save(p, options);
     };
-    b.button("save", "保存新文件 / Save new file", [submit] { submit(false); });
-    b.button("overwrite", "覆盖已有文件… / Overwrite…", [p, submit] {
-        confirm(p, "覆盖 " + p->fileName + "？ / Replace existing file?", PageId::SaveSelection, [submit] {
-            submit(true);
-        });
-    });
-    b.button("save_status", "刷新进度 / Refresh progress", [p, options] {
-        p->rows.clear();
-        save(p, options);
-    });
-    b.button("save_cancel", "取消任务 / Cancel task", [p, options] {
-        auto s = app::accessSession();
-        if (s) s->saves().cancel();
-        p->rows.clear();
-        save(p, options);
-    });
+    auto confirmMerge = [p](std::function<void()> next) {
+        auto s       = app::accessSession();
+        auto regions = s && s->selection().state().normal ? s->selection().state().regions.size() : 0;
+        if (regions > 1 && schematic::fileSuffix(pathFromUtf8(p->fileName)) == ".mcstructure")
+            confirm(p, tr("save.notice.merged", regions), PageId::SaveSelection, std::move(next));
+        else next();
+    };
+    b.button("save", tr("ui.core.save_new_file"), [submit, confirmMerge] { confirmMerge([submit] { submit(false); }); })
+        .in(Slot::FooterLeft)
+        .tip(tr("ui.core.mcstructure_the_extension_selects"));
+    b.button("overwrite", tr("ui.core.overwrite"), [p, submit] {
+         confirm(p, tr("ui.save.overwrite_confirm", p->fileName), PageId::SaveSelection, [submit] { submit(true); });
+     }).in(Slot::FooterLeft);
+    b.button("save_status", tr("ui.core.refresh_progress"), [p, options] {
+         p->rows.clear();
+         save(p, options);
+     }).in(Slot::TopBar);
+    b.button("save_cancel", tr("ui.core.cancel_task"), [p, options] {
+         auto s = app::accessSession();
+         if (s) s->saves().cancel();
+         p->rows.clear();
+         save(p, options);
+     }).in(Slot::TopBar);
+    navButton(b, "area_editor", tr("ui.core.area_editor"), PageId::Selection, Slot::FooterLeft, icons::MenuAreaEditor);
+    mainMenuButton(b);
     b.info(
         "progress",
         progress.phase + " " + std::to_string(progress.completed) + "/" + std::to_string(progress.total)
     );
     b.info("detail", progress.detail);
-    b.info("time_span", "跨 tick 渐进采集；世界变化会反映为不同时刻的数据 / Capture spans multiple ticks.");
+    b.info("time_span", tr("ui.core.capture_spans_multiple_ticks"));
     p->refresh = [weak = std::weak_ptr<Page>(p)] {
         auto page = weak.lock();
         auto s    = app::accessSession();
@@ -217,7 +237,8 @@ void save(std::shared_ptr<Page> const& p, std::shared_ptr<app::SaveOptions> opti
     };
 }
 void verifier(std::shared_ptr<Page> const& p) {
-    p->title    = "方块校验 / Schematic verifier";
+    p->title    = tr("ui.core.schematic_verifier");
+    p->layout   = PageLayout::List;
     auto s      = app::accessSession();
     auto client = ll::service::getClientInstance();
     if (!s || !client || !client->getLocalPlayer()) return;
@@ -226,138 +247,149 @@ void verifier(std::shared_ptr<Page> const& p) {
     PageBuilder b{p};
     auto        selected = s->placement().requireSelectedPlacement();
     if (!selected || selected.value()->dimensionId != dimension) {
-        b.info("no_selection", "请选择当前维度的放置 / Select a placement in this dimension");
+        b.info("no_selection", tr("ui.core.select_a_placement_in_this_dimension"));
     }
     for (auto const& ref : s->placement().orderedPlacements()) {
         auto const& value = ref.get();
         if (value.dimensionId != dimension) continue;
-        b.button("placement:" + std::to_string(value.id), value.name, [p, id = value.id] {
-            auto s = app::accessSession();
-            if (!s) return;
-            (void)s->placement().selectPlacement(id);
-            refresh(p, PageId::Verifier);
-        });
+        b.button(
+             "placement:" + std::to_string(value.id),
+             value.name,
+             [p, id = value.id] {
+                 auto s = app::accessSession();
+                 if (!s) return;
+                 (void)s->placement().selectPlacement(id);
+                 refresh(p, PageId::Verifier);
+             }
+        )
+            .kind(RowKind::TableRow)
+            .icon(icons::Litematic);
+        b.last().selected  = selected && selected.value()->id == value.id;
+        b.last().textColor = value.enabled ? colors::Green : colors::Red;
     }
     if (!selected || selected.value()->dimensionId != dimension) return;
     auto id = selected.value()->id;
-    b.info("selected", "当前放置 / Placement: " + selected.value()->name);
+    b.info("selected", tr("ui.core.placement") + selected.value()->name);
     for (auto const& [key, label, layersOnly] : {
-             std::tuple{"start_all",    "开始：完整范围 / Start full",   false},
-             {"start_layers", "开始：渲染范围 / Start layers", true }
+             std::tuple{"start_all",    tr("ui.core.start_full"),   false},
+             {"start_layers", tr("ui.core.start_layers"), true }
     })
         b.button(key, label, [p, id, layersOnly] {
-            auto s = app::accessSession();
-            if (!s) return;
-            p->message =
-                s->verifier().startTask(id, layersOnly) ? "校验已开始 / Started" : "放置未启用 / Placement disabled";
-            refresh(p, PageId::Verifier);
-        });
-    b.button("stop", "停止 / Stop", [p, id] {
-        auto s = app::accessSession();
-        if (s) s->verifier().stopTask(id);
-        refresh(p, PageId::Verifier);
-    });
-    b.button("reset", "重置 / Reset", [p, id] {
-        auto s = app::accessSession();
-        if (s) s->verifier().resetTask(id);
-        refresh(p, PageId::Verifier);
-    });
-    b.button("refresh_report", "刷新报告 / Refresh report", [p] { refresh(p, PageId::Verifier); });
-    b.button("clear_ignored", "恢复忽略项 / Clear ignored groups", [p, id] {
-        auto s = app::accessSession();
-        if (s) s->verifier().clearIgnored(id);
-        refresh(p, PageId::Verifier);
-    });
+             auto s = app::accessSession();
+             if (!s) return;
+             p->message =
+                 s->verifier().startTask(id, layersOnly) ? tr("ui.core.started") : tr("ui.core.placement_disabled");
+             refresh(p, PageId::Verifier);
+         }).in(Slot::TopBar);
+    b.button("stop", tr("ui.core.stop"), [p, id] {
+         auto s = app::accessSession();
+         if (s) s->verifier().stopTask(id);
+         refresh(p, PageId::Verifier);
+     }).in(Slot::TopBar);
+    b.button("reset", tr("ui.core.reset"), [p, id] {
+         auto s = app::accessSession();
+         if (s) s->verifier().resetTask(id);
+         refresh(p, PageId::Verifier);
+     }).in(Slot::TopBar);
+    b.button("refresh_report", tr("ui.core.refresh_report"), [p] { refresh(p, PageId::Verifier); }).in(Slot::TopRight);
+    b.button("clear_ignored", tr("ui.core.clear_ignored_groups"), [p, id] {
+         auto s = app::accessSession();
+         if (s) s->verifier().clearIgnored(id);
+         refresh(p, PageId::Verifier);
+     }).in(Slot::FooterLeft);
     auto report = s->verifier().report(id, BlockPos(player->getPosition()));
     b.info(
         "task",
-        std::string(report.running ? "运行中 / Running " : "已停止 / Stopped ")
-            + (report.building ? "建立范围 / Building " : "") + (report.stale ? "结果已过期 / Stale " : "")
+        std::string(report.running ? tr("ui.core.running") : tr("ui.core.stopped"))
+            + (report.building ? tr("ui.core.building") : "") + (report.stale ? tr("ui.core.stale") : "")
             + std::to_string(report.scanned) + "/" + std::to_string(report.total)
     );
     for (size_t i = 0; i < report.counts.size(); ++i) {
         auto status = static_cast<verifier::VerificationStatus>(i);
-        b.info(
+        b.button(
             "count:" + std::to_string(i),
-            std::string(verifier::verificationStatusLabel(status)) + ": " + std::to_string(report.counts[i])
+            tr(verifier::verificationStatusKey(status)) + ": " + std::to_string(report.counts[i]),
+            [] {}
         );
-        if (i >= 2)
-            b.button(
-                "highlight:" + std::to_string(i),
-                "切换高亮 / Highlight: " + std::string(verifier::verificationStatusLabel(status)),
-                [p, id, status] {
-                    auto s = app::accessSession();
-                    if (s) s->verifier().toggleHighlight(id, status);
-                    refresh(p, PageId::Verifier);
-                }
-            );
+        b.last().kind = RowKind::TableRow;
+        if (i >= 2) {
+            Row highlight;
+            highlight.id      = "highlight:" + std::to_string(i);
+            highlight.label   = tr("ui.core.toggle_highlight");
+            highlight.tooltip = tr("ui.core.highlight_these_positions_in_the");
+            highlight.submit  = [p, id, status](std::string) {
+                auto s = app::accessSession();
+                if (s) s->verifier().toggleHighlight(id, status);
+                refresh(p, PageId::Verifier);
+            };
+            b.last().actions.push_back(std::move(highlight));
+        }
     }
-    b.info("unknown", "未知位置包含未加载区块，不计为匹配 / Unloaded positions remain Unknown.");
-    b.info("ignored", "已忽略 / Ignored: " + std::to_string(report.ignored));
+    b.info("unknown", tr("ui.core.unloaded_positions_remain_unknown"));
+    b.info("ignored", tr("ui.core.ignored") + std::to_string(report.ignored));
     size_t groupIndex = 0;
     for (auto const& group : report.groups) {
         b.button(
             "group:" + std::to_string(groupIndex++),
-            (group.ignored ? "[忽略] " : "") + group.expected + " → " + group.actual + " ×"
-                + std::to_string(group.count),
-            [p, id, key = group.id] {
-                auto s = app::accessSession();
-                if (s) s->verifier().ignoreGroup(id, key);
-                refresh(p, PageId::Verifier);
-            }
+            (group.ignored ? tr("ui.core.ignored_prefix") : std::string()) + group.expected + " → " + group.actual
+                + " ×" + std::to_string(group.count),
+            [] {}
         );
+        b.last().kind      = RowKind::TableRow;
+        b.last().textColor = group.ignored ? colors::Gray : colors::Default;
+        Row ignore;
+        ignore.id     = b.last().id + ":ignore";
+        ignore.label  = tr("ui.core.ignore");
+        ignore.submit = [p, id, key = group.id](std::string) {
+            auto s = app::accessSession();
+            if (s) s->verifier().ignoreGroup(id, key);
+            refresh(p, PageId::Verifier);
+        };
+        b.last().actions.push_back(std::move(ignore));
     }
     size_t locationIndex = 0;
     for (auto const& location : report.nearby)
         b.info(
             "near:" + std::to_string(locationIndex++),
-            std::string(verifier::verificationStatusLabel(location.status)) + " (" + std::to_string(location.position.x)
-                + ", " + std::to_string(location.position.y) + ", " + std::to_string(location.position.z) + ")"
+            tr(verifier::verificationStatusKey(location.status)) + " (" + std::to_string(location.position.x) + ", "
+                + std::to_string(location.position.y) + ", " + std::to_string(location.position.z) + ")"
         );
 }
 void sessions(std::shared_ptr<Page> const& p) {
-    p->title = "会话恢复 / Session recovery";
-    auto s   = app::accessSession();
+    p->title      = tr("ui.core.session_recovery");
+    p->layout     = PageLayout::List;
+    p->searchable = false;
+    auto s        = app::accessSession();
     if (!s) return;
     auto        status = s->sessions().status();
     PageBuilder b{p};
     b.info("identity", status.identity);
     b.info("session_status", status.detail);
-    b.info("saved_count", "记录中的放置数 / Saved placements: " + std::to_string(status.placements));
-    b.button("restore", "恢复当前维度… / Restore dimension…", [p] {
-        confirm(
-            p,
-            "替换当前维度的放置、选区和分层设置？其他维度保留。 / Replace current dimension?",
-            PageId::Session,
-            [p] {
-                auto s = app::accessSession();
-                if (!s) return;
-                p->message = s->sessions().requestRestore() ? "恢复已提交 / Restore queued"
-                                                            : "没有待恢复记录或任务正忙 / No pending record or busy";
-                refresh(p, PageId::Session);
-            }
-        );
-    });
-    b.button("keep_current", "使用当前状态… / Keep current…", [p] {
-        confirm(
-            p,
-            "放弃当前维度的待恢复记录，保存当前状态？ / Replace saved record with current state?",
-            PageId::Session,
-            [p] {
-                auto s = app::accessSession();
-                if (s) s->sessions().keepCurrent();
-                refresh(p, PageId::Session);
-            }
-        );
-    });
-    b.button("cancel_restore", "取消恢复 / Cancel restore", [p] {
-        auto s = app::accessSession();
-        if (s) s->sessions().cancelRestore();
-        refresh(p, PageId::Session);
-    });
-    b.button("session_refresh", "刷新状态 / Refresh status", [p] { refresh(p, PageId::Session); });
+    b.info("saved_count", tr("ui.core.saved_placements") + std::to_string(status.placements));
+    b.button("restore", tr("ui.core.restore_dimension"), [p] {
+         confirm(p, tr("ui.core.replace_current_dimension"), PageId::Session, [p] {
+             auto s = app::accessSession();
+             if (!s) return;
+             p->message = s->sessions().requestRestore() ? tr("ui.core.restore_queued")
+                                                         : tr("ui.core.no_pending_record_or_busy");
+             refresh(p, PageId::Session);
+         });
+     }).in(Slot::FooterLeft);
+    b.button("keep_current", tr("ui.core.keep_current"), [p] {
+         confirm(p, tr("ui.core.replace_saved_record_with_current"), PageId::Session, [p] {
+             auto s = app::accessSession();
+             if (s) s->sessions().keepCurrent();
+             refresh(p, PageId::Session);
+         });
+     }).in(Slot::FooterLeft);
+    b.button("cancel_restore", tr("ui.core.cancel_restore"), [p] {
+         auto s = app::accessSession();
+         if (s) s->sessions().cancelRestore();
+         refresh(p, PageId::Session);
+     }).in(Slot::FooterLeft);
+    b.button("session_refresh", tr("ui.core.refresh_status"), [p] { refresh(p, PageId::Session); }).in(Slot::TopBar);
 }
-}
+} // namespace
 void populateCorePage(std::shared_ptr<Page> const& p, PageId id) {
     switch (id) {
     case PageId::SaveSelection:
@@ -375,6 +407,10 @@ void populateCorePage(std::shared_ptr<Page> const& p, PageId id) {
     default:
         break;
     }
-    PageBuilder{p}.button("core_main_menu", "主菜单 / Main menu", [] { requestOpen(PageId::MainMenu); });
+    if (id == PageId::SaveSelection) return;
+    PageBuilder b{p};
+    if (id == PageId::Verifier)
+        navButton(b, "placement_config", tr("ui.core.placement_configuration"), PageId::Placement, Slot::FooterLeft);
+    mainMenuButton(b);
 }
-}
+} // namespace levischematic::ui

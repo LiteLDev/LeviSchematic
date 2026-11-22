@@ -17,6 +17,7 @@ struct ConversionReport {
     size_t                   droppedBlockEntities = 0;
     size_t                   droppedEntities      = 0;
     size_t                   droppedTicks         = 0;
+    size_t                   mergedRegions        = 0;
     std::vector<std::string> unmappedSamples;
 
     [[nodiscard]] std::string summary() const;
@@ -52,4 +53,4 @@ void convertFile(
     std::stop_token              stop,
     ConversionReport&            report
 );
-}
+} // namespace levischematic::convert

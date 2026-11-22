@@ -239,4 +239,4 @@ VerificationReport VerifierService::report(uint32_t id, BlockPos const& near, si
     for (auto& [key, group] : groups) result.groups.push_back(std::move(group));
     return result;
 }
-}
+} // namespace levischematic::verifier

@@ -32,4 +32,4 @@ public:
     virtual ::std::shared_ptr<::LevelChunk> getExistingChunk(::ChunkPos const& cp);
 };
 
-}
+} // namespace levischematic::schematic

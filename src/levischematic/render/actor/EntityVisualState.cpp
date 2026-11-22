@@ -80,4 +80,4 @@ void applyEntityVisualState(Actor& actor, CompoundTag const& tag) {
         else actor.setOffhandSlot(item);
     }
 }
-}
+} // namespace levischematic::render

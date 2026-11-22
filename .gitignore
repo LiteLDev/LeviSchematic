@@ -559,7 +559,7 @@ fabric.properties
 /.vscode/
 /bin/
 PROJECT_CONTEXT.md
-/docs/
+/local_docs/
 /.agents/
 AUTOMATED_TESTING.md
 /src-test/

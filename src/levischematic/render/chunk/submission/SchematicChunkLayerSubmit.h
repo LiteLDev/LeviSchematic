@@ -65,4 +65,4 @@ struct ChunkLayerSubmitStats {
 
 [[nodiscard]] bool makeChunkRenderData(SchematicRenderChunkInstanced const& instanced, SchematicChunkRenderData& out);
 
-}
+} // namespace levischematic::render

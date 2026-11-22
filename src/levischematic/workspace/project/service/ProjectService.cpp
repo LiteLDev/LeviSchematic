@@ -5,6 +5,7 @@
 #include "levischematic/schematic/resource/service/SchematicLoadService.h"
 #include "levischematic/selection/service/SelectionSaveService.h"
 #include "levischematic/selection/service/SelectionService.h"
+#include "levischematic/shared/i18n/I18n.h"
 #include "levischematic/shared/io/AtomicFile.h"
 #include "levischematic/shared/io/Utf8Path.h"
 #include "levischematic/workspace/project/model/ProjectDocument.h"
@@ -29,7 +30,7 @@ std::string utf8(std::filesystem::path const& p) {
     auto s = p.generic_u8string();
     return {reinterpret_cast<char const*>(s.data()), s.size()};
 }
-}
+} // namespace
 struct ProjectService::Impl {
     std::filesystem::path base, root, file;
     std::string           identity, detail;
@@ -227,7 +228,7 @@ S ProjectService::saveVersion(ProjectServices const& kernel, std::string name, s
     s.description   = std::move(description);
     s.selection     = projects::encodeSelection(selected);
     s.versionOffset = *offset;
-    s.detail        = "Capturing immutable version / 正在采集版本";
+    s.detail        = tr("msg.project.capturing_immutable_version");
     return ok<std::string>();
 }
 S ProjectService::checkout(ProjectServices const& kernel, int version) {
@@ -349,7 +350,7 @@ void ProjectService::tick(ProjectServices const& kernel, ClientInstance& client,
                 s.detail      = "Save task was replaced; no version committed.";
             } else if (p.terminal) {
                 s.pendingSave = 0;
-                if (p.phase != "已保存 / Saved") {
+                if (!p.saved) {
                     s.detail = p.phase + ": " + p.detail;
                     return;
                 }
@@ -397,4 +398,4 @@ void ProjectService::tick(ProjectServices const& kernel, ClientInstance& client,
         s.detail = e.what();
     }
 }
-}
+} // namespace levischematic::app

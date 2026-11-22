@@ -220,4 +220,4 @@ private:
     mutable std::mutex mMutex;
 };
 
-}
+} // namespace levischematic::render

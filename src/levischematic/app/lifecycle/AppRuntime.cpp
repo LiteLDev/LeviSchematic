@@ -143,4 +143,4 @@ void sourceDestroyed(verifier_block_listener::VerifierBlockListener& listener, B
     }
 }
 
-}
+} // namespace levischematic::app

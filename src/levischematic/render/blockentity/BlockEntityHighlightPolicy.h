@@ -87,4 +87,4 @@ constexpr void disableRecordPasses(HighlightMask& mask) {
     for (std::size_t i = 1; i <= 6; ++i) setComponent(mask, i, false);
 }
 
-}
+} // namespace levischematic::render::detail

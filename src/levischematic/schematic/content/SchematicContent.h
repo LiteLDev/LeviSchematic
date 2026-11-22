@@ -13,4 +13,4 @@ struct EditRequest {
     EditMatch    match       = EditMatch::Single;
     BlockPos     direction{1, 0, 0};
 };
-}
+} // namespace levischematic::placement

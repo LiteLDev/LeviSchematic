@@ -54,4 +54,4 @@ struct EditorState {
     DebugState                debug;
 };
 
-}
+} // namespace levischematic::editor

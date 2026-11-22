@@ -9,4 +9,4 @@ struct PatchOp {
     static PatchOp clearOverride() { return {Kind::ClearOverride}; }
     static PatchOp setBlock(Block const* block) { return {Kind::SetBlock, block}; }
 };
-}
+} // namespace levischematic::placement

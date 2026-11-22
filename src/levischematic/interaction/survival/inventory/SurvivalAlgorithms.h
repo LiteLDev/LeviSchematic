@@ -46,4 +46,4 @@ struct Operation {
     }
     void reset() { *this = {}; }
 };
-}
+} // namespace levischematic::survival

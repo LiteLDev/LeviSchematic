@@ -62,4 +62,4 @@ inline void expand(Position& a, Position& b, Position const& pos) {
         b[i]          = reversed ? lo : hi;
     }
 }
-}
+} // namespace levischematic::selection::tool

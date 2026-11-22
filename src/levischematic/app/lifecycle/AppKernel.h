@@ -26,7 +26,7 @@ class ClientInstance;
 namespace levischematic::render {
 class SchematicChunkRenderer;
 class ActorProjection;
-}
+} // namespace levischematic::render
 
 namespace levischematic::app {
 
@@ -127,4 +127,4 @@ void beginResourceReload();
 void resourceReloadQueued();
 void sourceDestroyed(verifier_block_listener::VerifierBlockListener& listener, BlockSource& source);
 
-}
+} // namespace levischematic::app

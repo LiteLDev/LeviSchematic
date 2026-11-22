@@ -101,4 +101,4 @@ inline ::Mirror toMinecraftMirror(placement::PlacementInstance::Mirror mirror) {
 BlockPos transformedSizeFor(placement::PlacementInstance const&);
 
 AABB placementRenderBounds(placement::PlacementInstance const&);
-}
+} // namespace levischematic::render

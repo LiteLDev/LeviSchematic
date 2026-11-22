@@ -17,6 +17,7 @@ struct SaveProgress {
     std::string           phase, detail;
     size_t                completed = 0, total = 0;
     bool                  terminal = true;
+    bool                  saved    = false;
     std::filesystem::path path;
 };
 class SelectionSaveService {
@@ -37,10 +38,9 @@ public:
     SaveProgress progress() const;
 
 private:
-    void advanceGroup(ClientInstance&, uint64_t generation, util::WorkBudget const&);
-    void startLitematicMerge();
+    void startWriter();
     void advance(Dimension&, Level&, util::WorkBudget const&);
     struct Impl;
     std::unique_ptr<Impl> mImpl;
 };
-}
+} // namespace levischematic::app

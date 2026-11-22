@@ -333,4 +333,4 @@ void ResourceService::tick(Level& level, util::WorkBudget const& budget) {
         mEdit.reset();
     }
 }
-}
+} // namespace levischematic::app

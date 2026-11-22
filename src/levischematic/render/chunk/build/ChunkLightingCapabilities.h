@@ -12,4 +12,4 @@ struct ChunkLightingCapabilities {
     std::array<std::byte, 7> padding{};
 };
 
-}
+} // namespace levischematic::render::detail

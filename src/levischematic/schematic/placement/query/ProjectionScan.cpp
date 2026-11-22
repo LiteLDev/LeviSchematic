@@ -11,7 +11,7 @@ void ProjectionScan::reset(PlacementState const& state, PlacementId id) {
     size_t count = 0;
     for (auto it = state.projectionOrder.rbegin(); it != state.projectionOrder.rend(); ++it) {
         auto const& p = state.projections.at(*it);
-        if ((p.parentId ? p.parentId : p.id) != id || !p.enabled || !p.asset) continue;
+        if ((p.parentId ? p.parentId : p.id) != id || (!p.enabled && !includeDisabled) || !p.asset) continue;
         instances.push_back(p);
         overrides.emplace_back();
         for (auto const& [key, value] : p.overrides) {
@@ -35,4 +35,4 @@ std::pair<PlacementInstance const*, std::optional<ExpectedPosition>> ProjectionS
                         : expectedAt(p, overrides[i][offset - volume], voidAsAir)
     };
 }
-}
+} // namespace levischematic::placement

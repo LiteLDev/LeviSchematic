@@ -37,4 +37,4 @@ void unregisterSignHooks() {
         registered = false;
     }
 }
-}
+} // namespace levischematic::hook

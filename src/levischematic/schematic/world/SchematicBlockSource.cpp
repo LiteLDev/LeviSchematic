@@ -51,4 +51,4 @@ gsl::span<::gsl::not_null<::Actor*>> SchematicBlockSource::fetchEntities(::Actor
     return {};
 }
 
-}
+} // namespace levischematic::schematic

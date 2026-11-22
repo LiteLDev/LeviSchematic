@@ -34,4 +34,4 @@ void traceVoxels(std::array<double, 3> start, std::array<double, 3> direction, d
             }
     }
 }
-}
+} // namespace levischematic::util

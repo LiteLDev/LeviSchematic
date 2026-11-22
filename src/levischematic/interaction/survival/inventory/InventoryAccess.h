@@ -14,4 +14,4 @@ InventoryResult selectBuildItem(
     ItemMatch               match       = ItemMatch::Material,
     bool                    allowCreate = true
 );
-}
+} // namespace levischematic::survival

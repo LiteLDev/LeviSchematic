@@ -13,6 +13,7 @@
 #include "levischematic/shared/geometry/PositionUtils.h"
 #include "levischematic/verifier/model/VerifierTypes.h"
 #include "levischematic/workspace/config/Config.h"
+#include <map>
 #include <memory>
 #include <optional>
 #include <unordered_map>
@@ -58,8 +59,13 @@ private:
         mce::Color color;
     };
 
-    void
-    appendCube(std::vector<Vertex>& vertices, std::vector<Vertex>& edges, BlockPos const& position, mce::Color color);
+    void appendCube(
+        std::vector<Vertex>& vertices,
+        std::vector<Vertex>& edges,
+        BlockPos const&      position,
+        Block const*         block,
+        mce::Color           color
+    );
     static void appendBox(std::vector<Vertex>&, Vec3 const& minimum, Vec3 const& maximum, mce::Color);
     void        drawSelection(
         ScreenContext&,
@@ -69,6 +75,15 @@ private:
         Vec3 const& cameraPosition,
         selection::SelectionOverlayView const&,
         app::Config::Selection const&
+    );
+    void drawPlacementBoxes(
+        ScreenContext&,
+        Tessellator&,
+        mce::MaterialPtr const&,
+        TextureVariant const&,
+        Vec3 const& cameraPosition,
+        app::PlacementService const&,
+        int dimensionId
     );
     static std::unique_ptr<mce::Mesh> buildMesh(
         ScreenContext&             screenContext,
@@ -108,7 +123,12 @@ private:
     std::size_t                                                             mBuildStart       = 0;
     std::optional<bool>                                                     mDeferred;
     std::unique_ptr<mce::Mesh>                                              mSelectionMesh;
-    std::optional<BlockPos>                                                 mSelectionSize;
-    std::array<float, 4>                                                    mSelectionColor{};
+    struct PlacementBox {
+        BlockPos                   size;
+        std::unique_ptr<mce::Mesh> mesh;
+    };
+    std::map<uint32_t, PlacementBox> mPlacementBoxes;
+    std::optional<BlockPos>          mSelectionSize;
+    std::array<float, 4>             mSelectionColor{};
 };
-}
+} // namespace levischematic::render

@@ -57,4 +57,4 @@ void ConversionService::shutdown() {
     mImpl->worker.request_stop();
     if (mImpl->worker.joinable()) mImpl->worker.join();
 }
-}
+} // namespace levischematic::convert

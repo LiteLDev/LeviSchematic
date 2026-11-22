@@ -108,4 +108,4 @@ void unregisterTickHooks() {
     gTickHooksRegistered = false;
 }
 
-}
+} // namespace levischematic::hook

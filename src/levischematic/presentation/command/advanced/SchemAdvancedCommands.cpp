@@ -1,5 +1,6 @@
 #include "levischematic/presentation/command/shared/CommandShared.h"
 #include "levischematic/presentation/ui/model/Ui.h"
+#include "levischematic/shared/i18n/I18n.h"
 #include "ll/api/service/Bedrock.h"
 #include "mc/client/game/ClientInstance.h"
 #include "mc/client/player/LocalPlayer.h"
@@ -17,7 +18,7 @@ void registerSchemAdvancedCommands(ll::command::CommandHandle& cmd) {
             auto s = acquireSession(out);
             if (s) {
                 ui::requestOpen(page);
-                out.success("Requested workflow page.");
+                out.success(tr("cmd.advanced.requested_workflow_page"));
             }
         });
     for (int i = 0; i < 7; ++i) {
@@ -26,12 +27,12 @@ void registerSchemAdvancedCommands(ll::command::CommandHandle& cmd) {
             auto s = acquireSession(out);
             if (!s) return;
             if (!s->worldEdit().progress().terminal()) {
-                out.error("Cancel current task first.");
+                out.error(tr("cmd.advanced.cancel_current_task_first"));
                 return;
             }
             s->worldEdit().options().operation = static_cast<worldedit::Operation>(i);
             s->tools().setMode(static_cast<editor::ToolMode>(static_cast<int>(editor::ToolMode::Paste) + i));
-            out.success("World tool selected; prepare before start.");
+            out.success(tr("cmd.advanced.world_tool_selected"));
         });
     }
     for (auto action : {"prepare", "start", "pause", "resume", "cancel", "status"})
@@ -42,7 +43,7 @@ void registerSchemAdvancedCommands(ll::command::CommandHandle& cmd) {
                 if (action == "prepare") {
                     auto c = ll::service::getClientInstance();
                     if (!c) {
-                        out.error("Client unavailable.");
+                        out.error(tr("cmd.advanced.client_unavailable"));
                         return;
                     }
                     auto r = s->worldEdit().prepare(*c, s->sessionGeneration());
@@ -56,7 +57,7 @@ void registerSchemAdvancedCommands(ll::command::CommandHandle& cmd) {
                 else if (action == "cancel") s->worldEdit().cancel();
                 auto p = s->worldEdit().progress();
                 out.success(
-                    std::string(worldedit::phaseName(p.phase)) + " #" + std::to_string(p.id)
+                    tr(worldedit::phaseKey(p.phase)) + " #" + std::to_string(p.id)
                     + " prepared=" + std::to_string(p.prepared) + " observed=" + std::to_string(p.observed) + "/"
                     + std::to_string(p.total) + " verified=" + std::to_string(p.verified) + " skipped="
                     + std::to_string(p.skipped) + " rejected=" + std::to_string(p.rejected) + "\n" + p.detail
@@ -68,7 +69,7 @@ void registerSchemAdvancedCommands(ll::command::CommandHandle& cmd) {
             auto s = acquireSession(out);
             if (s) {
                 s->worldEdit().options().offset = {p.dx, p.dy, p.dz};
-                out.success("Clone/Move offset updated for next preflight.");
+                out.success(tr("cmd.advanced.offset_updated"));
             }
         }
     );
@@ -82,7 +83,7 @@ void registerSchemAdvancedCommands(ll::command::CommandHandle& cmd) {
                 auto s = acquireSession(out);
                 if (s) {
                     s->worldEdit().options().policy = policy;
-                    out.success("Policy updated for next preflight.");
+                    out.success(tr("cmd.advanced.policy_updated"));
                 }
             }
         );
@@ -96,7 +97,7 @@ void registerSchemAdvancedCommands(ll::command::CommandHandle& cmd) {
                 auto c = ll::service::getClientInstance();
                 if (s && c) {
                     s->worldEdit().sample(*c, secondary);
-                    out.success("Sample requested at current aim.");
+                    out.success(tr("cmd.advanced.sample_requested"));
                 }
             }
         );
@@ -113,7 +114,7 @@ void registerSchemAdvancedCommands(ll::command::CommandHandle& cmd) {
                 app::StatusResult<std::string> r = app::ok<std::string>();
                 if (action == "create") {
                     if (!c || !c->getLocalPlayer()) {
-                        out.error("Player unavailable.");
+                        out.error(tr("cmd.advanced.player_unavailable"));
                         return;
                     }
                     r = s->projects().create(p.filename, BlockPos(c->getLocalPlayer()->getPosition()));
@@ -121,7 +122,7 @@ void registerSchemAdvancedCommands(ll::command::CommandHandle& cmd) {
                 else if (action == "rename") r = s->projects().rename(p.filename);
                 else if (action == "save") r = s->projects().saveVersion(s->projectServices(), p.filename, "");
                 else r = s->projects().setWork(p.filename);
-                if (r) out.success("Project operation submitted.");
+                if (r) out.success(tr("cmd.advanced.project_submitted"));
                 else out.error(r.error());
             });
     cmd.overload<ProjectVersionParam>()
@@ -132,7 +133,7 @@ void registerSchemAdvancedCommands(ll::command::CommandHandle& cmd) {
             auto s = acquireSession(out);
             if (!s) return;
             auto r = s->projects().checkout(s->projectServices(), p.version);
-            if (r) out.success("Version projection queued; world unchanged.");
+            if (r) out.success(tr("cmd.advanced.version_queued"));
             else out.error(r.error());
         });
     for (auto action : {"status", "list", "paste", "cancel"})
@@ -171,7 +172,7 @@ void registerSchemAdvancedCommands(ll::command::CommandHandle& cmd) {
                 if (!s || !c) return;
                 if (action == "cancel") {
                     s->signs().cancel();
-                    out.success("Pending sign paste cancelled.");
+                    out.success(tr("cmd.advanced.sign_paste_cancelled"));
                 } else
                     out.success(
                         action == "paste" ? s->signs().arm() : s->signs().copy(*c, s->placement(), action == "copyback")
@@ -179,4 +180,4 @@ void registerSchemAdvancedCommands(ll::command::CommandHandle& cmd) {
             }
         );
 }
-}
+} // namespace levischematic::command

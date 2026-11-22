@@ -13,13 +13,37 @@ namespace levischematic::ui {
 
 using HudPosition = std::array<int64_t, 3>;
 
+enum class HudColor { White, Green, Gold, Red, Aqua, Gray };
+struct HudSegment {
+    std::string text;
+    HudColor    color                               = HudColor::White;
+    bool        operator==(HudSegment const&) const = default;
+};
+using HudLine = std::vector<HudSegment>;
+
+enum class HudToolLayout { Selection, Placement, Paste };
+
 struct ProjectionHudSnapshot {
-    bool                       selectionMode = true;
-    std::string                fileName;
-    std::optional<HudPosition> corner1, corner2, origin, size;
-    int                        rotation = 0;
-    int                        mirror   = 0;
-    std::string                toolDetail;
+    HudToolLayout              layout    = HudToolLayout::Selection;
+    std::string                toolKey   = "tool.selection";
+    int                        toolIndex = 1, toolCount = 1;
+    bool                       toolEnabled     = true;
+    bool                       editTool        = false;
+    bool                       deleteTool      = false;
+    bool                       normalSelection = false;
+    std::string                selectionName   = "Unnamed";
+    std::optional<HudPosition> selectionOrigin;
+    bool                       customOrigin = false;
+    size_t                     regionCount  = 0;
+    std::string                subRegionName;
+    std::optional<HudPosition> corner1, corner2;
+    bool                       expandMode = false;
+    std::optional<std::string> placementName;
+    size_t                     placementRegions = 0;
+    bool                       regionsModified  = false;
+    std::optional<HudPosition> placementOrigin;
+    int                        replacePolicy = 0;
+    std::string                layersKey     = "hud.layers.all";
 };
 
 inline std::optional<HudPosition>
@@ -46,31 +70,94 @@ inline std::string hudPlainText(std::string_view value) {
     return result;
 }
 
+inline std::string hudLineText(HudLine const& line) {
+    std::string text;
+    for (auto const& segment : line) text += segment.text;
+    return text;
+}
+
 template <class Translate>
-std::vector<std::string> projectionHudLines(ProjectionHudSnapshot const& snapshot, Translate const& tr) {
-    std::vector<std::string> lines;
-    auto add = [&](std::string_view key, std::string value) { lines.push_back(tr(key) + ": " + std::move(value)); };
-    auto position = [&](std::optional<HudPosition> const& value, std::string_view separator) {
-        if (!value) return tr("hud.unset");
-        return std::to_string((*value)[0]) + std::string(separator) + std::to_string((*value)[1])
-             + std::string(separator) + std::to_string((*value)[2]);
+std::vector<HudLine> projectionHudLines(ProjectionHudSnapshot const& s, Translate const& tr) {
+    std::vector<HudLine> lines;
+    auto                 label = [&](std::string_view key) { return HudSegment{tr(key), HudColor::White}; };
+    auto value = [](std::string text, HudColor color = HudColor::Green) { return HudSegment{std::move(text), color}; };
+    auto position = [&](std::optional<HudPosition> const& p, HudColor color = HudColor::Green) {
+        if (!p) return HudSegment{tr("hud.unset"), HudColor::Gray};
+        return value(std::to_string((*p)[0]) + ", " + std::to_string((*p)[1]) + ", " + std::to_string((*p)[2]), color);
     };
-    add("hud.mode", tr(snapshot.selectionMode ? "hud.selection" : "hud.projection") + snapshot.toolDetail);
-    add("hud.file", snapshot.fileName.empty() ? tr("hud.unloaded") : hudPlainText(snapshot.fileName));
-    if (snapshot.selectionMode) {
-        add("hud.corner1", position(snapshot.corner1, ", "));
-        add("hud.corner2", position(snapshot.corner2, ", "));
-        add("hud.size", position(hudSelectionSize(snapshot.corner1, snapshot.corner2), " × "));
+    auto name = [&](std::string const& text) {
+        auto plain = hudPlainText(text);
+        return plain.empty() ? HudSegment{tr("hud.unset"), HudColor::Gray} : value(std::move(plain));
+    };
+    if (s.layout == HudToolLayout::Selection) {
+        if (s.deleteTool) lines.push_back({label("hud.delete_target"), value(tr("hud.delete_target.area"))});
+        lines.push_back(
+            {label("hud.selection.prefix"),
+             value(tr(s.normalSelection ? "hud.selection.normal" : "hud.selection.simple"), HudColor::Gold),
+             label("hud.selection.suffix"),
+             name(s.selectionName)}
+        );
+        lines.push_back(
+            {label("hud.origin"),
+             position(s.selectionOrigin),
+             label("hud.bracket_open"),
+             value(tr(s.customOrigin ? "hud.origin.custom" : "hud.origin.auto"), HudColor::Gold),
+             label("hud.bracket_close"),
+             label("hud.selection_count"),
+             value(std::to_string(s.regionCount))}
+        );
+        lines.push_back({label("hud.subregion_name"), name(s.subRegionName)});
+        auto size = hudSelectionSize(s.corner1, s.corner2);
+        lines.push_back({
+            label("hud.dimensions"),
+            size ? value(
+                       std::to_string((*size)[0]) + "x" + std::to_string((*size)[1]) + "x" + std::to_string((*size)[2])
+                   )
+                 : HudSegment{tr("hud.unset"), HudColor::Gray},
+            label("hud.corner1"),
+            position(s.corner1),
+            label("hud.corner2"),
+            position(s.corner2)
+        });
+        lines.push_back(
+            {label("hud.corner_mode"), value(tr(s.expandMode ? "hud.corner_mode.expand" : "hud.corner_mode.corners"))}
+        );
     } else {
-        add("hud.origin", position(snapshot.origin, ", "));
-        add("hud.size", position(snapshot.size, " × "));
-        add("hud.rotation", snapshot.origin ? std::to_string(snapshot.rotation * 90) + "°" : tr("hud.unset"));
-        add("hud.mirror",
-            !snapshot.origin       ? tr("hud.unset")
-            : snapshot.mirror == 1 ? "X"
-            : snapshot.mirror == 2 ? "Z"
-                                   : tr("ui.mirror.none"));
+        lines.push_back({
+            label("hud.placement"),
+            s.placementName ? name(*s.placementName) : HudSegment{tr("hud.none"), HudColor::Gray}
+        });
+        if (s.placementName) {
+            lines.push_back(
+                {label("hud.subregion_count"),
+                 value(std::to_string(s.placementRegions)),
+                 label("hud.subregions_modified"),
+                 s.regionsModified ? value(tr("hud.yes")) : value(tr("hud.no"), HudColor::Red)}
+            );
+            lines.push_back({label("hud.origin"), position(s.placementOrigin)});
+        }
+        if (s.layout == HudToolLayout::Paste) {
+            static constexpr char const* policies[] =
+                {"hud.replace.target_air", "hud.replace.source_non_air", "hud.replace.all"};
+            static constexpr HudColor policyColors[] = {HudColor::Red, HudColor::Gold, HudColor::Green};
+            auto                      policy         = std::clamp(s.replacePolicy, 0, 2);
+            lines.push_back({label("hud.replace"), value(tr(policies[policy]), policyColors[policy])});
+            lines.push_back({label("hud.layers"), value(tr(s.layersKey))});
+        }
     }
+    lines.push_back(
+        {label("hud.mode.prefix"),
+         value(std::to_string(s.toolIndex)),
+         label("hud.mode.separator"),
+         value(std::to_string(s.toolCount)),
+         label("hud.mode.suffix"),
+         value(
+             tr(s.toolKey),
+             !s.toolEnabled ? HudColor::Red
+             : s.editTool   ? HudColor::Gold
+                            : HudColor::Green
+         )}
+    );
     return lines;
 }
 
@@ -87,27 +174,4 @@ std::string fitHudText(std::string text, float width, Measure const& measure) {
     }
     return ellipsis;
 }
-
-struct HudLayout {
-    float x, y, width, height;
-};
-
-inline std::optional<HudLayout> projectionHudLayout(
-    float  left,
-    float  top,
-    float  right,
-    float  bottom,
-    float  textWidth,
-    float  lineHeight,
-    size_t lines,
-    bool   onRight
-) {
-    float availableWidth = right - left - 16;
-    float height         = lineHeight * static_cast<float>(lines) + 8;
-    float width          = std::min(textWidth + 8, availableWidth * 0.45f);
-    if (!std::isfinite(width) || !std::isfinite(height) || width < 16 || lineHeight <= 0 || lines == 0
-        || bottom - top < height + 56)
-        return {};
-    return HudLayout{onRight ? right - 8 - width : left + 8, bottom - 48 - height, width, height};
-}
-}
+} // namespace levischematic::ui

@@ -5,6 +5,7 @@
 #include "levischematic/schematic/placement/model/EditorState.h"
 #include "levischematic/schematic/placement/service/PlacementService.h"
 #include "levischematic/shared/geometry/PositionUtils.h"
+#include "levischematic/shared/i18n/I18n.h"
 #include "ll/api/service/Bedrock.h"
 #include "mc/client/game/ClientInstance.h"
 #include "mc/client/game/IClientInstance.h"
@@ -40,7 +41,7 @@ Block const* air() {
     auto block = Block::tryGetFromRegistry(HashedString{"minecraft:air"});
     return block ? &*block : nullptr;
 }
-}
+} // namespace
 struct WorldEditService::Impl {
     editor::EditorState& state;
     PlacementService&    placements;
@@ -155,9 +156,9 @@ Result<uint64_t, std::string> WorldEditService::prepare(IClientInstance& client,
     using R      = Result<uint64_t, std::string>;
     auto& s      = *mImpl;
     auto  player = client.getLocalPlayer();
-    if (!player || !player->isCreative()) return R::failure("Creative mode required / 需要创造模式");
+    if (!player || !player->isCreative()) return R::failure(tr("msg.worldedit.creative_mode_required"));
     if (player->getPlayerPermissionLevel() == PlayerPermissionLevel::Visitor)
-        return R::failure("Visitor cannot modify the world / 访客无世界修改权限");
+        return R::failure(tr("msg.worldedit.visitor_cannot_modify_the_world"));
     if (!s.task.progress.terminal()) return R::failure("Finish or cancel the current operation first.");
     try {
         s.request    = s.options;
@@ -237,13 +238,13 @@ Result<uint64_t, std::string> WorldEditService::prepare(IClientInstance& client,
                 s.gap("Source contains ordinary entities; no complete player-interaction clone/move for their NBT.");
             s.primary = s.state.tool.sampledBlock;
             if ((s.request.operation == Operation::Fill || s.request.operation == Operation::Replace) && !s.primary)
-                return R::failure("Sample a primary block first / 请先采样目标方块");
+                return R::failure(tr("msg.worldedit.sample_a_primary_block_first"));
             if (s.request.operation == Operation::Replace && !s.secondary)
                 return R::failure("Sample a secondary (source match) block first.");
         }
         s.task.reset(s.next++, 0, s.moving());
         s.task.progress.phase  = Phase::Preparing;
-        s.task.progress.detail = "Preflight: no world changes / 预检，不修改世界";
+        s.task.progress.detail = tr("msg.worldedit.preflight_no_world_changes");
         return R::success(s.task.progress.id);
     } catch (std::exception const& e) {
         s.fail(e.what());
@@ -370,7 +371,7 @@ void WorldEditService::tick(IClientInstance& client, uint64_t generation, util::
             if (!finished) return;
             s.enumerated = true;
             if (s.localAuthority && !s.captured) {
-                p.detail = "Reading authoritative preflight snapshots / 等待服务端采集快照";
+                p.detail = tr("msg.worldedit.reading_authoritative_preflight");
                 return;
             }
             if (!s.localAuthority) {
@@ -378,7 +379,7 @@ void WorldEditService::tick(IClientInstance& client, uint64_t generation, util::
                     auto& cell = s.cells[s.captureCursor];
                     if (cell.target.sourceDataUnknown && !cell.unsupported) {
                         if (ui::isOpen() || !client.getMouseGrabbed()) {
-                            p.detail = "Close menu to acquire original source data / 请关闭菜单以取源方块数据";
+                            p.detail = tr("msg.worldedit.close_menu_to_acquire_original");
                             return;
                         }
                         auto outcome = s.picker.acquireSourceItem(*player, cell.target, milliseconds());
@@ -401,7 +402,7 @@ void WorldEditService::tick(IClientInstance& client, uint64_t generation, util::
                 else if (s.cells[i].alreadyMatches) s.task.record(i, Outcome::Verified);
             }
             p.prepared = s.cells.size();
-            p.detail   = "Ready / 预检完成; cells=" + std::to_string(s.cells.size())
+            p.detail   = tr("msg.worldedit.ready") + std::to_string(s.cells.size())
                        + " entity gaps=" + std::to_string(s.entityGaps);
             for (auto const& gap : s.gaps) p.detail += "\n" + gap;
             return;
@@ -422,8 +423,8 @@ void WorldEditService::tick(IClientInstance& client, uint64_t generation, util::
             if (!s.moving()) {
                 if (p.verified == p.total) {
                     p.phase  = (s.entityGaps || p.skipped || p.rejected) ? Phase::Partial : Phase::Complete;
-                    p.detail = "Authoritative result verified / 服务端结果已核对";
-                } else p.detail = "Waiting for authoritative result / 等待服务端结果核对";
+                    p.detail = tr("msg.worldedit.authoritative_result_verified");
+                } else p.detail = tr("msg.worldedit.waiting_for_authoritative_result");
                 return;
             }
             if (p.skipped || p.rejected || s.entityGaps) {
@@ -437,7 +438,7 @@ void WorldEditService::tick(IClientInstance& client, uint64_t generation, util::
                 return;
             }
             if (!s.sourcesValidated) {
-                p.detail = "Verifying source snapshots before cleanup / 正在核对来源快照";
+                p.detail = tr("msg.worldedit.verifying_source_snapshots_before");
                 return;
             }
             for (auto const& c : s.cells)
@@ -540,7 +541,7 @@ void WorldEditService::tick(IClientInstance& client, uint64_t generation, util::
                     }
                 }
             if (s.entityGaps || !s.gaps.empty()) p.phase = Phase::Partial;
-            p.detail = "World result observed / 已观察到结果; authoritative=" + std::to_string(p.verified) + "/"
+            p.detail = tr("msg.worldedit.world_result_observed") + std::to_string(p.verified) + "/"
                      + std::to_string(p.total) + "; entity gaps=" + std::to_string(s.entityGaps);
             for (auto const& gap : s.gaps) p.detail += "\n" + gap;
         } else if (p.phase == Phase::Running) p.phase = Phase::Waiting;
@@ -640,4 +641,4 @@ void WorldEditService::sample(IClientInstance& client, bool secondary) {
         ++mImpl->state.tool.revision;
     }
 }
-}
+} // namespace levischematic::app

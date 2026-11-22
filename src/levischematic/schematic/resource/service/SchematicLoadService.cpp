@@ -16,6 +16,7 @@ struct SchematicLoadService::Impl {
         std::filesystem::path                      path;
         BlockPos                                   origin;
         int                                        dimension = 0;
+        LoadMode                                   mode      = LoadMode::Placement;
         LoadTaskGate                               gate;
         std::optional<placement::AssetPreparation> prepared;
         std::string                                error;
@@ -90,7 +91,8 @@ Result<uint64_t, std::string> SchematicLoadService::request(
     BlockPos              origin,
     int                   dimension,
     uint64_t              generation,
-    unsigned              limit
+    unsigned              limit,
+    LoadMode              mode
 ) {
     std::scoped_lock lock(mImpl->mutex);
     unsigned         active = 0;
@@ -105,6 +107,7 @@ Result<uint64_t, std::string> SchematicLoadService::request(
     job->path      = std::move(path);
     job->origin    = origin;
     job->dimension = dimension;
+    job->mode      = mode;
     mImpl->jobs.emplace(job->status.id, job);
     try {
         mImpl->queued.push_back(job);
@@ -170,13 +173,23 @@ std::vector<std::string> SchematicLoadService::tick(
             if (done && job->error.empty()) {
                 PlacementLoadInfo loaded;
                 bool              published = job->gate.publish(generation, [&] {
+                    if (job->mode == LoadMode::MemoryOnly) {
+                        loaded.name = job->prepared->asset->defaultName;
+                        (void)placements.resources().adopt(job->prepared->asset, job->path);
+                        return;
+                    }
                     loaded = placements.adoptAsset(job->prepared->asset, job->path, job->origin, job->dimension);
+                    if (job->mode == LoadMode::DisabledPlacement)
+                        if (auto const* p = placements.findPlacement(loaded.id); p && p->enabled)
+                            (void)placements.togglePlacementEnabled(loaded.id);
                 });
                 {
                     std::scoped_lock lock(mImpl->mutex);
                     job->status.phase = published ? "completed" : "cancelled";
                 }
-                job->error = published ? "Loaded '" + loaded.name + "' [ID: " + std::to_string(loaded.id)
+                job->error = published && job->mode == LoadMode::MemoryOnly
+                               ? "Loaded '" + loaded.name + "' into memory."
+                           : published ? "Loaded '" + loaded.name + "' [ID: " + std::to_string(loaded.id)
                                              + "]; projection preparing."
                                              + (job->prepared->notice.empty() ? "" : " " + job->prepared->notice)
                                        : "Cancelled before publication.";
@@ -208,4 +221,4 @@ std::vector<std::string> SchematicLoadService::tick(
     }
     return notices;
 }
-}
+} // namespace levischematic::app

@@ -82,4 +82,4 @@ inline bool withinBlockEntityBounds(Point const& position, Point const& lower, P
     return true;
 }
 
-}
+} // namespace levischematic::render::detail

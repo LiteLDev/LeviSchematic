@@ -68,6 +68,7 @@ public:
     bool rename(PlacementId id, std::string name);
     bool setLocks(PlacementId id, bool locked, std::array<bool, 3> axes);
     bool setEntitiesEnabled(PlacementId id, bool enabled);
+    bool setBoxVisible(PlacementId id, bool visible);
     bool setGrid(PlacementId, GridSettings);
     bool setRegion(PlacementId, std::string const&, RegionSettings);
     bool bindAsset(PlacementId, std::shared_ptr<const SchematicAsset>, std::filesystem::path);
@@ -92,4 +93,4 @@ private:
     PlacementState& mState;
 };
 
-}
+} // namespace levischematic::placement

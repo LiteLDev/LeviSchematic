@@ -30,4 +30,4 @@ std::optional<ProjectionHit> traceProjection(
     double                  reach
 );
 bool nearProjection(PlacementList const&, int dimension, BlockPos const&, int margin = 2);
-}
+} // namespace levischematic::placement

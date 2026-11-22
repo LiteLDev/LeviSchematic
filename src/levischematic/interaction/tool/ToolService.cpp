@@ -136,4 +136,4 @@ void ToolService::select(
     if (selected) (void)mPlacements.selectPlacement(*selected);
     else mPlacements.clearSelectedPlacement();
 }
-}
+} // namespace levischematic::app

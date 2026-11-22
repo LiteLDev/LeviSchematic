@@ -52,5 +52,5 @@ using placement::ExpectedPosition;
 using placement::expectedPosition;
 std::string verificationGroupId(VerificationCell const&);
 std::string verificationBlockLabel(Block const*);
-char const* verificationStatusLabel(VerificationStatus);
-}
+char const* verificationStatusKey(VerificationStatus);
+} // namespace levischematic::verifier

@@ -98,4 +98,4 @@ InventoryResult selectBuildItem(
     player.mInventory->selectSlot(target, ContainerID::Inventory);
     return InventoryResult::Submitted;
 }
-}
+} // namespace levischematic::survival

@@ -52,4 +52,4 @@ inline selection::SelectionState decodeSelection(Json const& v) {
     if (s.selectedRegion && !ids.contains(s.selectedRegion)) throw std::runtime_error("Saved selected region missing.");
     return s;
 }
-}
+} // namespace levischematic::projects

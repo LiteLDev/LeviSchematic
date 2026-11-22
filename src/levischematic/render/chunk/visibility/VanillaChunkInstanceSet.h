@@ -69,4 +69,4 @@ private:
     SchematicRenderChunkSorterPtr                                    mSorter;
 };
 
-}
+} // namespace levischematic::render

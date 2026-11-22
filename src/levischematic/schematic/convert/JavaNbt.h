@@ -77,4 +77,4 @@ struct NamedRoot {
 
 NamedRoot   readBigEndian(std::string_view bytes);
 std::string writeBigEndian(NamedRoot const& root);
-}
+} // namespace levischematic::convert::nbt

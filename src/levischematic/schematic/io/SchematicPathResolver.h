@@ -14,8 +14,7 @@ public:
     std::filesystem::path resolveExistingPath(const std::filesystem::path& path) const;
 
 private:
-    std::filesystem::path withMcstructureExtension(const std::filesystem::path& path) const;
-    std::filesystem::path withLitematicExtension(const std::filesystem::path& path) const;
+    static std::filesystem::path withExtension(const std::filesystem::path& path, char const* extension);
 
     std::filesystem::path mSchematicDirectory;
 };

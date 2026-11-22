@@ -40,4 +40,4 @@ AppKernel::WorldSession::WorldSession()
   tools(std::make_unique<ToolService>(*state, *selectionService, *placementService)),
   survival(std::make_unique<SurvivalService>(*placementService)),
   worldEdit(std::make_unique<WorldEditService>(*state, *placementService)) {}
-}
+} // namespace levischematic::app

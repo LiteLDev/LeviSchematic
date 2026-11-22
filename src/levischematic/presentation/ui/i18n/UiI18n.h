@@ -1,11 +1,10 @@
 #pragma once
+#include "levischematic/shared/i18n/I18n.h"
 #include <string>
 #include <string_view>
 namespace levischematic::ui {
 struct Row;
 std::string describeRow(Row const& row);
 void        reloadTranslations();
-std::string tr(std::string_view key);
-bool        uiChinese();
-std::string localizedText(std::string text);
-}
+using levischematic::tr;
+} // namespace levischematic::ui

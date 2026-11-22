@@ -96,4 +96,4 @@ void applySelectionDefaults(Json& data) {
     if (!selection.contains("faceColor")) selection["faceColor"] = Config{}.selection.faceColor;
 }
 
-}
+} // namespace levischematic::app

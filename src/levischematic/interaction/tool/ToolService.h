@@ -53,4 +53,4 @@ public:
     bool nudge(selection::tool::Vector const& direction, int amount, int dimension);
     void select(selection::tool::Vector const& start, selection::tool::Vector const& direction, int dimension);
 };
-}
+} // namespace levischematic::app

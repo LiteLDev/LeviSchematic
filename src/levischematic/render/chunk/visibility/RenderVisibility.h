@@ -65,4 +65,4 @@ inline VisibilityResult testVisibility(
     return VisibilityResult::Visible;
 }
 
-}
+} // namespace levischematic::render

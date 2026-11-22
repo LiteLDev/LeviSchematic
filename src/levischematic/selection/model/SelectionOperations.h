@@ -35,4 +35,4 @@ inline bool nudge(SelectionState& state, BlockPos delta) {
     state.corner2 = b;
     return true;
 }
-}
+} // namespace levischematic::selection::tool

@@ -76,4 +76,4 @@ struct NativeChunkGeometryDescription {
     glm::vec3                           mCameraPosition{};
 };
 
-}
+} // namespace levischematic::render

@@ -1,4 +1,5 @@
 #include "levischematic/presentation/command/shared/CommandShared.h"
+#include "levischematic/shared/i18n/I18n.h"
 
 #include "levischematic/selection/capture/SelectionExporter.h"
 
@@ -15,7 +16,7 @@ void registerSchemSelectionCommands(ll::command::CommandHandle& schemCmd) {
             auto& selectionService = session->selection();
             auto  blockPos         = BlockPos(origin.getExecutePosition(cmd.mVersion, param.pos));
             selectionService.setSelectionCorner1(blockPos);
-            output.success("Selection corner 1 set to ({})", blockPos.toString());
+            output.success(tr("cmd.selection.corner1", blockPos.toString()));
         }
     );
 
@@ -25,7 +26,7 @@ void registerSchemSelectionCommands(ll::command::CommandHandle& schemCmd) {
         auto& selectionService = session->selection();
         auto  blockPos         = BlockPos(origin.getWorldPosition());
         selectionService.setSelectionCorner1(blockPos);
-        output.success("Selection corner 1 set to player position ({})", blockPos.toString());
+        output.success(tr("cmd.selection.corner1_player", blockPos.toString()));
     });
 
     schemCmd.overload<SchemOriginParam>().text("pos2").required("pos").execute(
@@ -35,7 +36,7 @@ void registerSchemSelectionCommands(ll::command::CommandHandle& schemCmd) {
             auto& selectionService = session->selection();
             auto  blockPos         = BlockPos(origin.getExecutePosition(cmd.mVersion, param.pos));
             selectionService.setSelectionCorner2(blockPos);
-            output.success("Selection corner 2 set to ({})", blockPos.toString());
+            output.success(tr("cmd.selection.corner2", blockPos.toString()));
         }
     );
 
@@ -45,7 +46,7 @@ void registerSchemSelectionCommands(ll::command::CommandHandle& schemCmd) {
         auto& selectionService = session->selection();
         auto  blockPos         = BlockPos(origin.getWorldPosition());
         selectionService.setSelectionCorner2(blockPos);
-        output.success("Selection corner 2 set to player position ({})", blockPos.toString());
+        output.success(tr("cmd.selection.corner2_player", blockPos.toString()));
     });
 
     schemCmd.overload<SchemNamedParam>()
@@ -57,7 +58,7 @@ void registerSchemSelectionCommands(ll::command::CommandHandle& schemCmd) {
             auto& selectionService = session->selection();
             auto* dimension        = origin.getDimension();
             if (!dimension) {
-                output.error("Cannot determine current dimension.");
+                output.error(tr("cmd.selection.no_dimension"));
                 return;
             }
 
@@ -73,11 +74,7 @@ void registerSchemSelectionCommands(ll::command::CommandHandle& schemCmd) {
                 return;
             }
 
-            output.success(
-                "Queued selection save '{}' (task {}). Use /schem save-status or Save Selection menu.",
-                param.filename,
-                result.value()
-            );
+            output.success(tr("cmd.selection.save_queued", param.filename, result.value()));
         });
 
     schemCmd.overload().text("save-status").execute([](CommandOrigin const&, CommandOutput& output) {
@@ -85,25 +82,20 @@ void registerSchemSelectionCommands(ll::command::CommandHandle& schemCmd) {
         if (!session) return;
         auto status = session->saves().progress();
         output.success(
-            "Save task {}: {} {}/{} - {}",
-            status.id,
-            status.phase,
-            status.completed,
-            status.total,
-            status.detail
+            tr("cmd.selection.save_status", status.id, status.phase, status.completed, status.total, status.detail)
         );
     });
     schemCmd.overload().text("save-cancel").execute([](CommandOrigin const&, CommandOutput& output) {
         auto session = acquireSession(output);
         if (!session) return;
         session->saves().cancel();
-        output.success("Save cancellation requested.");
+        output.success(tr("cmd.selection.save_cancel_requested"));
     });
     schemCmd.overload().text("selection").text("clear").execute([&](CommandOrigin const&, CommandOutput& output) {
         auto session = acquireSession(output);
         if (!session) return;
         session->selection().clearSelection();
-        output.success("Selection cleared.");
+        output.success(tr("cmd.selection.cleared"));
     });
 
     schemCmd.overload().text("selection").text("mode").execute([&](CommandOrigin const&, CommandOutput& output) {
@@ -111,7 +103,7 @@ void registerSchemSelectionCommands(ll::command::CommandHandle& schemCmd) {
         if (!session) return;
         auto& selectionService = session->selection();
         selectionService.toggleSelectionMode();
-        output.success("Selection mode: {}", selectionService.isSelectionModeEnabled() ? "ON" : "OFF");
+        output.success(tr("cmd.selection.mode", selectionService.isSelectionModeEnabled() ? "ON" : "OFF"));
     });
 
     schemCmd.overload().text("selection").text("info").execute([&](CommandOrigin const&, CommandOutput& output) {
@@ -151,4 +143,4 @@ void registerSchemSelectionCommands(ll::command::CommandHandle& schemCmd) {
     });
 }
 
-}
+} // namespace levischematic::command

@@ -11,4 +11,4 @@ TexturePtr::TexturePtr()
 : mClientTexture{},
   mResourceLocationPtr(std::make_shared<ResourceLocation>(Core::PathView{""})) {}
 
-}
+} // namespace mce

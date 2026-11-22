@@ -35,7 +35,7 @@ void preferInsert(
     auto [it, inserted] = map.try_emplace(key, state);
     if (!inserted && preference(state, defaults) > preference(it->second, defaults)) it->second = state;
 }
-}
+} // namespace
 
 std::string bedrockStateKey(BedrockBlockState const& state) {
     auto states = state.states;
@@ -143,4 +143,4 @@ BedrockToJava BlockMapping::toJava(BedrockBlockState const& block, bool waterlog
     }
     return result;
 }
-}
+} // namespace levischematic::convert

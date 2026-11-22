@@ -11,7 +11,7 @@ namespace {
 
 auto& getLogger() { return levischematic::LeviSchematic::getInstance().getSelf().getLogger(); }
 
-}
+} // namespace
 
 ll::command::CommandHandle& getOrCreateSchemCommand(bool isClient) {
     return ll::command::CommandRegistrar::getInstance(isClient).getOrCreateCommand("schem", "LeviSchematic commands");

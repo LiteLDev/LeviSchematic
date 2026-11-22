@@ -63,7 +63,7 @@ void logSortCameraDelta(::BlockPos const& position, ::glm::ivec3 const& cameraDe
     getLogger().debug("{}", message);
 }
 
-}
+} // namespace
 
 void VanillaChunkInstanceSet::reset() {
     clear();
@@ -283,4 +283,4 @@ bool VanillaChunkInstanceSet::cameraDeltaChanged(
         || instanced.mLastSortCameraDelta.get()[2] != signOf((position.z >> 4) - (cameraZ >> 4));
 }
 
-}
+} // namespace levischematic::render

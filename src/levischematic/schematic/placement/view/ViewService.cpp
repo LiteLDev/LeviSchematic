@@ -171,4 +171,4 @@ ViewMutationStatus ViewService::validateRange(int minY, int maxY) {
 
 void ViewService::touch() { ++mViewState.revision; }
 
-}
+} // namespace levischematic::app

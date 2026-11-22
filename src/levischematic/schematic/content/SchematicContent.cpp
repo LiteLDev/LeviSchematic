@@ -15,7 +15,7 @@ ListTag indexList(std::vector<int> const& values) {
     for (int value : values) result.emplace_back(IntTag{value});
     return result;
 }
-}
+} // namespace
 Block const* localBlock(PlacementInstance const& p, Block const* block) {
     if (!block || block->isAir()) return block;
     using R      = PlacementInstance::Rotation;
@@ -60,4 +60,4 @@ std::unique_ptr<CompoundTag> serializeContent(SchematicAsset const& asset) {
     for (auto index : asset.editedCells) data.mTags.erase(std::to_string(index));
     return tag;
 }
-}
+} // namespace levischematic::placement

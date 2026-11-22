@@ -33,4 +33,4 @@ inline void writeAtomic(std::filesystem::path const& path, std::string_view byte
         throw;
     }
 }
-}
+} // namespace levischematic::util

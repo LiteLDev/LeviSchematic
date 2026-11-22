@@ -105,4 +105,4 @@ struct SchematicChunkRenderer::SchematicRendererInstanceData {
 };
 
 
-}
+} // namespace levischematic::render

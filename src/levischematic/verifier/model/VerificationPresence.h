@@ -6,4 +6,4 @@ inline std::optional<VerificationStatus> classifyPresence(bool expectedAir, bool
     if (actualAir) return VerificationStatus::MissingBlock;
     return {};
 }
-}
+} // namespace levischematic::verifier

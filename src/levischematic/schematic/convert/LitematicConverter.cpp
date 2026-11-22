@@ -1,8 +1,10 @@
 #include "levischematic/schematic/convert/LitematicConverter.h"
 #include "levischematic/schematic/convert/JavaNbt.h"
 #include "levischematic/schematic/convert/LitematicDocument.h"
-#include "levischematic/schematic/io/SchematicSetIO.h"
+#include "levischematic/schematic/io/LeviSchematicFile.h"
+#include "levischematic/schematic/io/StructureMerge.h"
 #include "levischematic/schematic/placement/model/VolumeIndex.h"
+#include "levischematic/shared/i18n/I18n.h"
 #include "levischematic/shared/io/AtomicFile.h"
 #include "ll/api/utils/CompressUtils.h"
 #include "mc/deps/nbt/ByteTag.h"
@@ -214,39 +216,33 @@ SourceData readSource(std::filesystem::path const& path, std::stop_token const& 
     SourceData data;
     data.name = path.stem().string();
     if (isLitematicPath(path)) data.regions = readLitematic(path, stop, report);
-    else if (path.filename().string().ends_with(".schemset.json")) {
-        auto manifest = placement::readSchematicSetManifest(path);
-        data.name     = manifest.name;
-        for (auto const& entry : manifest.regions) {
-            checkStop(stop);
-            data.regions.push_back({entry.name, entry.offset, readMcstructureFile(entry.file)});
-        }
+    else if (schematic::isLeviSchematicPath(path)) {
+        auto document = schematic::readLeviSchematic(path, stop);
+        data.name     = document.name;
+        for (auto& r : document.regions) data.regions.push_back({r.name, r.offset, std::move(r.tag)});
     } else if (path.extension() == ".mcstructure") data.regions.push_back({data.name, {}, readMcstructureFile(path)});
     else throw std::runtime_error("Unsupported source format: " + path.filename().string());
     return data;
 }
-}
+} // namespace
 
 std::string ConversionReport::summary() const {
-    std::string text;
-    auto        add = [&](size_t n, char const* what) {
-        if (!n) return;
-        if (!text.empty()) text += ", ";
-        text += std::to_string(n) + " " + what;
+    std::vector<std::string> parts;
+    auto                     add = [&](size_t n, char const* key) {
+        if (n) parts.push_back(tr(key, n));
     };
-    add(unmappedStates, "unknown block states -> air");
-    add(fallbackStates, "states approximated");
-    add(droppedBlockEntities, "block entities dropped");
-    add(droppedEntities, "entities dropped");
-    add(droppedTicks, "scheduled ticks dropped");
-    if (text.empty()) return text;
-    text = "Conversion: " + text;
-    if (!unmappedSamples.empty()) {
-        text += " (e.g.";
-        for (auto const& s : unmappedSamples) text += " " + s;
-        text += ")";
-    }
-    return text + ".";
+    add(mergedRegions, "convert.merged_regions");
+    add(unmappedStates, "convert.unmapped_states");
+    add(fallbackStates, "convert.fallback_states");
+    add(droppedBlockEntities, "convert.dropped_block_entities");
+    add(droppedEntities, "convert.dropped_entities");
+    add(droppedTicks, "convert.dropped_ticks");
+    if (parts.empty()) return {};
+    std::string list;
+    for (auto const& part : parts) list += (list.empty() ? "" : tr("common.list_separator")) + part;
+    std::string samples;
+    for (auto const& s : unmappedSamples) samples += " " + s;
+    return samples.empty() ? tr("convert.summary", list) : tr("convert.summary_samples", list, samples);
 }
 
 void setBlockMappingPath(std::filesystem::path path) {
@@ -356,17 +352,23 @@ void convertFile(
         std::vector<StructureRegionRef> refs;
         for (auto const& r : data.regions) refs.push_back({r.name, r.offset, r.tag.get()});
         util::writeAtomic(target, encodeLitematicFile(refs, target.stem().string(), report), overwrite);
-    } else if (target.filename().string().ends_with(".schemset.json")) {
-        std::vector<placement::SchematicSetRegionData> regions;
+    } else if (schematic::isLeviSchematicPath(target)) {
+        std::vector<schematic::LeviSchematicRegionRef> refs;
         for (size_t i = 0; i < data.regions.size(); ++i) {
             auto const& r = data.regions[i];
-            regions.push_back({std::to_string(i), r.name, r.offset, r.tag.get()});
+            refs.push_back({std::to_string(i), r.name, r.offset, r.tag.get()});
         }
-        placement::writeSchematicSet(target, data.name, regions, overwrite);
+        schematic::LeviSchematicWriteInfo info;
+        info.name = data.name;
+        util::writeAtomic(target, schematic::encodeLeviSchematicFile(refs, info), overwrite);
     } else if (target.extension() == ".mcstructure") {
-        if (data.regions.size() != 1)
-            throw std::runtime_error("Source has multiple regions; convert to .schemset.json or .litematic.");
-        util::writeAtomic(target, data.regions.front().tag->toBinaryNbt(), overwrite);
+        if (data.regions.size() == 1) util::writeAtomic(target, data.regions.front().tag->toBinaryNbt(), overwrite);
+        else {
+            std::vector<schematic::MergeRegion> regions;
+            for (auto const& r : data.regions) regions.push_back({r.offset, r.tag.get()});
+            util::writeAtomic(target, schematic::mergeStructures(regions, {})->toBinaryNbt(), overwrite);
+            report.mergedRegions = data.regions.size();
+        }
     } else throw std::runtime_error("Unsupported target format: " + target.filename().string());
 }
-}
+} // namespace levischematic::convert

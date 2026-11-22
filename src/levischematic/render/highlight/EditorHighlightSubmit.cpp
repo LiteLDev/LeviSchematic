@@ -66,7 +66,7 @@
 namespace levischematic::render {
 namespace {
 auto& getLogger() { return levischematic::LeviSchematic::getInstance().getSelf().getLogger(); }
-}
+} // namespace
 constexpr float kOverlayOutlineWidth       = 0.0f;
 constexpr float kOverlayBlockEdgeThickness = 0.0f;
 
@@ -180,4 +180,4 @@ bool submitEditorHighlight(
 }
 
 
-}
+} // namespace levischematic::render

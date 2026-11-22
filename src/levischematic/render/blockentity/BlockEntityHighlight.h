@@ -42,4 +42,4 @@ bool validationMarkerHighlightAvailable();
 
 bool projectionBlendDepthAvailable();
 
-}
+} // namespace levischematic::render

@@ -6,4 +6,4 @@ class Block;
 namespace levischematic::worldedit {
 HitResult traceWorld(LocalPlayer&);
 bool      buildAtAim(LocalPlayer&, BlockPos const& target, Block const& expected, std::string& reason);
-}
+} // namespace levischematic::worldedit

@@ -6,7 +6,7 @@ add_repositories("miracleforest-repo https://github.com/MiracleForest/xmake-repo
 add_requires("levilamina 26.60.*", {configs = {target_type = get_config("target_type")}})
 
 add_requires("levibuildscript")
-add_requires("zlib")
+add_requires("zlib") -- Only for standalone tests that read gzip fixtures; the mod uses LeviLamina CompressUtils.
 
 option("target_type")
     set_default("client")
@@ -22,7 +22,7 @@ target("LeviSchematic")
     add_rules("@levibuildscript/linkrule")
     add_rules("@levibuildscript/modpacker")
     if is_plat("windows") then
-        add_syslinks("user32", "version", "d3dcompiler")
+        add_syslinks("user32", "shell32", "version", "d3dcompiler") -- Input focus, opening folders and version-gated empty SDK render types.
         add_defines("NOMINMAX", "UNICODE")
         set_exceptions("none")
         add_cxflags( "/EHa", "/utf-8", "/W4", "/w44265", "/w44289", "/w44296", "/w45263", "/w44738", "/w45204")
@@ -54,4 +54,5 @@ target("LeviSchematic")
         os.mkdir("bin/LeviSchematic/assets")
         os.cp("assets/ui", "bin/LeviSchematic/assets/")
         os.cp("assets/mappings", "bin/LeviSchematic/assets/")
+        os.cp("assets/lang", "bin/LeviSchematic/assets/")
     end)

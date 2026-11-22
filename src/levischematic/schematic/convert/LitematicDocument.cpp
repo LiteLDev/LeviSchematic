@@ -173,7 +173,7 @@ Tag encodeRegion(LitematicRegion const& region, size_t& nonAir) {
     result.put("PendingFluidTicks", emptyList(TagType::Compound));
     return result;
 }
-}
+} // namespace
 
 std::string canonicalJavaState(std::string_view name, std::vector<std::pair<std::string, std::string>> properties) {
     std::string result =
@@ -277,4 +277,4 @@ nbt::NamedRoot encodeLitematic(LitematicDocument const& document) {
     root.put("Regions", std::move(regions));
     return {std::string{}, std::move(root)};
 }
-}
+} // namespace levischematic::convert

@@ -70,4 +70,4 @@ inline bool stepLayer(LayerRange& range, int delta, double playerCoordinate = 0)
     return range != previous;
 }
 
-}
+} // namespace levischematic::editor

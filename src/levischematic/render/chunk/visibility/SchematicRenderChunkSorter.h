@@ -11,4 +11,4 @@ using SchematicRenderChunkSorterSharedInfo = ::RenderChunkSorterSharedInfo;
 using SchematicRenderChunkSorter           = ::RenderChunkSorter;
 using SchematicRenderChunkSorterPtr        = std::unique_ptr<::RenderChunkSorter>;
 
-}
+} // namespace levischematic::render

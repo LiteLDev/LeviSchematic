@@ -32,4 +32,4 @@ public:
     Outcome acquireSourceItem(LocalPlayer&, Target&, uint64_t now);
     void    stop(LocalPlayer&);
 };
-}
+} // namespace levischematic::worldedit

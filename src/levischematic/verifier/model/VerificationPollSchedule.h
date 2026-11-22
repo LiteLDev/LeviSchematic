@@ -28,4 +28,4 @@ private:
     Clock::time_point mNextSweep{};
 };
 
-}
+} // namespace levischematic::verifier

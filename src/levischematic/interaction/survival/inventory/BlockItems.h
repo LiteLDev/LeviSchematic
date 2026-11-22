@@ -17,8 +17,9 @@ struct BlockItems {
     std::vector<ItemRequirement> materials;
     std::string                  unsupported;
 };
-ItemKey                      itemKey(ItemStackBase const&);
+ItemKey                        itemKey(ItemStackBase const&);
+std::optional<ItemRequirement> secondLayerItem(Block const&);
 BlockItems                   resolveBlockItems(placement::PlacementInstance const&, placement::ExpectedPosition const&);
 verifier::VerificationStatus compareBlocks(Block const* expected, Block const* actual);
 bool                         placementOrientationMatches(Block const& expected, Block const& predicted);
-}
+} // namespace levischematic::survival

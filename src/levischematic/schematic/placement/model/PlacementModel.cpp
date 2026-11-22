@@ -97,4 +97,4 @@ std::pair<BlockPos, BlockPos> computeEnclosingBox(PlacementInstance const& place
     return {minPos, maxPos};
 }
 
-}
+} // namespace levischematic::placement

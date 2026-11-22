@@ -18,4 +18,4 @@ constexpr bool useWorldItemForLegacyMesh(
         && movingBlock && !ui && !firstPerson && color == std::array<float, 4>{1, 1, 1, 1};
 }
 
-}
+} // namespace levischematic::render::detail

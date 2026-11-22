@@ -14,7 +14,10 @@ void PlacementService::prepareScan(placement::ProjectionScan& scan, placement::P
     placement::PlacementState isolated;
     auto                      p = findPlacement(id);
     if (!p) {
-        scan = {};
+        placement::ProjectionScan empty;
+        empty.voidAsAir       = scan.voidAsAir;
+        empty.includeDisabled = scan.includeDisabled;
+        scan                  = std::move(empty);
         return;
     }
     auto copy         = *p;
@@ -31,7 +34,7 @@ PlacementMutationResult successMutation(placement::PlacementInstance const* plac
     return PlacementMutationResult::success(placement);
 }
 
-}
+} // namespace
 
 std::string PlacementError::describe() const {
     switch (code) {
@@ -291,6 +294,11 @@ PlacementMutationResult PlacementService::setPlacementEntities(placement::Placem
     return successMutation(mPlacementStore.get(id));
 }
 
+PlacementMutationResult PlacementService::setPlacementBox(placement::PlacementId id, bool visible) {
+    if (!mPlacementStore.setBoxVisible(id, visible)) return PlacementMutationResult::failure(makeNotFoundError(id));
+    return successMutation(mPlacementStore.get(id));
+}
+
 PlacementError PlacementService::makeNotFoundError(std::optional<placement::PlacementId> id, std::string detail) const {
     return PlacementError{
         .code        = PlacementError::Code::PlacementNotFound,
@@ -299,4 +307,4 @@ PlacementError PlacementService::makeNotFoundError(std::optional<placement::Plac
     };
 }
 
-}
+} // namespace levischematic::app

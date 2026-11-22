@@ -36,19 +36,9 @@ SchematicPathResolver::SchematicPathResolver(std::filesystem::path schematicDire
     }
 }
 
-std::filesystem::path SchematicPathResolver::withMcstructureExtension(const std::filesystem::path& path) const {
+std::filesystem::path SchematicPathResolver::withExtension(const std::filesystem::path& path, char const* extension) {
     auto result = path;
-    if (result.extension().empty()) {
-        result += ".mcstructure";
-    }
-    return result.lexically_normal();
-}
-
-std::filesystem::path SchematicPathResolver::withLitematicExtension(const std::filesystem::path& path) const {
-    auto result = path;
-    if (result.extension().empty()) {
-        result += ".litematic";
-    }
+    if (result.extension().empty()) result += extension;
     return result.lexically_normal();
 }
 
@@ -57,44 +47,29 @@ std::filesystem::path SchematicPathResolver::makeFilePath(const std::filesystem:
     if (!result.is_absolute() && !mSchematicDirectory.empty()) {
         result = mSchematicDirectory / result;
     }
-
-    return withMcstructureExtension(result);
+    return withExtension(result, ".levischematic");
 }
 
 std::filesystem::path SchematicPathResolver::resolveExistingPath(const std::filesystem::path& path) const {
     std::vector<fs::path> candidates;
-
-    if (path.is_absolute()) {
-        appendUnique(candidates, path);
-        appendUnique(candidates, withMcstructureExtension(path));
-        appendUnique(candidates, withLitematicExtension(path));
-    } else {
-        if (!mSchematicDirectory.empty()) {
-            appendUnique(candidates, mSchematicDirectory / path);
-            appendUnique(candidates, makeFilePath(path));
-            appendUnique(candidates, withLitematicExtension(mSchematicDirectory / path));
-        }
-
-        appendUnique(candidates, makeAbsoluteIfPossible(path));
-        appendUnique(candidates, makeAbsoluteIfPossible(withMcstructureExtension(path)));
-        appendUnique(candidates, makeAbsoluteIfPossible(withLitematicExtension(path)));
+    auto                  addAll = [&](fs::path const& base, bool absolute) {
+        auto add = [&](fs::path value) { appendUnique(candidates, absolute ? makeAbsoluteIfPossible(value) : value); };
+        add(base);
+        for (auto extension : {".levischematic", ".litematic", ".mcstructure"}) add(withExtension(base, extension));
+    };
+    if (path.is_absolute()) addAll(path, false);
+    else {
+        if (!mSchematicDirectory.empty()) addAll(mSchematicDirectory / path, false);
+        addAll(path, true);
     }
-
     for (const auto& candidate : candidates) {
         if (pathExists(candidate)) {
             return candidate;
         }
     }
-
-    if (path.is_absolute()) {
-        return withMcstructureExtension(path);
-    }
-
-    if (!mSchematicDirectory.empty()) {
-        return makeFilePath(path);
-    }
-
-    return makeAbsoluteIfPossible(withMcstructureExtension(path));
+    if (path.is_absolute()) return withExtension(path, ".levischematic");
+    if (!mSchematicDirectory.empty()) return makeFilePath(path);
+    return makeAbsoluteIfPossible(withExtension(path, ".levischematic"));
 }
 
 }

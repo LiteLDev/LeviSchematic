@@ -34,4 +34,4 @@ private:
 void registerHooks();
 void unregisterHooks();
 
-}
+} // namespace levischematic::render::diagnostics

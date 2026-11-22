@@ -46,7 +46,7 @@ PlacementInstance leaf(PlacementInstance const& base, SchematicRegion const& reg
     result.origin = *origin;
     return result;
 }
-}
+} // namespace
 void ensureProjectionInstances(PlacementState const& state) {
     std::scoped_lock lock(state.mutex);
     if (state.projectionRevision == state.revision) return;
@@ -117,4 +117,4 @@ void ensureProjectionInstances(PlacementState const& state) {
     state.nextProjectionId   = next;
     state.projectionRevision = state.revision;
 }
-}
+} // namespace levischematic::placement

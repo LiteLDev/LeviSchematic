@@ -40,4 +40,4 @@ inline void validate(Json const& doc, std::string const& identity, int dimension
         (void)session::decodePosition(v.at("offset"));
     }
 }
-}
+} // namespace levischematic::projects

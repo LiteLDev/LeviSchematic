@@ -49,4 +49,4 @@ unwrapServerTexture(mce::ServerTexture::ServerResource const& serverTexture) {
 
 using ResolvedTextureBlock = mce::ResourceBlockTemplate<dragon::ResolvedTextureResource>;
 
-}
+} // namespace levischematic::render::detail

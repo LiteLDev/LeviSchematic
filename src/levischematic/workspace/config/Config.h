@@ -128,4 +128,4 @@ inline std::string validateConfig(Config const& value) {
         return "Invalid task limits.";
     return {};
 }
-}
+} // namespace levischematic::app

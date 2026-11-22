@@ -14,4 +14,4 @@ makeSchematicRenderChunkShared(::SubChunkPos const& chunkPos) {
     return std::make_shared<SchematicRenderChunkShared>(chunkPos);
 }
 
-}
+} // namespace levischematic::render

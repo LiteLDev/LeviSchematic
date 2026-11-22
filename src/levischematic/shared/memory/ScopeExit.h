@@ -12,4 +12,4 @@ public:
 private:
     F mAction;
 };
-}
+} // namespace levischematic::util

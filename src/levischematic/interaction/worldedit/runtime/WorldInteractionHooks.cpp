@@ -34,4 +34,4 @@ void unregisterWorldInteractionHooks() {
     if (worldedit::DataPick::available.exchange(false)) DataPickReplyHook::unhook();
     registered = false;
 }
-}
+} // namespace levischematic::hook

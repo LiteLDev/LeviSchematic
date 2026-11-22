@@ -377,4 +377,4 @@ void VerifierService::handleSourceDestroyed(BlockSource& source) {
 }
 
 
-}
+} // namespace levischematic::verifier

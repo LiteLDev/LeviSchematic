@@ -82,4 +82,4 @@ private:
     std::atomic_uint64_t mGeneration{0};
 };
 
-}
+} // namespace levischematic::app

@@ -1,6 +1,8 @@
 #pragma once
 #include "levischematic/interaction/survival/inventory/SurvivalAlgorithms.h"
 #include <map>
+#include <optional>
+#include <string>
 
 namespace levischematic::survival {
 inline bool
@@ -24,6 +26,31 @@ placementOrientationMatches(std::map<std::string, int> const& expected, std::map
         if (a != expected.end() && a->second != b->second) return false;
     }
     return true;
+}
+inline std::optional<std::string> substituteItem(std::string_view name, std::map<std::string, int> const& states) {
+    auto depth = [&] {
+        auto it = states.find("liquid_depth");
+        return it == states.end() ? 0 : it->second;
+    };
+    if (name == "minecraft:water" || name == "minecraft:flowing_water")
+        return depth() == 0 ? "minecraft:water_bucket" : "";
+    if (name == "minecraft:lava" || name == "minecraft:flowing_lava")
+        return depth() == 0 ? "minecraft:lava_bucket" : "";
+    if (name == "minecraft:bubble_column") return "minecraft:water_bucket";
+    if (name == "minecraft:powder_snow") return "minecraft:powder_snow_bucket";
+    if (name == "minecraft:farmland" || name == "minecraft:grass_path") return "minecraft:dirt";
+    for (auto none :
+         {"minecraft:fire",
+          "minecraft:soul_fire",
+          "minecraft:portal",
+          "minecraft:end_portal",
+          "minecraft:end_gateway",
+          "minecraft:piston_arm_collision",
+          "minecraft:sticky_piston_arm_collision",
+          "minecraft:moving_block",
+          "minecraft:frosted_ice"})
+        if (name == none) return "";
+    return std::nullopt;
 }
 struct BuildRule {
     unsigned count     = 1;
@@ -65,4 +92,4 @@ inline BuildRule buildRule(std::string_view name, std::map<std::string, int> con
         result.count = static_cast<unsigned>(std::clamp(value("candles") + 1, 1, 4));
     return result;
 }
-}
+} // namespace levischematic::survival

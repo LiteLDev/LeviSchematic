@@ -11,6 +11,8 @@
 #include "levischematic/schematic/placement/store/PlacementStore.h"
 #include "levischematic/schematic/placement/view/ProjectionRefresh.h"
 #include "levischematic/selection/capture/SelectionExporter.h"
+#include "levischematic/shared/i18n/I18n.h"
+#include "levischematic/shared/io/Utf8Path.h"
 #include "ll/api/event/EventBus.h"
 #include "ll/api/event/client/ClientJoinLevelEvent.h"
 #include "ll/api/event/command/ClientCommandRegisterEvent.h"
@@ -72,12 +74,16 @@ void AppKernel::maintain(ClientInstance& client) {
             && (worldProgress.id != mSession->worldNotifiedId || worldProgress.phase != mSession->worldNotifiedPhase)) {
             mSession->worldNotifiedId    = worldProgress.id;
             mSession->worldNotifiedPhase = worldProgress.phase;
-            auto text = std::string("World task #") + std::to_string(worldProgress.id) + " "
-                      + worldedit::phaseName(worldProgress.phase)
-                      + " observed=" + std::to_string(worldProgress.observed) + "/"
-                      + std::to_string(worldProgress.total) + " verified=" + std::to_string(worldProgress.verified)
-                      + " skipped=" + std::to_string(worldProgress.skipped)
-                      + " rejected=" + std::to_string(worldProgress.rejected) + " " + worldProgress.detail;
+            auto text =
+                tr("msg.world_task",
+                   worldProgress.id,
+                   tr(worldedit::phaseKey(worldProgress.phase)),
+                   worldProgress.observed,
+                   worldProgress.total,
+                   worldProgress.verified,
+                   worldProgress.skipped,
+                   worldProgress.rejected,
+                   worldProgress.detail);
             LeviSchematic::getInstance().getSelf().getLogger().info(text);
             if (worldProgress.terminal() || worldProgress.phase == worldedit::Phase::Ready)
                 client.getLocalPlayer()->displayClientMessage(text, std::nullopt);
@@ -91,7 +97,7 @@ void AppKernel::maintain(ClientInstance& client) {
         auto save = mSaves.progress();
         if (save.id > mSaveNotified && save.terminal) {
             mSaveNotified = save.id;
-            auto message  = save.phase + ": " + save.path.string() + " " + save.detail;
+            auto message  = tr("msg.save_finished", save.phase, util::utf8(save.path), save.detail);
             client.getLocalPlayer()->displayClientMessage(message, std::nullopt);
             LeviSchematic::getInstance().getSelf().getLogger().info(message);
         }
@@ -104,4 +110,4 @@ void AppKernel::maintain(ClientInstance& client) {
     }
 }
 
-}
+} // namespace levischematic::app

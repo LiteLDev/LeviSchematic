@@ -134,4 +134,4 @@ void unregisterPreviewRenderHooks() {
     PreviewHook::unhook();
     registered = false;
 }
-}
+} // namespace levischematic::hook

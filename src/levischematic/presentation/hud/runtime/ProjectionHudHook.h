@@ -11,4 +11,4 @@ ui::HudCanvas drawProjectionHuds(
 );
 void registerProjectionHudHooks();
 void unregisterProjectionHudHooks();
-}
+} // namespace levischematic::hook

@@ -28,4 +28,4 @@ inline bool fillMissingTerrainMaterialIndices(
     return true;
 }
 
-}
+} // namespace levischematic::render::detail

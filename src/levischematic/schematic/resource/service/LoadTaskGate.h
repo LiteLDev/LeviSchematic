@@ -31,4 +31,4 @@ private:
     std::mutex       mMutex;
     bool             mFinished = false;
 };
-}
+} // namespace levischematic::app

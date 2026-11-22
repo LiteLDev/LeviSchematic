@@ -1,6 +1,7 @@
 #include "levischematic/presentation/command/shared/CommandShared.h"
 #include "levischematic/render/actor/ActorProjection.h"
 #include "levischematic/schematic/placement/query/ProjectionQuery.h"
+#include "levischematic/shared/i18n/I18n.h"
 #include "mc/server/commands/Command.h"
 #include "mc/server/commands/CommandBlockNameResult.h"
 
@@ -54,7 +55,7 @@ void registerSchemOrganizationCommands(ll::command::CommandHandle& cmd) {
         auto s = acquireSession(out);
         if (!s) return;
         s->placement().resources().cancel();
-        out.success("Content operation cancelled.");
+        out.success(tr("cmd.organization.content_cancelled"));
     });
     cmd.overload<SchemNamedParam>()
         .text("resource")
@@ -65,11 +66,11 @@ void registerSchemOrganizationCommands(ll::command::CommandHandle& cmd) {
             if (!s) return;
             auto id = s->placement().selectedPlacementId();
             if (!id) {
-                out.error("Select a placement first.");
+                out.error(tr("cmd.organization.select_placement_first"));
                 return;
             }
             auto result = s->placement().resources().saveAs(*id, s->runtime().resolveSchematicPath(p.filename), false);
-            if (result) out.success("Saved a new resource; selected placement now uses it.");
+            if (result) out.success(tr("cmd.organization.saved_new_resource"));
             else out.error(result.error());
         });
     cmd.overload<SchemBlockSetSimpleParam>()
@@ -91,17 +92,17 @@ void registerSchemOrganizationCommands(ll::command::CommandHandle& cmd) {
             auto pos   = BlockPos(origin.getExecutePosition(command.mVersion, p.pos));
             auto block = p.blockName.resolveBlock(0);
             if (!block.mBlock) {
-                out.error("Unknown block.");
+                out.error(tr("cmd.organization.unknown_block"));
                 return;
             }
             auto hit  = placement::projectionAt(s->placement().orderedPlacements(), selected.value()->dimensionId, pos);
             auto leaf = hit ? s->placement().findPlacement(hit->owner) : nullptr;
             if (!leaf || (leaf->parentId ? leaf->parentId : leaf->id) != selected.value()->id) {
-                out.error("Position is outside selected placement.");
+                out.error(tr("cmd.organization.position_outside"));
                 return;
             }
             auto result = s->placement().resources().edit({leaf->id, pos, block.mBlock}, s->view().currentLayerRange());
-            if (result) out.success("Shared resource edit queued.");
+            if (result) out.success(tr("cmd.organization.edit_queued"));
             else out.error(result.error());
         });
     cmd.overload<OrganizationFlag>().text("grid").text("enabled").required("enabled").execute(
@@ -116,7 +117,7 @@ void registerSchemOrganizationCommands(ll::command::CommandHandle& cmd) {
             auto grid    = selected.value()->grid;
             grid.enabled = p.enabled;
             auto result  = s->placement().setPlacementGrid(selected.value()->id, grid);
-            if (result) out.success("Grid updated.");
+            if (result) out.success(tr("cmd.organization.grid_updated"));
             else out.error(result.error().describe());
         }
     );
@@ -140,7 +141,7 @@ void registerSchemOrganizationCommands(ll::command::CommandHandle& cmd) {
             grid.negative[axis] = p.negative;
             grid.positive[axis] = p.positive;
             auto result         = s->placement().setPlacementGrid(selected.value()->id, grid);
-            if (result) out.success("Grid updated.");
+            if (result) out.success(tr("cmd.organization.grid_updated"));
             else out.error(result.error().describe());
         });
     cmd.overload<OrganizationFlag>()
@@ -151,7 +152,7 @@ void registerSchemOrganizationCommands(ll::command::CommandHandle& cmd) {
             auto s = acquireSession(out);
             if (!s) return;
             s->selection().setNormal(p.enabled);
-            out.success("Selection mode updated.");
+            out.success(tr("cmd.organization.selection_mode_updated"));
         });
     cmd.overload<SchemNamedParam>()
         .text("selection")
@@ -160,8 +161,8 @@ void registerSchemOrganizationCommands(ll::command::CommandHandle& cmd) {
         .execute([](CommandOrigin const&, CommandOutput& out, SchemNamedParam const& p) {
             auto s = acquireSession(out);
             if (!s) return;
-            if (s->selection().addRegion(p.filename)) out.success("Region added.");
-            else out.error("Empty or duplicate region name.");
+            if (s->selection().addRegion(p.filename)) out.success(tr("cmd.organization.region_added"));
+            else out.error(tr("cmd.organization.region_name_invalid"));
         });
     cmd.overload<OrganizationRegion>()
         .text("selection")
@@ -170,8 +171,9 @@ void registerSchemOrganizationCommands(ll::command::CommandHandle& cmd) {
         .execute([](CommandOrigin const&, CommandOutput& out, OrganizationRegion const& p) {
             auto s = acquireSession(out);
             if (!s) return;
-            if (p.id > 0 && s->selection().selectRegion(static_cast<uint32_t>(p.id))) out.success("Region selected.");
-            else out.error("Region not found.");
+            if (p.id > 0 && s->selection().selectRegion(static_cast<uint32_t>(p.id)))
+                out.success(tr("cmd.organization.region_selected"));
+            else out.error(tr("cmd.organization.region_not_found"));
         });
 }
-}
+} // namespace levischematic::command

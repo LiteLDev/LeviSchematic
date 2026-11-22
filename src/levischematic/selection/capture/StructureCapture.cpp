@@ -20,7 +20,7 @@ CompoundTag const& compound(CompoundTag const& tag, char const* key) { return ta
 ListTag&           list(CompoundTag& tag, char const* key) { return tag.at(key).get<ListTag>(); }
 ListTag const&     list(CompoundTag const& tag, char const* key) { return tag.at(key).get<ListTag>(); }
 ListTag            position(BlockPos const& value) { return ListTag{value.x, value.y, value.z}; }
-}
+} // namespace
 StructureCapture::StructureCapture(BlockPos origin, BlockPos size) : mOrigin(origin), mSize(size) {
     auto volume = placement::volumeSize({size.x, size.y, size.z});
     if (!volume) throw std::runtime_error("Selection exceeds supported index range.");
@@ -116,4 +116,4 @@ std::unique_ptr<CompoundTag> StructureCapture::finish() {
     structure["block_indices"]        = ListTag{IntArrayTag(std::move(mPrimary)), IntArrayTag(std::move(mExtra))};
     return std::move(mTag);
 }
-}
+} // namespace levischematic::selection

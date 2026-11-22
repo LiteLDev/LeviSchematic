@@ -22,4 +22,4 @@ struct RenderBatchVersion {
     bool matches(uint64_t current) const { return complete && revision == current; }
 };
 
-}
+} // namespace levischematic::render::detail

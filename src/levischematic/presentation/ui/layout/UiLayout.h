@@ -9,25 +9,62 @@ struct UiRect {
     bool  contains(float px, float py) const;
 };
 UiRect intersect(UiRect a, UiRect b);
-enum class WidgetKind { Label, Button, Text, Slider, Swatch, Scrollbar, ListRow, Panel };
-enum class UiOp { None, Submit, Activate, Reset, Clear, Choice, Color, Back, Category, Search, Scroll };
+enum class WidgetKind {
+    Label,
+    Button,
+    Text,
+    Slider,
+    Swatch,
+    Scrollbar,
+    ListRow,
+    Panel,
+    Checkbox,
+    IconButton,
+    HeaderCell,
+    ItemIcon
+};
+enum class UiOp {
+    None,
+    Submit,
+    Activate,
+    Reset,
+    Clear,
+    Choice,
+    Color,
+    Back,
+    Category,
+    Search,
+    Scroll,
+    Adjust,
+    Sort,
+    SearchToggle
+};
 struct Widget {
-    std::string id, row, text;
-    UiRect      rect, clip;
-    WidgetKind  kind     = WidgetKind::Label;
-    UiOp        op       = UiOp::None;
-    int         index    = 0;
-    double      value    = 0;
-    bool        selected = false;
-    UiRect      icon;
-    bool        enabled = true, hovered = false;
-    UiRect      textBounds;
-    std::string texture;
+    std::string             id, row, text;
+    UiRect                  rect, clip;
+    WidgetKind              kind     = WidgetKind::Label;
+    UiOp                    op       = UiOp::None;
+    int                     index    = 0;
+    double                  value    = 0;
+    bool                    selected = false;
+    UiRect                  icon;
+    bool                    enabled = true, hovered = false;
+    UiRect                  textBounds;
+    std::string             texture;
+    int                     atlas    = 1;
+    bool                    variants = false;
+    std::string             tooltip;
+    uint32_t                color = 0;
+    std::string             suffix;
+    uint32_t                suffixColor = 0;
+    bool                    centered    = false;
+    std::vector<SpritePart> parts;
 };
 struct UiViewState {
     float       scroll = 0;
     std::string search;
-    int         category = 0;
+    int         category   = 0;
+    bool        searchOpen = false;
 };
 struct UiFrame {
     float               width = 0, height = 0, contentHeight = 0, maxScroll = 0, scroll = 0;
@@ -42,7 +79,17 @@ struct UiTextRun {
 };
 std::vector<UiTextRun>
 layoutTextRuns(std::string const&, UiRect bounds, UiRect clip, TextWidth const&, bool center = false);
-UiFrame                layoutPage(Page const&, PageId, UiViewState const&, float width, float height, TextWidth const&);
-int                    configCategory(std::string_view path);
-nlohmann::ordered_json frameJson(UiFrame const&, PageId, uint64_t frame, std::string const& language, float scale);
-}
+UiFrame              layoutPage(Page const&, PageId, UiViewState const&, float width, float height, TextWidth const&);
+int                  configCategory(std::string_view path);
+inline constexpr int ConfigTabCount = 7;
+UiRect               tooltipRect(
+    std::vector<std::string> const& lines,
+    float                           mouseX,
+    float                           mouseY,
+    float                           width,
+    float                           height,
+    TextWidth const&
+);
+std::vector<std::string> wrapLines(std::string const& text, float maxWidth, TextWidth const&);
+nlohmann::ordered_json   frameJson(UiFrame const&, PageId, uint64_t frame, std::string const& language, float scale);
+} // namespace levischematic::ui

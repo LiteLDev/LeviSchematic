@@ -37,4 +37,4 @@ private:
     std::future<void> mResult;
 };
 
-}
+} // namespace levischematic::render::detail

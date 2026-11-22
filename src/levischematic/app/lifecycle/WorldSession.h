@@ -45,4 +45,4 @@ public:
     ~WorldSession() = default;
 };
 
-}
+} // namespace levischematic::app

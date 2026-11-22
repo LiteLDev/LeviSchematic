@@ -77,4 +77,4 @@ inline std::array<int, 3> decodePosition(Json const& value) {
     }
     return result;
 }
-}
+} // namespace levischematic::session

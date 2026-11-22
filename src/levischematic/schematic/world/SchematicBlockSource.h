@@ -56,4 +56,4 @@ private:
     std::unordered_set<uint64_t> mHiddenPositions;
     Block const*                 mAir = nullptr;
 };
-}
+} // namespace levischematic::schematic

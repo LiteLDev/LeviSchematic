@@ -11,4 +11,4 @@ struct ResourceState {
     std::map<uint64_t, ResourceRecord> records;
     uint64_t                           nextId = 1;
 };
-}
+} // namespace levischematic::placement

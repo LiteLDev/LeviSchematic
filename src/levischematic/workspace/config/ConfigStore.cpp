@@ -57,4 +57,4 @@ std::string ConfigStore::save() const {
         return e.what();
     }
 }
-}
+} // namespace levischematic::app

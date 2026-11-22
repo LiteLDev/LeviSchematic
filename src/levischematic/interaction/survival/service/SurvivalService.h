@@ -41,4 +41,4 @@ private:
     std::vector<std::string> mHud;
     size_t                   mTargetHudLines = 0;
 };
-}
+} // namespace levischematic::app

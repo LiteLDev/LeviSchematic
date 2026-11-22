@@ -9,4 +9,4 @@ inline bool isToolItem(ItemStackBase const& item) {
     if (identifier.getString() != name) identifier = HashedString(name);
     return item.isInstance(identifier, false);
 }
-}
+} // namespace levischematic::app

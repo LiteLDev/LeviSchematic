@@ -8,7 +8,7 @@
 namespace levischematic::app {
 class ViewService;
 class ToolService;
-}
+} // namespace levischematic::app
 
 namespace levischematic::input {
 
@@ -36,4 +36,4 @@ void startInputEvents();
 void stopInputEvents();
 void resetInputState();
 
-}
+} // namespace levischematic::input

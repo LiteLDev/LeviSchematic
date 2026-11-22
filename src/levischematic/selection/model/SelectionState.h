@@ -17,6 +17,7 @@ struct SelectionRegion {
 };
 
 struct SelectionState {
+    std::string                  name           = "Unnamed";
     bool                         normal         = false;
     uint32_t                     selectedRegion = 0, nextRegion = 1;
     std::vector<SelectionRegion> regions;
@@ -43,4 +44,4 @@ struct SelectionOverlayView {
 [[nodiscard]] BlockPos             getSize(SelectionState const& state);
 [[nodiscard]] SelectionOverlayView makeOverlayView(SelectionState const& state);
 
-}
+} // namespace levischematic::selection

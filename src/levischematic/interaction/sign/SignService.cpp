@@ -1,6 +1,7 @@
 #include "levischematic/interaction/sign/SignService.h"
 #include "levischematic/interaction/worldedit/runtime/BlockData.h"
 #include "levischematic/schematic/placement/service/PlacementService.h"
+#include "levischematic/shared/i18n/I18n.h"
 #include "mc/client/game/IClientInstance.h"
 #include "mc/client/player/LocalPlayer.h"
 #include "mc/deps/nbt/CompoundTag.h"
@@ -65,16 +66,16 @@ std::string SignService::copy(IClientInstance& client, PlacementService& placeme
                 return mDetail = "Sign text copied.";
             }
         }
-        return mDetail = "Aim at a real or projected sign / 请瞄准告示牌";
+        return mDetail = tr("msg.sign.aim_at_a_real_or_projected_sign");
     } catch (std::exception const& e) {
         return mDetail = e.what();
     }
 }
 std::string SignService::arm() {
-    if (!editorAvailable) return mDetail = "Native sign editor entry unavailable / 原版告示牌编辑入口不可用";
-    if (!mHasText) return mDetail = "Copy sign text first / 请先复制告示牌文本";
+    if (!editorAvailable) return mDetail = tr("msg.sign.native_sign_editor_entry_unavailable");
+    if (!mHasText) return mDetail = tr("msg.sign.copy_sign_text_first");
     mArmed         = true;
-    return mDetail = "Paste armed: normally open the desired sign side / 请正常打开目标告示牌";
+    return mDetail = tr("msg.sign.paste_armed_normally_open_the");
 }
 std::optional<std::string> SignService::consume() {
     if (!mArmed) return {};
@@ -82,4 +83,4 @@ std::optional<std::string> SignService::consume() {
     mDetail = "Text supplied to vanilla sign editor; server acceptance separate.";
     return mText;
 }
-}
+} // namespace levischematic::app

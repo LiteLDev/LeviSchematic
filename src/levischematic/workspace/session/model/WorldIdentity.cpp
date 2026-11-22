@@ -21,4 +21,4 @@ std::string worldIdentity(ClientInstance& client) {
     if (host.empty() || connection->mPort <= 0) return {};
     return "server:" + host + ":" + std::to_string(connection->mPort);
 }
-}
+} // namespace levischematic::session

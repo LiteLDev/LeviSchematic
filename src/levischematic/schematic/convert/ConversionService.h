@@ -32,4 +32,4 @@ private:
     struct Impl;
     std::unique_ptr<Impl> mImpl;
 };
-}
+} // namespace levischematic::convert

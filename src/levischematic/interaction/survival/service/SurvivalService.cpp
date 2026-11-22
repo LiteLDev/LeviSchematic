@@ -2,6 +2,7 @@
 #include "levischematic/app/bootstrap/LeviSchematic.h"
 #include "levischematic/interaction/worldedit/runtime/PlacementInteraction.h"
 #include "levischematic/presentation/ui/model/Ui.h"
+#include "levischematic/shared/i18n/I18n.h"
 #include "levischematic/verifier/service/VerificationTask.h"
 #include "levischematic/workspace/config/ConfigStore.h"
 #include "mc/client/game/IClientInstance.h"
@@ -26,7 +27,7 @@ HitResult   worldTrace(LocalPlayer& player) { return worldedit::traceWorld(playe
 std::string positionText(BlockPos const& p) {
     return std::to_string(p.x) + ", " + std::to_string(p.y) + ", " + std::to_string(p.z);
 }
-}
+} // namespace
 std::optional<placement::ProjectionHit> SurvivalService::target(LocalPlayer& player) {
     auto start = player.getHeadPos(), dir = player.getViewVector(1);
     return placement::traceProjection(
@@ -79,7 +80,7 @@ void SurvivalService::reset() {
     mObservedMatch = false;
     mHud.clear();
     mTargetHudLines = 0;
-    mMaterials.invalidate();
+    mMaterials.reset();
 }
 void SurvivalService::pick(IClientInstance& client) {
     auto player = client.getLocalPlayer();
@@ -99,22 +100,22 @@ void SurvivalService::pick(IClientInstance& client) {
     auto result = survival::selectBuildItem(*player, items.pick, configStore().snapshot().survival.hotbarSlots);
     switch (result) {
     case survival::InventoryResult::Ready:
-        notify(*player, "Selected / 已选取: " + items.pick.getDescriptionName());
+        notify(*player, tr("msg.survival.selected", items.pick.getDescriptionName()));
         break;
     case survival::InventoryResult::Submitted:
-        notify(*player, "Inventory request submitted / 已提交取物请求");
+        notify(*player, tr("msg.survival.inventory_submitted"));
         break;
     case survival::InventoryResult::Busy:
-        notify(*player, "Inventory busy, retry / 背包同步中，请重试");
+        notify(*player, tr("msg.survival.inventory_busy"));
         break;
     case survival::InventoryResult::Missing:
-        notify(*player, "Missing item / 背包缺少物品: " + items.pick.getDescriptionName());
+        notify(*player, tr("msg.survival.inventory_missing", items.pick.getDescriptionName()));
         break;
     case survival::InventoryResult::NoSlot:
-        notify(*player, "No replaceable hotbar slot / 无可替换快捷栏槽位");
+        notify(*player, tr("msg.survival.no_slot"));
         break;
     default:
-        notify(*player, "Unsupported item / 不支持的物品");
+        notify(*player, tr("msg.survival.unsupported_item"));
         break;
     }
 }
@@ -126,27 +127,27 @@ bool SurvivalService::restrictPlacement(LocalPlayer& player, BlockPos const& pos
     if (!placement::nearProjection(list, dim, pos)) return false;
     auto expected = placement::projectionAt(list, dim, pos);
     auto deny     = [&](std::string reason) {
-        notify(player, "Placement blocked / 放置已阻止: " + reason);
+        notify(player, tr("msg.survival.placement_blocked") + reason);
         return true;
     };
     if (!expected || !expected->block || expected->block->isAir())
-        return deny("expected air or unknown / 预期空气或未知");
-    if (!mPlacements.viewState().layerRange.containsPosition(pos)) return deny("outside render layer / 超出渲染层");
+        return deny(tr("msg.survival.expected_air_or_unknown"));
+    if (!mPlacements.viewState().layerRange.containsPosition(pos)) return deny(tr("msg.survival.outside_render_layer"));
     auto p    = mPlacements.findPlacement(expected->owner);
     auto cell = p ? placement::expectedAt(*p, pos) : std::nullopt;
-    if (!cell) return deny("unknown target / 未知目标");
+    if (!cell) return deny(tr("msg.survival.unknown_target"));
     auto        items = survival::resolveBlockItems(*p, *cell);
     auto const& held  = player.getSelectedItem();
     if (!items.pick || !held || survival::itemKey(held) != survival::itemKey(items.pick))
-        return deny("wrong item / 手持物品错误");
+        return deny(tr("msg.survival.wrong_item"));
     auto trace  = worldTrace(player);
     auto render = held.getBlockForRendering();
     if (!render || trace.mType != HitResultType::Tile || face >= 6)
-        return deny("cannot predict placement / 无法预测放置");
+        return deny(tr("msg.survival.cannot_predict_placement"));
     Vec3        click     = trace.mPos - Vec3(trace.mBlock);
     auto const& predicted = render->getBlockType().getPlacementBlock(player, pos, face, click, held.getAuxValue());
     if (!survival::placementOrientationMatches(*expected->block, predicted))
-        return deny("orientation or state / 朝向或状态不符");
+        return deny(tr("msg.survival.orientation_or_state"));
     return false;
 }
 void SurvivalService::advance(LocalPlayer& player, uint64_t now) {
@@ -180,23 +181,23 @@ void SurvivalService::advance(LocalPlayer& player, uint64_t now) {
         mNextUse = now + 250;
     };
     if (mOperation.expired(now)) {
-        finish("Placement unconfirmed / 放置未确认，已停止本次尝试");
+        finish(tr("msg.survival.placement_unconfirmed"));
         return;
     }
     auto p = mPlacements.findPlacement(mOwner);
     if (!p || !p->enabled || p->revision != mPlacementRevision
         || p->dimensionId != static_cast<int>(player.getDimensionId())) {
-        finish("Target changed / 投影目标已改变");
+        finish(tr("msg.survival.target_changed"));
         return;
     }
     auto expected = placement::expectedAt(*p, *mTarget);
     if (!expected || !expected->block || !mPlacements.viewState().layerRange.containsPosition(*mTarget)) {
-        finish("Target outside layer / 目标超出渲染层");
+        finish(tr("msg.survival.target_outside_layer"));
         return;
     }
     auto& source = player.getDimension().getBlockSourceFromMainChunkSource();
     if (!source.hasChunksAt(*mTarget, 0, false)) {
-        finish("Chunk unavailable / 区块未加载");
+        finish(tr("msg.survival.chunk_unavailable"));
         return;
     }
     auto status = survival::compareBlocks(expected->block, &source.getBlock(*mTarget));
@@ -205,36 +206,32 @@ void SurvivalService::advance(LocalPlayer& player, uint64_t now) {
             if (!mObservedMatch) {
                 mObservedMatch = true;
                 mSwapTime      = now;
-            } else if (now - mSwapTime >= 250)
-                finish("Placement observed; server validation separate / 已观察到匹配，服务端验收另计");
-        } else if (mObservedMatch) finish("Placement corrected or rejected / 放置被纠正或拒绝");
+            } else if (now - mSwapTime >= 250) finish(tr("msg.survival.placement_observed_server_validation"));
+        } else if (mObservedMatch) finish(tr("msg.survival.placement_corrected_or_rejected"));
         return;
     }
     if (status == verifier::VerificationStatus::Matched) {
-        finish("Already matches / 目标已匹配");
+        finish(tr("msg.survival.already_matches"));
         return;
     }
     if (status != verifier::VerificationStatus::MissingBlock) {
-        finish("Clear or repair target manually / 请先手工清理或修正目标");
+        finish(tr("msg.survival.clear_or_repair_target_manually"));
         return;
     }
     auto items = survival::resolveBlockItems(*p, *expected);
     if (!items.unsupported.empty() || !items.pick || items.rule.secondary) {
-        finish(
-            items.unsupported.empty() ? "Place multi-block item from its primary cell / 请从多格方块主格放置"
-                                      : items.unsupported
-        );
+        finish(items.unsupported.empty() ? tr("msg.survival.place_multi_block_item_from_its") : items.unsupported);
         return;
     }
     if (mOperation.phase == survival::Phase::Selecting) {
         auto result = survival::selectBuildItem(player, items.pick, cfg.hotbarSlots);
         if (result == survival::InventoryResult::Busy) return;
         if (result == survival::InventoryResult::Missing) {
-            finish("Missing item / 缺少物品");
+            finish(tr("msg.survival.missing_item"));
             return;
         }
         if (result == survival::InventoryResult::NoSlot || result == survival::InventoryResult::Unsupported) {
-            finish("No usable hotbar slot / 无可用快捷栏槽位");
+            finish(tr("msg.survival.no_usable_hotbar_slot"));
             return;
         }
         if (result == survival::InventoryResult::Submitted) {
@@ -247,7 +244,7 @@ void SurvivalService::advance(LocalPlayer& player, uint64_t now) {
     if (mOperation.phase == survival::Phase::WaitingInventory) {
         if (now - mSwapTime < static_cast<unsigned>(cfg.swapDelayMs)) return;
         if (!player.getSelectedItem() || survival::itemKey(player.getSelectedItem()) != survival::itemKey(items.pick)) {
-            finish("Inventory selection not confirmed / 换物未确认");
+            finish(tr("msg.survival.inventory_selection_not_confirmed"));
             return;
         }
         mOperation.phase = survival::Phase::Ready;
@@ -284,7 +281,7 @@ void SurvivalService::tick(IClientInstance& client, util::WorkBudget const& budg
     auto lock = mPlacements.lockPlacements();
     auto now  = nowMs();
     advance(*player, now);
-    if (configStore().snapshot().survival.materialHud && mMaterials.report().placementId == 0)
+    if (configStore().snapshot().survival.materialHud && mMaterials.source() == MaterialSource::None)
         mMaterials.request(false);
     mMaterials.tick(*player, budget);
     if (now < mNextHud) return;
@@ -302,20 +299,20 @@ void SurvivalService::tick(IClientInstance& client, util::WorkBudget const& budg
                     source.hasChunksAt(hit->position, 0, false) ? &source.getBlock(hit->position) : nullptr
                 )
             );
-        } else mHud.push_back("No projection target / 未命中投影");
+        } else mHud.push_back(tr("msg.survival.no_projection_target"));
     }
     auto cfg        = configStore().snapshot().survival;
     mTargetHudLines = mHud.size();
     if (cfg.materialHud) {
         auto report = mMaterials.report();
-        mHud.push_back(report.building ? "Materials: scanning / 材料统计中" : "Materials / 材料（需准备/背包/总量）");
+        mHud.push_back(report.building ? tr("msg.survival.materials_scanning") : tr("msg.survival.materials"));
         size_t count = 0;
         for (auto const& row : report.rows)
-            if (row.counts.remaining() && count++ < 5)
+            if (row.counts.remaining() && !mMaterials.ignored(row.item) && count++ < 5)
                 mHud.push_back(
                     row.label + ": " + std::to_string(row.counts.toGather()) + " / "
                     + std::to_string(row.counts.available) + " / " + std::to_string(row.counts.total)
                 );
     }
 }
-}
+} // namespace levischematic::app

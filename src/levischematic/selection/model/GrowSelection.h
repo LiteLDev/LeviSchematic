@@ -63,4 +63,4 @@ struct GrowSelection {
         expand = {};
     }
 };
-}
+} // namespace levischematic::selection

@@ -40,4 +40,4 @@ public:
 };
 void registerActorProjectionHooks();
 void unregisterActorProjectionHooks();
-}
+} // namespace levischematic::render

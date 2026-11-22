@@ -44,4 +44,4 @@ struct UiTextEdit {
         insert({});
     }
 };
-}
+} // namespace levischematic::ui

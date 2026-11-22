@@ -27,4 +27,4 @@ inline void mergeBlockLayer(
         output[placement::volumeIndex(pos, size)] = input[i] < 0 ? -1 : palette[input[i]];
     }
 }
-}
+} // namespace levischematic::selection

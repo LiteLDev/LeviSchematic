@@ -44,4 +44,4 @@ inline StatusResult<E> ok() {
     return StatusResult<E>::success(std::monostate{});
 }
 
-}
+} // namespace levischematic::app

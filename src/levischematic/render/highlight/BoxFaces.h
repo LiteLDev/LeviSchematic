@@ -48,4 +48,4 @@ inline std::array<BoxFace, 6> makeBoxFaces(std::array<float, 3> const& minimum, 
     };
 }
 
-}
+} // namespace levischematic::render::detail
